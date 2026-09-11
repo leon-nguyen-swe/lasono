@@ -24,6 +24,22 @@ public class AudioResource {
         this.status = AudioResourceStatus.CREATED;
     }
 
+    private AudioResource(
+        AudioResourceId id,
+        AudioResourceStatus status,
+        OriginalAudio originalAudio,
+        StreamingAudio streamingAudio,
+        AudioDuration audioDuration,
+        Waveform waveform
+    ) {
+        this.id = Objects.requireNonNull(id);
+        this.status = Objects.requireNonNull(status);
+        this.originalAudio = originalAudio;
+        this.streamingAudio = streamingAudio;
+        this.audioDuration = audioDuration;
+        this.waveform = waveform;
+    }
+
     public AudioResourceId getId() {
         return this.id;
     }
@@ -85,4 +101,14 @@ public class AudioResource {
         this.status = AudioResourceStatus.READY;
     }
     
+    public static AudioResource reconstitute(
+        AudioResourceId id,
+        AudioResourceStatus status,
+        OriginalAudio originalAudio,
+        StreamingAudio streamingAudio,
+        AudioDuration audioDuration,
+        Waveform waveform
+    ) {
+        return new AudioResource(id, status, originalAudio, streamingAudio, audioDuration, waveform);
+    }
 }
