@@ -24,4 +24,8 @@ public class TrackId {
     public int hashCode() {
         return id.hashCode();
     }
+
+    public UUID getValue() {
+        return this.id;
+    }
 }
