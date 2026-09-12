@@ -4,9 +4,13 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/lasono
-    username: postgres
+    username: lasono
     password: lasono
     driver-class-name: org.postgresql.Driver
   
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
   flyway:
     enabled: true
