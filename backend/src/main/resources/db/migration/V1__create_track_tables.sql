@@ -28,6 +28,6 @@ CREATE TABLE audio_resources
     waveform_samples REAL[],
 
     CONSTRAINT pk_audio_resources PRIMARY KEY (id),
-    CONSTRAINT fk_audio_resources_track FOREIGN KEY (track_id) REFERENCES tracks (id)
+    CONSTRAINT fk_audio_resources_track FOREIGN KEY (track_id) REFERENCES tracks (id),
     CONSTRAINT uq_audio_resources_track UNIQUE (track_id)
 );
