@@ -62,8 +62,19 @@ public class Track {
         return this.description;
     }
 
-    public AudioResource getAudioResource() {
-        return this.audioResource;
+    public TrackSnapshot toSnapshot() {
+        return new TrackSnapshot(
+            this.id,
+            this.title,
+            this.description,
+            this.status,
+            this.audioResource.getId(),
+            this.audioResource.getStatus(),
+            this.audioResource.getOriginalAudio(),
+            this.audioResource.getStreamingAudio(),
+            this.audioResource.getAudioDuration(),
+            this.audioResource.getWaveform()
+        );
     }
 
     public void uploadCompleted(OriginalAudio originalAudio) {
