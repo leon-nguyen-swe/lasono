@@ -28,6 +28,24 @@ public class Track {
         this.status = TrackStatus.PROCESSING;
     }
 
+    private Track(TrackId id, String title, String description, TrackStatus status, AudioResource audioResource) {
+        this.id = Objects.requireNonNull(id);
+        this.title = title;
+        this.description = description;
+        this.status = Objects.requireNonNull(status);
+        this.audioResource = Objects.requireNonNull(audioResource);
+    }
+
+    public static Track reconstitute(
+        TrackId id,
+        String title,
+        String description,
+        TrackStatus status,
+        AudioResource audioResource
+    ) {
+        return new Track(id, title, description, status, audioResource);
+    }
+
     public TrackId getId() {
         return this.id;
     }
@@ -42,6 +60,21 @@ public class Track {
 
     public String getDescription() {
         return this.description;
+    }
+
+    public TrackSnapshot toSnapshot() {
+        return new TrackSnapshot(
+            this.id,
+            this.title,
+            this.description,
+            this.status,
+            this.audioResource.getId(),
+            this.audioResource.getStatus(),
+            this.audioResource.getOriginalAudio(),
+            this.audioResource.getStreamingAudio(),
+            this.audioResource.getAudioDuration(),
+            this.audioResource.getWaveform()
+        );
     }
 
     public void uploadCompleted(OriginalAudio originalAudio) {
