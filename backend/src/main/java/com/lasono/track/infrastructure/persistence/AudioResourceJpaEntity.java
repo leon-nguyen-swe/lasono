@@ -63,6 +63,6 @@ public class AudioResourceJpaEntity {
     @Column(name = "duration_ms")
     private Long durationMs;
 
-    @Column(name = "waveform_samples", columnDefinition = "REAL[]")
+    @Column(name = "waveform_samples")
     private float[] waveformSamples;
 }
