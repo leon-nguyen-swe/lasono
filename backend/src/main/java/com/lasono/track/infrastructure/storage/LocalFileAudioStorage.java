@@ -9,11 +9,13 @@ import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
 
+@Component
 public class LocalFileAudioStorage implements AudioStorage {
 
     private final Path rootDirectory;
@@ -27,6 +29,7 @@ public class LocalFileAudioStorage implements AudioStorage {
         try {
             String key = UUID.randomUUID() + "-" + originalFileName;
             Path target = rootDirectory.resolve(key);
+            Files.createDirectories(target.getParent());
             Files.copy(audioData, target, StandardCopyOption.REPLACE_EXISTING);
             return new StorageKey(key);
         } catch(IOException e) {
