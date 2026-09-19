@@ -15,5 +15,11 @@ spring:
   flyway:
     enabled: true
 
+lasono:
   storage:
     root: ./storage/audio
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
