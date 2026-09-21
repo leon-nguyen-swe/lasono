@@ -19,6 +19,11 @@ class FakeAudioStorage implements AudioStorage {
     }
 
     @Override
+    public InputStream retrieveRange(StorageKey key, long offset, long length) {
+        return new ByteArrayInputStream(new byte[0]);
+    }
+
+    @Override
     public void delete(StorageKey key) {
         // no-op
     }
