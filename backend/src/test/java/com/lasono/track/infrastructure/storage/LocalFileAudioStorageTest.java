@@ -77,4 +77,29 @@ class LocalFileAudioStorageTest {
         StorageKey missingKey = new StorageKey("nonexistent.mp3");
         assertDoesNotThrow(() -> storage.delete(missingKey));
     }
+
+        @Test
+    void retrieveRangeReturnsOnlyRequestedBytes() throws IOException {
+        StorageKey key = storage.store(new ByteArrayInputStream("0123456789".getBytes()), "a.mp3");
+
+        try (InputStream in = storage.retrieveRange(key, 2, 4)) {
+            assertEquals("2345", new String(in.readAllBytes()));
+        }
+    }
+
+    @Test
+    void retrieveRangeStopsAtEndOfFileWhenLengthIsLarger() throws IOException {
+        StorageKey key = storage.store(new ByteArrayInputStream("0123456789".getBytes()), "a.mp3");
+
+        try (InputStream in = storage.retrieveRange(key, 7, 100)) {
+            assertEquals("789", new String(in.readAllBytes()));
+        }
+    }
+
+    @Test
+    void retrieveRangeRejectsNegativeOffset() {
+        StorageKey key = storage.store(new ByteArrayInputStream("abc".getBytes()), "a.mp3");
+
+        assertThrows(IllegalArgumentException.class, () -> storage.retrieveRange(key, -1, 2));
+    }
 }
