@@ -8,5 +8,7 @@ public interface AudioStorage {
 
     InputStream retrieve(StorageKey key);
 
+    InputStream retrieveRange(StorageKey key, long offset, long lengtg);
+
     void delete(StorageKey key);
 }

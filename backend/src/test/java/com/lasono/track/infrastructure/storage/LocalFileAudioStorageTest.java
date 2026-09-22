@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.application.port.out.StorageKeyInvalidException;
 
 class LocalFileAudioStorageTest {
 
@@ -76,5 +77,41 @@ class LocalFileAudioStorageTest {
     void delete_shouldNotThrowWhenFileDoesNotExist() {
         StorageKey missingKey = new StorageKey("nonexistent.mp3");
         assertDoesNotThrow(() -> storage.delete(missingKey));
+    }
+
+        @Test
+    void retrieveRangeReturnsOnlyRequestedBytes() throws IOException {
+        StorageKey key = storage.store(new ByteArrayInputStream("0123456789".getBytes()), "a.mp3");
+
+        try (InputStream in = storage.retrieveRange(key, 2, 4)) {
+            assertEquals("2345", new String(in.readAllBytes()));
+        }
+    }
+
+    @Test
+    void retrieveRangeStopsAtEndOfFileWhenLengthIsLarger() throws IOException {
+        StorageKey key = storage.store(new ByteArrayInputStream("0123456789".getBytes()), "a.mp3");
+
+        try (InputStream in = storage.retrieveRange(key, 7, 100)) {
+            assertEquals("789", new String(in.readAllBytes()));
+        }
+    }
+
+    @Test
+    void retrieveRangeRejectsNegativeOffset() {
+        StorageKey key = storage.store(new ByteArrayInputStream("abc".getBytes()), "a.mp3");
+
+        assertThrows(IllegalArgumentException.class, () -> storage.retrieveRange(key, -1, 2));
+    }
+
+    @Test
+    void retrieveRangeRejectsKeyThatEscapesStorageRoot() throws IOException {
+        Path root = Files.createDirectory(tempDir.resolve("root"));
+        Files.writeString(tempDir.resolve("secret.txt"), "secret");
+        LocalFileAudioStorage isolated = new LocalFileAudioStorage(root.toString());
+
+        StorageKey key = new StorageKey("../secret.txt");
+
+        assertThrows(StorageKeyInvalidException.class, () -> isolated.retrieveRange(key, 0, 6));
     }
 }
