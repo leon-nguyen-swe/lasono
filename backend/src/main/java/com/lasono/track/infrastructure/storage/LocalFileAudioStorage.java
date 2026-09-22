@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.application.port.out.StorageKeyInvalidException;
 
 @Component
 public class LocalFileAudioStorage implements AudioStorage {
@@ -81,7 +82,7 @@ public class LocalFileAudioStorage implements AudioStorage {
     private Path resolveSafety(StorageKey key) {
         Path resolved = rootDirectory.resolve(key.value()).normalize();
         if (!resolved.startsWith(rootDirectory)) {
-            throw new AudioStorageException("Storage key escapes the storage root", null);
+            throw new StorageKeyInvalidException("Storage key escapes the storage root");
         }
         return resolved;
     }
