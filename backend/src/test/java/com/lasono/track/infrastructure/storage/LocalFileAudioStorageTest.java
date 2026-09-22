@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.application.port.out.StorageKeyInvalidException;
 
 class LocalFileAudioStorageTest {
 
@@ -101,5 +102,16 @@ class LocalFileAudioStorageTest {
         StorageKey key = storage.store(new ByteArrayInputStream("abc".getBytes()), "a.mp3");
 
         assertThrows(IllegalArgumentException.class, () -> storage.retrieveRange(key, -1, 2));
+    }
+
+    @Test
+    void retrieveRangeRejectsKeyThatEscapesStorageRoot() throws IOException {
+        Path root = Files.createDirectory(tempDir.resolve("root"));
+        Files.writeString(tempDir.resolve("secret.txt"), "secret");
+        LocalFileAudioStorage isolated = new LocalFileAudioStorage(root.toString());
+
+        StorageKey key = new StorageKey("../secret.txt");
+
+        assertThrows(StorageKeyInvalidException.class, () -> isolated.retrieveRange(key, 0, 6));
     }
 }
