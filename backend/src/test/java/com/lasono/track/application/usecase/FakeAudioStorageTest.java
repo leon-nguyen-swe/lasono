@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.audio.model.AudioFormat;
 
 /**
  * Unit tests for {@link FakeAudioStorage}.
@@ -33,32 +34,32 @@ class FakeAudioStorageTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void store_shouldReturnStorageKeyWithPrefixedFileName() {
+    void store_shouldReturnStorageKeyWithMp3Extension() {
         InputStream data = new ByteArrayInputStream("audio-bytes".getBytes());
 
-        StorageKey key = storage.store(data, "track.mp3");
+        StorageKey key = storage.store(data, AudioFormat.MP3);
 
-        assertEquals("fake/audio/track.mp3", key.value());
+        assertEquals("fake/audio/mp3", key.value());
     }
 
     @Test
-    void store_shouldReturnStorageKeyWithWavFileName() {
+    void store_shouldReturnStorageKeyWithWavExtension() {
         InputStream data = new ByteArrayInputStream("audio-bytes".getBytes());
 
-        StorageKey key = storage.store(data, "track.wav");
+        StorageKey key = storage.store(data, AudioFormat.WAV);
 
-        assertEquals("fake/audio/track.wav", key.value());
+        assertEquals("fake/audio/wav", key.value());
     }
 
     @Test
-    void store_shouldReturnDistinctKeysForDifferentFileNames() {
+    void store_shouldReturnDistinctKeysForDifferentFormats() {
         InputStream data1 = new ByteArrayInputStream("bytes1".getBytes());
         InputStream data2 = new ByteArrayInputStream("bytes2".getBytes());
 
-        StorageKey key1 = storage.store(data1, "a.mp3");
-        StorageKey key2 = storage.store(data2, "b.mp3");
+        StorageKey key1 = storage.store(data1, AudioFormat.MP3);
+        StorageKey key2 = storage.store(data2, AudioFormat.WAV);
 
-        // Keys must differ because the file names differ
+        // Keys must differ because the formats differ
         org.junit.jupiter.api.Assertions.assertNotEquals(key1.value(), key2.value());
     }
 
@@ -66,35 +67,15 @@ class FakeAudioStorageTest {
     void store_shouldReturnNonNullKey() {
         InputStream data = new ByteArrayInputStream(new byte[0]);
 
-        StorageKey key = storage.store(data, "empty.mp3");
+        StorageKey key = storage.store(data, AudioFormat.MP3);
 
         assertNotNull(key);
     }
 
     @Test
-    void store_shouldReturnKeyWithPrefixOnlyWhenFileNameIsEmpty() {
-        // "fake/audio/" is not blank, so StorageKey still accepts it —
-        // the fake simply prefixes whatever fileName it receives.
-        InputStream data = new ByteArrayInputStream("bytes".getBytes());
-
-        StorageKey key = storage.store(data, "");
-
-        assertEquals("fake/audio/", key.value());
-    }
-
-    @Test
     void store_shouldHandleNullInputStream() {
         // FakeAudioStorage does not read the stream, so null should not cause an NPE
-        assertDoesNotThrow(() -> storage.store(null, "track.mp3"));
-    }
-
-    @Test
-    void store_shouldHandleSpecialCharactersInFileName() {
-        InputStream data = new ByteArrayInputStream("bytes".getBytes());
-
-        StorageKey key = storage.store(data, "my track (1).mp3");
-
-        assertEquals("fake/audio/my track (1).mp3", key.value());
+        assertDoesNotThrow(() -> storage.store(null, AudioFormat.MP3));
     }
 
     // -----------------------------------------------------------------------

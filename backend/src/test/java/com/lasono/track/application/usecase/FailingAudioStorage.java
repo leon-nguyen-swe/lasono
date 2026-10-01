@@ -6,11 +6,12 @@ import java.io.InputStream;
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.audio.model.AudioFormat;
 
 class FailingAudioStorage implements AudioStorage {
 
     @Override
-    public StorageKey store(InputStream audioData, String originalFileName) {
+    public StorageKey store(InputStream audioData, AudioFormat audioFormat) {
         throw new AudioStorageException("Storage unavailable", new RuntimeException("disk full"));
     }
 

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.audio.model.AudioFormat;
 
 /**
  * Unit tests for {@link FailingAudioStorage}.
@@ -41,7 +42,7 @@ class FailingAudioStorageTest {
         InputStream data = new ByteArrayInputStream("audio-bytes".getBytes());
 
         assertThrows(AudioStorageException.class,
-                () -> storage.store(data, "track.mp3"));
+                () -> storage.store(data, AudioFormat.MP3));
     }
 
     @Test
@@ -49,7 +50,7 @@ class FailingAudioStorageTest {
         InputStream data = new ByteArrayInputStream("audio-bytes".getBytes());
 
         AudioStorageException ex = assertThrows(AudioStorageException.class,
-                () -> storage.store(data, "track.mp3"));
+                () -> storage.store(data, AudioFormat.MP3));
 
         assertEquals("Storage unavailable", ex.getMessage());
     }
@@ -59,24 +60,24 @@ class FailingAudioStorageTest {
         InputStream data = new ByteArrayInputStream("audio-bytes".getBytes());
 
         AudioStorageException ex = assertThrows(AudioStorageException.class,
-                () -> storage.store(data, "track.mp3"));
+                () -> storage.store(data, AudioFormat.MP3));
 
         assertNotNull(ex.getCause(), "AudioStorageException must wrap the root cause");
     }
 
     @Test
-    void store_shouldThrowForAnyFileName() {
+    void store_shouldThrowForAnyAudioFormat() {
         InputStream data = new ByteArrayInputStream(new byte[0]);
 
         assertThrows(AudioStorageException.class,
-                () -> storage.store(data, "completely-different.wav"));
+                () -> storage.store(data, AudioFormat.WAV));
     }
 
     @Test
     void store_shouldThrowForNullInputStream() {
         // Even without data, storage failure must propagate before any read
         assertThrows(AudioStorageException.class,
-                () -> storage.store(null, "track.mp3"));
+                () -> storage.store(null, AudioFormat.MP3));
     }
 
     // -----------------------------------------------------------------------
