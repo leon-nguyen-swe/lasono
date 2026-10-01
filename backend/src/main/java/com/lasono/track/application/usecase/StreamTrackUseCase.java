@@ -15,12 +15,12 @@ import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 
 @Component 
-public class StreamTrackUsecase {
+public class StreamTrackUseCase {
 
     private final TrackRepository trackRepository;
     private final AudioStorage audioStorage;
 
-    public StreamTrackUsecase(
+    public StreamTrackUseCase(
         TrackRepository trackRepository,
         AudioStorage audioStorage
     ) {
