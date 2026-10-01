@@ -5,12 +5,13 @@ import java.io.InputStream;
 
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.audio.model.AudioFormat;
 
 class FakeAudioStorage implements AudioStorage {
 
     @Override
-    public StorageKey store(InputStream audioData, String originalFileName) {
-        return new StorageKey("fake/audio/" + originalFileName);
+    public StorageKey store(InputStream audioData, AudioFormat audioFormat) {
+        return new StorageKey("fake/audio/" + audioFormat.getExtension());
     }
 
     @Override

@@ -33,7 +33,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         UploadTrackResult result = useCase.execute(command);
@@ -48,7 +48,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         UploadTrackResult result = useCase.execute(command);
@@ -63,7 +63,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         UploadTrackResult result = useCase.execute(command);
@@ -77,7 +77,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         UploadTrackResult result = useCase.execute(command);
@@ -88,8 +88,8 @@ public class UploadTrackUseCaseTest {
                 .toSnapshot()
                 .originalAudio()
                 .getStorageKey();
-        // FakeAudioStorage tạo key theo pattern "fake/audio/<fileName>"
-        assertEquals("fake/audio/song.mp3", storageKey);
+        // FakeAudioStorage tạo key theo pattern "fake/audio/<extension>"
+        assertEquals("fake/audio/mp3", storageKey);
     }
 
     @Test
@@ -97,7 +97,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.wav", 12345L, "audio/wav"
+                12345L, "audio/wav"
         );
 
         UploadTrackResult result = useCase.execute(command);
@@ -111,7 +111,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 null, "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         assertThrows(TrackTitleInvalidException.class, () -> useCase.execute(command));
@@ -122,7 +122,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "   ", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         assertThrows(TrackTitleInvalidException.class, () -> useCase.execute(command));
@@ -133,7 +133,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.ogg", 12345L, "audio/ogg"
+                12345L, "audio/ogg"
         );
 
         assertThrows(AudioFormatInvalidException.class, () -> useCase.execute(command));
@@ -144,7 +144,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, null
+                12345L, null
         );
 
         assertThrows(AudioFormatInvalidException.class, () -> useCase.execute(command));
@@ -155,7 +155,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 0L, "audio/mpeg"
+                0L, "audio/mpeg"
         );
 
         assertThrows(OriginalAudioInvalidException.class, () -> useCase.execute(command));
@@ -166,7 +166,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", -1L, "audio/mpeg"
+                -1L, "audio/mpeg"
         );
 
         assertThrows(OriginalAudioInvalidException.class, () -> useCase.execute(command));
@@ -178,7 +178,7 @@ public class UploadTrackUseCaseTest {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
-                "song.mp3", 12345L, "audio/mpeg"
+                12345L, "audio/mpeg"
         );
 
         assertThrows(AudioStorageException.class, () -> failingUseCase.execute(command));

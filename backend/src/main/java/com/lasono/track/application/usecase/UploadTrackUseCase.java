@@ -27,7 +27,8 @@ public class UploadTrackUseCase {
     }
 
     public UploadTrackResult execute(UploadTrackCommand command) {
-        StorageKey key = audioStorage.store(command.audioData(), command.originalFileName());
+        AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
+        StorageKey key = audioStorage.store(command.audioData(), format);
         
         Track track = new Track(
             new TrackId(UUID.randomUUID()), 
@@ -35,7 +36,6 @@ public class UploadTrackUseCase {
             command.description()
         );
 
-        AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
         OriginalAudio originalAudio = new OriginalAudio(
             key.value(), 
             format, 
@@ -44,7 +44,6 @@ public class UploadTrackUseCase {
         );
 
         track.uploadCompleted(originalAudio);
-
         trackRepository.save(track);
 
         return new UploadTrackResult(

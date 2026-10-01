@@ -52,7 +52,6 @@ public class TrackController {
             title,
             description,
             file.getInputStream(),
-            file.getOriginalFilename(),
             file.getSize(),
             file.getContentType()
         );

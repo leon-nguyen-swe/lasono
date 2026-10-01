@@ -6,7 +6,6 @@ public record UploadTrackCommand(
     String title,
     String description,
     InputStream audioData,
-    String originalFileName,
     long fileSize,
     String mimeType
 ) {}
