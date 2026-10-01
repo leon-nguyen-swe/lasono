@@ -16,4 +16,11 @@ public enum AudioFormat {
             default -> throw new AudioFormatInvalidException("Unsupported MIME type: " + mimeType);
         };
     }
+
+    public String getExtension() {
+        return switch (this) {
+            case MP3 -> "mp3";
+            case WAV -> "wav";
+        };
+    }
 }
