@@ -16,6 +16,7 @@ import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.application.port.out.StorageKeyInvalidException;
+import com.lasono.track.domain.audio.model.AudioFormat;
 
 @Component
 public class LocalFileAudioStorage implements AudioStorage {
@@ -27,9 +28,9 @@ public class LocalFileAudioStorage implements AudioStorage {
     }
 
     @Override 
-    public StorageKey store(InputStream audioData, String originalFileName) {
-        try {
-            String key = UUID.randomUUID() + "-" + originalFileName;
+    public StorageKey store(InputStream audioData, AudioFormat audioFormat) {
+        try {       
+            String key = UUID.randomUUID() + "." + audioFormat.getExtension();
             Path target = rootDirectory.resolve(key);
             Files.createDirectories(target.getParent());
             Files.copy(audioData, target, StandardCopyOption.REPLACE_EXISTING);
@@ -42,7 +43,7 @@ public class LocalFileAudioStorage implements AudioStorage {
     @Override 
     public InputStream retrieve(StorageKey key) {
         try {
-            return Files.newInputStream(rootDirectory.resolve(key.value()));
+            return Files.newInputStream(resolveSafety(key));
         } catch(IOException e) {
             throw new AudioStorageException("Failed to read audio file", e);
         }
@@ -73,7 +74,7 @@ public class LocalFileAudioStorage implements AudioStorage {
     @Override 
     public void delete(StorageKey key) {
         try {
-            Files.deleteIfExists(rootDirectory.resolve(key.value()));
+            Files.deleteIfExists(resolveSafety(key));
         } catch(IOException e) {
             throw new AudioStorageException("Failed to delete audio file", e);
         }
