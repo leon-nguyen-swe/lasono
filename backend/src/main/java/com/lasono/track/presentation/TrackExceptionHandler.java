@@ -10,9 +10,22 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.lasono.track.application.usecase.InvalidRangeException;
 import com.lasono.track.application.usecase.TrackNotFoundException;
+import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
+import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
+import com.lasono.track.domain.exception.TrackTitleInvalidException;
 
-@RestControllerAdvice 
+@RestControllerAdvice
 public class TrackExceptionHandler {
+
+    @ExceptionHandler(AudioFormatInvalidException.class)
+    public ProblemDetail handleUnsupportedAudioFormat(AudioFormatInvalidException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getMessage());
+    }
+
+    @ExceptionHandler({TrackTitleInvalidException.class, OriginalAudioInvalidException.class})
+    public ProblemDetail handleInvalidUpload(RuntimeException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
 
     @ExceptionHandler(TrackNotFoundException.class)
     public ProblemDetail handleTrackNotFound(TrackNotFoundException ex) {
