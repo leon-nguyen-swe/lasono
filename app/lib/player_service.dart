@@ -23,6 +23,10 @@ abstract class PlayerService {
   Future<void> play();
   Future<void> pause();
   Future<void> stop();
+
+  /// Jumps to [position]. In the browser this makes the audio element issue a
+  /// new `Range` request to the stream endpoint.
+  Future<void> seek(Duration position);
   Future<void> dispose();
 }
 
@@ -61,6 +65,9 @@ class JustAudioPlayerService implements PlayerService {
 
   @override
   Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> dispose() => _player.dispose();
