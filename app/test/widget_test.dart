@@ -343,5 +343,79 @@ void main() {
         Uri.parse('http://api.test/api/v1/tracks/$_otherTrackId/stream'),
       ]);
     });
+
+    group('seek', () {
+      const duration = Duration(minutes: 3, seconds: 20);
+      const durationMs = 200000.0;
+      final slider = find.byKey(const Key('seekSlider'));
+
+      Future<void> startPlaying(WidgetTester tester) async {
+        await pumpApp(tester);
+        await _loadTrack(tester, _trackId);
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+        player.emitDuration(duration);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('the slider is disabled until the duration is known',
+          (WidgetTester tester) async {
+        await pumpApp(tester);
+        await _loadTrack(tester, _trackId);
+        expect(tester.widget<Slider>(slider).onChanged, isNull);
+
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+        expect(tester.widget<Slider>(slider).onChanged, isNull);
+
+        player.emitDuration(duration);
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<Slider>(slider).onChanged, isNotNull);
+        expect(tester.widget<Slider>(slider).max, durationMs);
+      });
+
+      testWidgets('the thumb follows the playback position',
+          (WidgetTester tester) async {
+        await startPlaying(tester);
+
+        player.emitPosition(const Duration(seconds: 50));
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<Slider>(slider).value, 50000.0);
+      });
+
+      testWidgets('a position past the duration is clamped to the end',
+          (WidgetTester tester) async {
+        await startPlaying(tester);
+
+        player.emitPosition(const Duration(seconds: 250));
+        await tester.pumpAndSettle();
+
+        expect(tester.widget<Slider>(slider).value, durationMs);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('tapping the slider seeks once, proportionally',
+          (WidgetTester tester) async {
+        await startPlaying(tester);
+
+        await tester.tap(slider);
+        await tester.pumpAndSettle();
+
+        expect(player.seeks.length, 1);
+        expect(player.seeks.single.inSeconds, inInclusiveRange(80, 120));
+      });
+
+      testWidgets('dragging to the far end seeks to the end of the track',
+          (WidgetTester tester) async {
+        await startPlaying(tester);
+
+        await tester.drag(slider, const Offset(2000, 0));
+        await tester.pumpAndSettle();
+
+        expect(player.seeks.last, duration);
+      });
+    });
   });
 }
