@@ -115,6 +115,25 @@ void main() {
       );
     });
 
+    test('maps a stalled request to "Request timed out"', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        requestTimeout: const Duration(milliseconds: 20),
+        client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          return _json(_trackJson, 200);
+        }),
+      );
+
+      expect(
+        () => api.getTrack('abc'),
+        throwsA(
+          isA<TrackApiException>()
+              .having((e) => e.message, 'message', 'Request timed out'),
+        ),
+      );
+    });
+
     test('maps a network failure to a generic connection message', () async {
       final api = TrackApi(
         baseUrl: 'http://api.test',
