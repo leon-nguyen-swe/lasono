@@ -40,7 +40,7 @@ Extra checks: an empty file → 400 `File size must be greater than 0` with stor
 
 ## Open issue
 
-- The user reported "Upload timed out" for the 10MB WAV after the client timeout was added. It **could not be reproduced** with the current backend: through the same UI in headless Chromium the 10.5MB WAV uploaded in about 4 seconds. The most likely cause is that the backend running at that moment was still a build without the upload fixes (it must return `Access-Control-Allow-Origin` on a 413 or accept the file). Please re-test in Chrome with a freshly restarted backend; if it still happens, capture the response of the `tracks` request in DevTools.
+- None for the app or the backend. The "Upload timed out" and the hanging "Load by id" reported in Windows Chrome were caused by a stuck `wslrelay` (WSL localhost forwarding), not by the code. Measured from Windows: `localhost:8080` timed out while `http://<WSL-IP>:8080` answered `200` in 109 ms; the same backend answered `curl localhost:8080` inside WSL in 0.15 s. Running the app with `--dart-define=API_BASE_URL=http://<WSL-IP>:8080` fixed it: the user then uploaded the 10MB WAV and streamed it in full. What first made the relay stick is unverified. See the README section "Backend in WSL, browser on Windows".
 - In headless automation the first click on "Choose file" after typing in a text field was sometimes ignored and a second click opened the dialog. It was not observed in the manual tests.
 
 ## Known limitations
@@ -52,5 +52,5 @@ Extra checks: an empty file → 400 `File size must be greater than 0` with stor
 
 ## Still to do
 
-- Re-run the 10MB WAV upload manually in Chrome against a freshly started backend (see the open issue).
+- Test mirrored WSL networking (`networkingMode=mirrored`) as the permanent fix; the README documents it but it was not tried.
 - Seek on a WAV/MP3 in a manual session once more to confirm the `Range` requests in the Network tab (done here in headless Chromium).
