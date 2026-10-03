@@ -16,6 +16,9 @@ abstract class PlayerService {
   Stream<Duration?> get durationStream;
   Stream<bool> get playingStream;
 
+  /// Emits each time playback reaches the end of the track.
+  Stream<void> get completedStream;
+
   /// Prepares [url] for playback. Throws [PlaybackException] if it cannot load.
   Future<void> load(Uri url);
 
@@ -41,6 +44,12 @@ class JustAudioPlayerService implements PlayerService {
 
   @override
   Stream<bool> get playingStream => _player.playingStream;
+
+  // just_audio keeps `playing == true` after the end of the track, so without
+  // reacting to this the player stays "playing" and later seeks are silent.
+  @override
+  Stream<void> get completedStream => _player.processingStateStream
+      .where((state) => state == ProcessingState.completed);
 
   @override
   Future<void> load(Uri url) async {
