@@ -8,6 +8,7 @@ class FakePlayerService implements PlayerService {
   var playCalls = 0;
   var pauseCalls = 0;
   var stopCalls = 0;
+  final seeks = <Duration>[];
 
   /// When set, [load] throws it.
   Object? loadError;
@@ -56,6 +57,11 @@ class FakePlayerService implements PlayerService {
   Future<void> stop() async {
     stopCalls++;
     _playing.add(false);
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seeks.add(position);
   }
 
   @override
