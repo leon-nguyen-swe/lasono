@@ -131,6 +131,20 @@ void main() {
     });
   });
 
+  group('TrackApi.streamUrl', () {
+    test('points at /api/v1/tracks/{id}/stream on the configured base url', () {
+      final api = TrackApi(
+        baseUrl: 'http://api.test/',
+        client: MockClient((_) async => http.Response('', 200)),
+      );
+
+      expect(
+        api.streamUrl('abc').toString(),
+        'http://api.test/api/v1/tracks/abc/stream',
+      );
+    });
+  });
+
   group('TrackApi.uploadTrack', () {
     final audio = Uint8List.fromList(List.filled(16, 1));
 
