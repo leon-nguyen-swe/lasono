@@ -32,6 +32,7 @@ class TrackApi {
     String baseUrl = defaultApiBaseUrl,
     http.Client? client,
     this._uploadTimeout = const Duration(minutes: 5),
+    this._requestTimeout = const Duration(seconds: 30),
   })  : _baseUrl = baseUrl.endsWith('/')
             ? baseUrl.substring(0, baseUrl.length - 1)
             : baseUrl,
@@ -42,13 +43,16 @@ class TrackApi {
   final String _baseUrl;
   final http.Client _client;
   final Duration _uploadTimeout;
+  final Duration _requestTimeout;
 
   Future<Track> getTrack(String id) async {
     final http.Response response;
     try {
-      response = await _client.get(
-        Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}'),
-      );
+      response = await _client
+          .get(Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}'))
+          .timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const TrackApiException('Request timed out');
     } on http.ClientException {
       throw const TrackApiException('Cannot reach the server');
     }
