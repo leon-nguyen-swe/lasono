@@ -1,17 +1,23 @@
-# lasono_app
+# LaSono app
 
-A new Flutter project.
+The Flutter web client for LaSono: upload a track, load it by id, play it and seek.
 
-## Getting Started
+Run it from this folder (the backend and PostgreSQL must already be running):
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run -d web-server --web-port 3000   # then open http://localhost:3000
+flutter test
+flutter analyze
+```
 
-A few resources to get you started if this is your first Flutter project:
+The full setup (database, backend, configuration, troubleshooting) is in the [root README](../README.md).
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Code layout
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- `lib/main.dart`: app entry point.
+- `lib/api/track_api.dart`: HTTP calls to the backend (`API_BASE_URL` via `--dart-define`).
+- `lib/models/`: data models.
+- `lib/screens/`: `TrackScreen` (upload and load forms) and `PlayerControls` (play, seek).
+- `lib/player_service.dart`: wrapper around `just_audio`.
+- `lib/audio_picker.dart`: wrapper around `file_picker`.
