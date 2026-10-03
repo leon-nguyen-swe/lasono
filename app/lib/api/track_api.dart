@@ -56,6 +56,9 @@ class TrackApi {
     };
   }
 
+  Uri streamUrl(String id) =>
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}/stream');
+
   /// Uploads an audio file and returns the new track id.
   Future<String> uploadTrack({
     required String title,
