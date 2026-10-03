@@ -113,6 +113,34 @@ cd app && flutter analyze           # static analysis
 | `Port 3000 is already in use` | Stop the other process (`ss -ltnp \| grep 3000`) or the old `flutter run`; do not just switch ports because of CORS |
 | A track plays no sound / `Cannot play this track` | The audio file for that track is missing from the storage folder (for example the database and `storage/` were reset separately) |
 | `flutter pub get` or `flutter analyze` is very slow in WSL | The project is on a Windows drive (`/mnt/...`). Install the Flutter SDK on the Linux filesystem (for example `~/development/flutter`) |
+| Every request to the backend sits at `(pending)` in Windows Chrome (even `Load` by id), but `curl` inside WSL answers instantly | The WSL "localhost forwarding" process (`wslrelay`) is stuck. See [Backend in WSL, browser on Windows](#backend-in-wsl-browser-on-windows) below |
+
+### Backend in WSL, browser on Windows
+
+When the backend runs in WSL and Chrome runs on Windows, Chrome reaches `localhost:8080` through `wslrelay`. That relay can get stuck, for example after a request that was aborted halfway. The symptom is that requests to the backend hang forever while the page itself (port 3000) still loads.
+
+Confirm it from PowerShell on Windows: the first call hangs and the second answers immediately.
+
+```powershell
+Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 http://localhost:8080/api/v1/tracks/00000000-0000-0000-0000-000000000000
+Invoke-WebRequest -UseBasicParsing -TimeoutSec 10 http://<WSL-IP>:8080/api/v1/tracks/00000000-0000-0000-0000-000000000000
+```
+
+Get `<WSL-IP>` inside WSL with `hostname -I`. Both calls should return `404`; a timeout on the first one means the relay is stuck. Pick one fix:
+
+1. **Restart WSL (quick).** In PowerShell run `wsl --shutdown`, then start Docker Desktop, the database, the backend and the app again. Data is kept because it lives in the Docker volume and in `backend/storage/`.
+2. **Bypass the relay (no restart).** Start the app against the WSL address, for example:
+   ```bash
+   flutter run -d web-server --web-port 3000 --dart-define=API_BASE_URL=http://$(hostname -I | awk '{print $1}'):8080
+   ```
+   The WSL address changes when WSL restarts, so rerun the command then.
+3. **Mirrored networking (permanent).** Create `%UserProfile%\.wslconfig` with the lines below, then run `wsl --shutdown`. This is Microsoft's documented option for Windows 11 22H2+ and makes `localhost` work in both directions without `wslrelay`. It was not tested in this repository.
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   ```
+
+The app also stops waiting after 30 seconds for `Load` ("Request timed out") and after 5 minutes for `Upload` ("Upload timed out"), so the form does not stay locked.
 
 ## More documentation
 
