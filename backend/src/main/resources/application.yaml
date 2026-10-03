@@ -2,6 +2,11 @@ spring:
   application:
     name: backend
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
+
   datasource:
     url: jdbc:postgresql://localhost:5432/lasono
     username: lasono

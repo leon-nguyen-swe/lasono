@@ -28,28 +28,43 @@ public class UploadTrackUseCase {
 
     public UploadTrackResult execute(UploadTrackCommand command) {
         AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
-        StorageKey key = audioStorage.store(command.audioData(), format);
-        
+
+        // Validates the title before any file is written.
         Track track = new Track(
-            new TrackId(UUID.randomUUID()), 
-            command.title(), 
+            new TrackId(UUID.randomUUID()),
+            command.title(),
             command.description()
         );
 
-        OriginalAudio originalAudio = new OriginalAudio(
-            key.value(), 
-            format, 
-            command.fileSize(), 
-            command.mimeType()
-        );
+        StorageKey key = audioStorage.store(command.audioData(), format);
 
-        track.uploadCompleted(originalAudio);
-        trackRepository.save(track);
+        try {
+            OriginalAudio originalAudio = new OriginalAudio(
+                key.value(),
+                format,
+                command.fileSize(),
+                command.mimeType()
+            );
+
+            track.uploadCompleted(originalAudio);
+            trackRepository.save(track);
+        } catch (RuntimeException e) {
+            deleteQuietly(key, e);
+            throw e;
+        }
 
         return new UploadTrackResult(
             track.getId().getValue().toString(),
             track.getTitle(),
             track.getStatus().toString()
         );
+    }
+
+    private void deleteQuietly(StorageKey key, RuntimeException cause) {
+        try {
+            audioStorage.delete(key);
+        } catch (RuntimeException cleanupFailure) {
+            cause.addSuppressed(cleanupFailure);
+        }
     }
 }
