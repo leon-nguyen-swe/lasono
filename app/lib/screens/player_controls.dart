@@ -29,9 +29,10 @@ class _PlayerControlsState extends State<PlayerControls> {
   bool _loading = false;
   String? _error;
 
-  @override
-  void initState() {
-    super.initState();
+  // The player is shared between tracks and its streams replay their latest
+  // value to new listeners (the previous track's duration/position). So we only
+  // listen after this track has loaded, when those values are its own.
+  void _listenToPlayer() {
     _subscriptions.addAll([
       widget.player.positionStream.listen(
         (value) => setState(() => _position = value),
@@ -42,7 +43,17 @@ class _PlayerControlsState extends State<PlayerControls> {
       widget.player.playingStream.listen(
         (value) => setState(() => _playing = value),
       ),
+      widget.player.completedStream.listen((_) => _rewind()),
     ]);
+  }
+
+  Future<void> _rewind() async {
+    setState(() {
+      _dragMs = null;
+      _position = Duration.zero;
+    });
+    await widget.player.pause();
+    await widget.player.seek(Duration.zero);
   }
 
   @override
@@ -68,6 +79,7 @@ class _PlayerControlsState extends State<PlayerControls> {
       try {
         await widget.player.load(widget.streamUrl);
         _loaded = true;
+        _listenToPlayer();
       } on PlaybackException {
         if (mounted) setState(() => _error = 'Cannot play this track');
         return;
