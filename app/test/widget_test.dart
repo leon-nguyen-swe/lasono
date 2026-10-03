@@ -344,6 +344,60 @@ void main() {
       ]);
     });
 
+    group('player lifecycle', () {
+      testWidgets("a newly loaded track does not show the previous track's time",
+          (WidgetTester tester) async {
+        await pumpApp(tester);
+        player.durationOnLoad = const Duration(seconds: 200);
+        await _loadTrack(tester, _trackId);
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+        player.emitPosition(const Duration(seconds: 100));
+        await tester.pumpAndSettle();
+        expect(find.text('1:40 / 3:20'), findsOneWidget);
+
+        player.durationOnLoad = const Duration(seconds: 60);
+        await _loadTrack(tester, _otherTrackId);
+
+        expect(find.text('0:00 / 0:00'), findsOneWidget);
+        expect(
+          tester.widget<Slider>(find.byKey(const Key('seekSlider'))).onChanged,
+          isNull,
+        );
+
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('0:00 / 1:00'), findsOneWidget);
+      });
+
+      testWidgets('when playback completes it rewinds and offers Play again',
+          (WidgetTester tester) async {
+        await pumpApp(tester);
+        player.durationOnLoad = const Duration(seconds: 200);
+        await _loadTrack(tester, _trackId);
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+        player.emitPosition(const Duration(seconds: 200));
+        await tester.pumpAndSettle();
+
+        player.emitCompleted();
+        await tester.pumpAndSettle();
+
+        expect(player.pauseCalls, 1);
+        expect(player.seeks.last, Duration.zero);
+        expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+        expect(find.text('0:00 / 3:20'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('playButton')));
+        await tester.pumpAndSettle();
+
+        expect(player.playCalls, 2);
+        expect(player.loaded.length, 1);
+        expect(find.byIcon(Icons.pause), findsOneWidget);
+      });
+    });
+
     group('seek', () {
       const duration = Duration(minutes: 3, seconds: 20);
       const durationMs = 200000.0;
