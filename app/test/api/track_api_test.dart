@@ -253,6 +253,22 @@ void main() {
       );
     });
 
+    test('maps a stalled upload to "Upload timed out"', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        uploadTimeout: const Duration(milliseconds: 20),
+        client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          return created();
+        }),
+      );
+
+      expect(
+        () => api.uploadTrack(title: 'T', filename: 'a.mp3', bytes: audio),
+        failsWith('Upload timed out'),
+      );
+    });
+
     test('maps a network failure to a generic connection message', () async {
       final api = apiWith((_) async => throw http.ClientException('boom'));
 
