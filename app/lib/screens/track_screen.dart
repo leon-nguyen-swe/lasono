@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../api/track_api.dart';
 import '../audio_picker.dart';
 import '../models/track.dart';
+import '../player_service.dart';
+import 'player_controls.dart';
 
 class TrackScreen extends StatefulWidget {
-  const TrackScreen({super.key, this.api, this.pickAudio});
+  const TrackScreen({super.key, this.api, this.pickAudio, this.player});
 
   final TrackApi? api;
   final AudioPicker? pickAudio;
+  final PlayerService? player;
 
   @override
   State<TrackScreen> createState() => _TrackScreenState();
@@ -21,6 +24,10 @@ class _TrackScreenState extends State<TrackScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  PlayerService? _ownedPlayer;
+  PlayerService get _player =>
+      widget.player ?? (_ownedPlayer ??= JustAudioPlayerService());
+
   PickedAudio? _picked;
   Track? _track;
   String? _error;
@@ -28,6 +35,7 @@ class _TrackScreenState extends State<TrackScreen> {
 
   @override
   void dispose() {
+    _ownedPlayer?.dispose();
     _idController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
@@ -154,6 +162,11 @@ class _TrackScreenState extends State<TrackScreen> {
               const Text('Status: '),
               Text(track.status),
             ],
+          ),
+          PlayerControls(
+            key: ValueKey(track.id),
+            player: _player,
+            streamUrl: _api.streamUrl(track.id),
           ),
         ],
       ],
