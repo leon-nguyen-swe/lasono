@@ -23,6 +23,7 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  double? _dragMs;
   bool _playing = false;
   bool _loaded = false;
   bool _loading = false;
@@ -79,6 +80,15 @@ class _PlayerControlsState extends State<PlayerControls> {
     await widget.player.play();
   }
 
+  Future<void> _seekTo(double milliseconds) async {
+    final target = Duration(milliseconds: milliseconds.round());
+    setState(() {
+      _dragMs = null;
+      _position = target;
+    });
+    await widget.player.seek(target);
+  }
+
   String _format(Duration value) {
     final seconds = (value.inSeconds % 60).toString().padLeft(2, '0');
     return '${value.inMinutes}:$seconds';
@@ -86,9 +96,22 @@ class _PlayerControlsState extends State<PlayerControls> {
 
   @override
   Widget build(BuildContext context) {
+    final maxMs = _duration.inMilliseconds.toDouble();
+    final canSeek = _loaded && maxMs > 0;
+    final valueMs =
+        canSeek ? (_dragMs ?? _position.inMilliseconds.toDouble()).clamp(0.0, maxMs) : 0.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Slider(
+          key: const Key('seekSlider'),
+          min: 0,
+          max: canSeek ? maxMs : 1,
+          value: valueMs,
+          onChanged: canSeek ? (value) => setState(() => _dragMs = value) : null,
+          onChangeEnd: canSeek ? _seekTo : null,
+        ),
         Row(
           children: [
             if (_loading)
