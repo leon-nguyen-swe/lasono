@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -27,8 +28,11 @@ class TrackApiException implements Exception {
 }
 
 class TrackApi {
-  TrackApi({String baseUrl = defaultApiBaseUrl, http.Client? client})
-      : _baseUrl = baseUrl.endsWith('/')
+  TrackApi({
+    String baseUrl = defaultApiBaseUrl,
+    http.Client? client,
+    this._uploadTimeout = const Duration(minutes: 5),
+  })  : _baseUrl = baseUrl.endsWith('/')
             ? baseUrl.substring(0, baseUrl.length - 1)
             : baseUrl,
         _client = client ?? http.Client();
@@ -37,6 +41,7 @@ class TrackApi {
 
   final String _baseUrl;
   final http.Client _client;
+  final Duration _uploadTimeout;
 
   Future<Track> getTrack(String id) async {
     final http.Response response;
@@ -87,9 +92,15 @@ class TrackApi {
             ),
           );
 
+    // Without a timeout a request the server never answers (for example a body
+    // it rejected early) leaves the form disabled forever.
     final http.Response response;
     try {
-      response = await http.Response.fromStream(await _client.send(request));
+      response = await (() async =>
+              http.Response.fromStream(await _client.send(request)))()
+          .timeout(_uploadTimeout);
+    } on TimeoutException {
+      throw const TrackApiException('Upload timed out');
     } on http.ClientException {
       throw const TrackApiException('Cannot reach the server');
     }
