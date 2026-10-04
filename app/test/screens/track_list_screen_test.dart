@@ -7,7 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:lasono_app/api/track_api.dart';
+import 'package:lasono_app/player_service.dart';
 import 'package:lasono_app/screens/track_list_screen.dart';
+
+import '../fake_player_service.dart';
 
 Map<String, dynamic> _item(int i) => {
       'id': 'id-$i',
@@ -42,8 +45,10 @@ class _Server {
   );
 }
 
-Future<void> _pump(WidgetTester tester, _Server server) =>
-    tester.pumpWidget(MaterialApp(home: TrackListScreen(api: server.api)));
+Future<void> _pump(WidgetTester tester, _Server server, {PlayerService? player}) =>
+    tester.pumpWidget(
+      MaterialApp(home: TrackListScreen(api: server.api, player: player)),
+    );
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) =>
     tester.dragUntilVisible(finder, find.byType(ListView), const Offset(0, -300));
@@ -232,6 +237,100 @@ void main() {
 
       expect(server.cursors, [null, 'c1', 'c2']);
       expect(find.text('Track 0'), findsOneWidget);
+    });
+  });
+
+  group('navigation', () {
+    final firstPage = List.generate(30, (i) => i);
+
+    testWidgets('tapping a track opens its player, which streams from the API',
+        (WidgetTester tester) async {
+      final player = FakePlayerService();
+      final server = _Server({null: () => _page([0, 1, 2])});
+      await _pump(tester, server, player: player);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Track 1'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppBar, 'Track 1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('playButton')));
+      await tester.pumpAndSettle();
+
+      expect(
+        player.loaded,
+        [Uri.parse('http://api.test/api/v1/tracks/id-1/stream')],
+      );
+    });
+
+    testWidgets('going back keeps the list and its scroll position without asking the server again',
+        (WidgetTester tester) async {
+      final server = _Server({
+        null: () => _page(firstPage, next: 'c1'),
+        'c1': () => _page([30, 31]),
+      });
+      await _pump(tester, server, player: FakePlayerService());
+      await tester.pumpAndSettle();
+      await _scrollTo(tester, find.text('Track 12'));
+      await tester.pumpAndSettle();
+      final before = tester.getTopLeft(find.text('Track 12'));
+
+      await tester.tap(find.text('Track 12'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(find.text('Track 12')), before);
+      expect(server.cursors, [null]);
+    });
+
+    testWidgets('leaving the player stops playback', (WidgetTester tester) async {
+      final player = FakePlayerService();
+      final server = _Server({null: () => _page([0, 1, 2])});
+      await _pump(tester, server, player: player);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Track 0'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('playButton')));
+      await tester.pumpAndSettle();
+      final stopsBefore = player.stopCalls;
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(player.stopCalls, greaterThan(stopsBefore));
+    });
+
+    testWidgets('the upload action opens the upload form',
+        (WidgetTester tester) async {
+      final server = _Server({null: () => _page([0, 1, 2])});
+      await _pump(tester, server, player: FakePlayerService());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('uploadAction')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('chooseFileButton')), findsOneWidget);
+    });
+
+    testWidgets('returning from the upload form reloads the list from the first page',
+        (WidgetTester tester) async {
+      var loads = 0;
+      final server = _Server({
+        null: () => loads++ == 0 ? _page([0, 1]) : _page([99, 0, 1]),
+      });
+      await _pump(tester, server, player: FakePlayerService());
+      await tester.pumpAndSettle();
+      expect(find.text('Track 99'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('uploadAction')));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(server.cursors, [null, null]);
+      expect(find.text('Track 99'), findsOneWidget);
     });
   });
 }
