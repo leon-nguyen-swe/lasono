@@ -62,10 +62,11 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 
 ## Using the app
 
-1. **Upload**: type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically.
-2. **Load by id**: paste a track id and press **Load** to see a track that already exists.
-3. **Play**: press the play button. When a track finishes it rewinds to 0:00; press play again to replay it.
-4. **Seek**: drag or click the slider.
+1. **Browse**: the app opens on the list of tracks, newest first. Scroll down and the next page loads by itself. If a page fails to load, press **Retry**.
+2. **Play**: tap a track to open its player and press the play button. When a track finishes it rewinds to 0:00; press play again to replay it. Going back to the list stops the playback and keeps your place in the list.
+3. **Seek**: drag or click the slider.
+4. **Upload**: press the upload icon in the top bar, type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it.
+5. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
 
 ## Configuration
 
@@ -89,6 +90,7 @@ All endpoints are under `/api/v1/tracks`.
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/v1/tracks` | Multipart form: `title`, optional `description`, `file`. Returns `201 {trackId, title, status}`. Errors: `415` unsupported audio type, `400` blank title or empty file, `413` file too large |
+| `GET` | `/api/v1/tracks?limit=20&cursor=...` | Lists tracks newest first, one page at a time (keyset pagination). Returns `{items: [{id, title, description, status}], nextCursor}`; `nextCursor` is `null` on the last page, otherwise send it back as `cursor` to get the next page. `limit` defaults to 20 and is capped at 50. `400` for a malformed cursor or a `limit` below 1 |
 | `GET` | `/api/v1/tracks/{id}` | Returns `{id, title, description, status, mimeType, durationSeconds}`. `404` if unknown, `400` if the id is not a UUID |
 | `GET` | `/api/v1/tracks/{id}/stream` | Audio bytes. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid |
 
@@ -97,9 +99,20 @@ Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
 ## Tests
 
 ```bash
-cd backend && ./gradlew test        # backend unit and slice tests
-cd app && flutter test              # widget and unit tests
-cd app && flutter analyze           # static analysis
+cd backend && ./gradlew test          # backend tests (in-memory H2, no database needed)
+cd backend && ./gradlew postgresTest  # backend tests that need a real PostgreSQL (see below)
+cd app && flutter test                # widget and unit tests
+cd app && flutter analyze             # static analysis
+```
+
+`./gradlew test` also runs the architecture rules (ArchUnit, in `backend/src/test/java/com/lasono/architecture`): the domain must not depend on Spring, JPA, the file system or HTTP, and dependencies must point inward. GitHub Actions (`.github/workflows/ci.yml`) runs all of the above on every push and on pull requests into `main`.
+
+### PostgreSQL tests
+
+`postgresTest` runs the tests tagged `postgres` against a real PostgreSQL, because H2 does not behave exactly like PostgreSQL (migrations, indexes, timestamp precision). They use the separate database `lasono_test`, never `lasono`, and stop immediately if they are connected to any other database. Start PostgreSQL with `docker compose up -d` and create the test database once:
+
+```bash
+docker compose exec postgres psql -U lasono -d postgres -c "CREATE DATABASE lasono_test"
 ```
 
 ## Troubleshooting

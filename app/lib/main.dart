@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'api/track_api.dart';
 import 'audio_picker.dart';
 import 'player_service.dart';
-import 'screens/track_screen.dart';
+import 'screens/track_list_screen.dart';
 
 void main() {
   runApp(const LasonoApp());
@@ -23,10 +23,7 @@ class LasonoApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: Scaffold(
-        appBar: AppBar(title: const Text('LaSono')),
-        body: TrackScreen(api: api, pickAudio: pickAudio, player: player),
-      ),
+      home: TrackListScreen(api: api, pickAudio: pickAudio, player: player),
     );
   }
 }

@@ -1,8 +1,11 @@
 package com.lasono.track.presentation;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.ByteArrayInputStream;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,8 +35,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import com.lasono.track.application.usecase.GetTrackResult;
 import com.lasono.track.application.usecase.GetTrackUseCase;
 import com.lasono.track.application.usecase.InvalidRangeException;
+import com.lasono.track.application.usecase.ListTracksResult;
+import com.lasono.track.application.usecase.ListTracksUseCase;
 import com.lasono.track.application.usecase.StreamTrackResult;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
+import com.lasono.track.application.usecase.TrackListItemResult;
 import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
@@ -49,11 +56,15 @@ class TrackControllerTest {
     @Mock
     private StreamTrackUseCase streamTrackUseCase;
 
+    @Mock
+    private ListTracksUseCase listTracksUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        TrackController controller = new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase);
+        TrackController controller =
+            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .build();
@@ -89,6 +100,56 @@ class TrackControllerTest {
     void givenNonUuidPathVariable_getTrack_returns400() throws Exception {
         mockMvc.perform(get("/api/v1/tracks/{id}", "abc"))
             .andExpect(status().isBadRequest());
+    }
+
+    // -----------------------------------------------------------------------
+    // GET /api/v1/tracks  — list, keyset pagination  — 4 tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(
+            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING")),
+            "next-cursor"
+        ));
+
+        mockMvc.perform(get("/api/v1/tracks"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(id.toString()))
+            .andExpect(jsonPath("$.items[0].title").value("My song"))
+            .andExpect(jsonPath("$.items[0].description").value("desc"))
+            .andExpect(jsonPath("$.items[0].status").value("PROCESSING"))
+            .andExpect(jsonPath("$.nextCursor").value("next-cursor"));
+    }
+
+    @Test
+    void givenLastPage_listTracks_returnsANullNextCursor() throws Exception {
+        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/tracks"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(0))
+            .andExpect(jsonPath("$.nextCursor").value(nullValue()));
+    }
+
+    @Test
+    void givenCursorAndLimit_listTracks_passesThemToTheUseCase() throws Exception {
+        when(listTracksUseCase.execute("abc", 5)).thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/tracks").param("cursor", "abc").param("limit", "5"))
+            .andExpect(status().isOk());
+
+        verify(listTracksUseCase).execute("abc", 5);
+    }
+
+    @Test
+    void givenNonNumericLimit_listTracks_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/tracks").param("limit", "many"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(listTracksUseCase);
     }
 
     // -----------------------------------------------------------------------

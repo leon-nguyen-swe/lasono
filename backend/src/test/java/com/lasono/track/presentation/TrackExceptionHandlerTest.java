@@ -2,6 +2,7 @@ package com.lasono.track.presentation;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.lasono.track.application.usecase.GetTrackUseCase;
+import com.lasono.track.application.usecase.InvalidPageRequestException;
+import com.lasono.track.application.usecase.ListTracksUseCase;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
@@ -34,11 +37,15 @@ class TrackExceptionHandlerTest {
     @Mock
     private StreamTrackUseCase streamTrackUseCase;
 
+    @Mock
+    private ListTracksUseCase listTracksUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        TrackController controller = new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase);
+        TrackController controller =
+            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .build();
@@ -68,6 +75,17 @@ class TrackExceptionHandlerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Track title must not be blank"));
+    }
+
+    @Test
+    void givenInvalidPageRequest_listTracks_returns400() throws Exception {
+        when(listTracksUseCase.execute("garbage", null))
+            .thenThrow(new InvalidPageRequestException("Invalid cursor"));
+
+        mockMvc.perform(get("/api/v1/tracks").param("cursor", "garbage"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.detail").value("Invalid cursor"));
     }
 
     @Test

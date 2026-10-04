@@ -1,5 +1,7 @@
 package com.lasono.track.infrastructure.persistence;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +42,9 @@ public class TrackPersistenceAdapter implements TrackRepository {
             snapshot.trackId().getValue(),
             snapshot.title(),
             snapshot.description(),
-            snapshot.trackStatus()
+            snapshot.trackStatus(),
+            // PostgreSQL stores microseconds, so cut the nanoseconds to keep the value we hand out equal to the stored one.
+            Instant.now().truncatedTo(ChronoUnit.MICROS)
         );
 
         OriginalAudio originalAudio = snapshot.originalAudio();

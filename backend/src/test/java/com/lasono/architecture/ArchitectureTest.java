@@ -13,7 +13,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
-/** Checks the real {@code track} module against the architecture rules in PROJECT_STATUS.md. */
+/** Checks the real {@code track} module against the architecture rules. */
 class ArchitectureTest {
 
     private static final String TRACK = "com.lasono.track";

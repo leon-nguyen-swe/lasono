@@ -1,5 +1,6 @@
 package com.lasono.track.infrastructure.persistence;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import com.lasono.track.domain.model.TrackStatus;
@@ -34,4 +35,8 @@ public class TrackJpaEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TrackStatus status;
+
+    // updatable = false keeps the original value when the same track is saved again.
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 }

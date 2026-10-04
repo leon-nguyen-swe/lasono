@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.lasono.track.application.usecase.InvalidPageRequestException;
 import com.lasono.track.application.usecase.InvalidRangeException;
 import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
@@ -24,6 +25,11 @@ public class TrackExceptionHandler {
 
     @ExceptionHandler({TrackTitleInvalidException.class, OriginalAudioInvalidException.class})
     public ProblemDetail handleInvalidUpload(RuntimeException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPageRequestException.class)
+    public ProblemDetail handleInvalidPageRequest(InvalidPageRequestException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 

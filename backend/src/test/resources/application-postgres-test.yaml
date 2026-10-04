@@ -1,0 +1,15 @@
+# Used by tests that extend PostgresIntegrationTest. Overrides the H2 settings of application.yaml.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lasono_test
+    username: lasono
+    password: lasono
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true

@@ -19,6 +19,8 @@ import org.springframework.http.HttpHeaders;
 
 import com.lasono.track.application.usecase.GetTrackResult;
 import com.lasono.track.application.usecase.GetTrackUseCase;
+import com.lasono.track.application.usecase.ListTracksResult;
+import com.lasono.track.application.usecase.ListTracksUseCase;
 import com.lasono.track.application.usecase.StreamTrackResult;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
 import com.lasono.track.application.usecase.UploadTrackCommand;
@@ -31,15 +33,18 @@ public class TrackController {
     private final UploadTrackUseCase uploadTrackUseCase;
     private final GetTrackUseCase getTrackUseCase;
     private final StreamTrackUseCase streamTrackUsecase;
+    private final ListTracksUseCase listTracksUseCase;
 
     public TrackController(
         UploadTrackUseCase uploadTrackUseCase,
         GetTrackUseCase getTrackUseCase,
-        StreamTrackUseCase streamTrackUsecase
+        StreamTrackUseCase streamTrackUsecase,
+        ListTracksUseCase listTracksUseCase
     ) {
         this.uploadTrackUseCase = uploadTrackUseCase;
         this.getTrackUseCase = getTrackUseCase;
         this.streamTrackUsecase = streamTrackUsecase;
+        this.listTracksUseCase = listTracksUseCase;
     }
 
     @PostMapping("/api/v1/tracks")
@@ -59,6 +64,14 @@ public class TrackController {
         UploadTrackResult result = uploadTrackUseCase.execute(command);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    @GetMapping("/api/v1/tracks")
+    public ListTracksResult listTracks(
+        @RequestParam(value = "cursor", required = false) String cursor,
+        @RequestParam(value = "limit", required = false) Integer limit
+    ) {
+        return listTracksUseCase.execute(cursor, limit);
     }
 
     @GetMapping("/api/v1/tracks/{id}")
