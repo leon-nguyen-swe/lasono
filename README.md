@@ -97,9 +97,20 @@ Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
 ## Tests
 
 ```bash
-cd backend && ./gradlew test        # backend unit and slice tests
-cd app && flutter test              # widget and unit tests
-cd app && flutter analyze           # static analysis
+cd backend && ./gradlew test          # backend tests (in-memory H2, no database needed)
+cd backend && ./gradlew postgresTest  # backend tests that need a real PostgreSQL (see below)
+cd app && flutter test                # widget and unit tests
+cd app && flutter analyze             # static analysis
+```
+
+`./gradlew test` also runs the architecture rules (ArchUnit, in `backend/src/test/java/com/lasono/architecture`): the domain must not depend on Spring, JPA, the file system or HTTP, and dependencies must point inward. GitHub Actions (`.github/workflows/ci.yml`) runs all of the above on every push and on pull requests into `main`.
+
+### PostgreSQL tests
+
+`postgresTest` runs the tests tagged `postgres` against a real PostgreSQL, because H2 does not behave exactly like PostgreSQL (migrations, indexes, timestamp precision). They use the separate database `lasono_test`, never `lasono`, and stop immediately if they are connected to any other database. Start PostgreSQL with `docker compose up -d` and create the test database once:
+
+```bash
+docker compose exec postgres psql -U lasono -d postgres -c "CREATE DATABASE lasono_test"
 ```
 
 ## Troubleshooting
