@@ -150,6 +150,115 @@ void main() {
     });
   });
 
+  group('TrackApi.listTracks', () {
+    const pageJson = {
+      'items': [
+        {
+          'id': '3f2b8a52-8f5e-4c1d-9a55-0b7f4f6c2d10',
+          'title': 'Vietnamese',
+          'description': 'A demo track',
+          'status': 'PROCESSING',
+        },
+      ],
+      'nextCursor': 'next-page',
+    };
+
+    test('requests GET {baseUrl}/api/v1/tracks without parameters by default',
+        () async {
+      late http.Request captured;
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((request) async {
+          captured = request;
+          return _json(pageJson, 200);
+        }),
+      );
+
+      await api.listTracks();
+
+      expect(captured.method, 'GET');
+      expect(captured.url.toString(), 'http://api.test/api/v1/tracks');
+    });
+
+    test('sends the cursor and the limit as query parameters', () async {
+      late Uri captured;
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((request) async {
+          captured = request.url;
+          return _json(pageJson, 200);
+        }),
+      );
+
+      // A cursor can contain characters that need URL encoding.
+      await api.listTracks(cursor: 'a+b/c=', limit: 5);
+
+      expect(captured.path, '/api/v1/tracks');
+      expect(captured.queryParameters, {'cursor': 'a+b/c=', 'limit': '5'});
+    });
+
+    test('returns the parsed page on 200', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => _json(pageJson, 200)),
+      );
+
+      final page = await api.listTracks();
+
+      expect(page.items.single.title, 'Vietnamese');
+      expect(page.nextCursor, 'next-page');
+    });
+
+    test('maps other statuses to a generic server error', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => _json({'status': 500}, 500)),
+      );
+
+      expect(
+        () => api.listTracks(),
+        throwsA(
+          isA<TrackApiException>()
+              .having((e) => e.message, 'message', 'Server error (500)'),
+        ),
+      );
+    });
+
+    test('maps a stalled request to "Request timed out"', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        requestTimeout: const Duration(milliseconds: 20),
+        client: MockClient((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+          return _json(pageJson, 200);
+        }),
+      );
+
+      expect(
+        () => api.listTracks(),
+        throwsA(
+          isA<TrackApiException>()
+              .having((e) => e.message, 'message', 'Request timed out'),
+        ),
+      );
+    });
+
+    test('maps a network failure to a generic connection message', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => throw http.ClientException('boom')),
+      );
+
+      expect(
+        () => api.listTracks(),
+        throwsA(
+          isA<TrackApiException>()
+              .having((e) => e.message, 'message', 'Cannot reach the server'),
+        ),
+      );
+    });
+  });
+
   group('TrackApi.streamUrl', () {
     test('points at /api/v1/tracks/{id}/stream on the configured base url', () {
       final api = TrackApi(

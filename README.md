@@ -62,10 +62,11 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 
 ## Using the app
 
-1. **Upload**: type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically.
-2. **Load by id**: paste a track id and press **Load** to see a track that already exists.
-3. **Play**: press the play button. When a track finishes it rewinds to 0:00; press play again to replay it.
-4. **Seek**: drag or click the slider.
+1. **Browse**: the app opens on the list of tracks, newest first. Scroll down and the next page loads by itself. If a page fails to load, press **Retry**.
+2. **Play**: tap a track to open its player and press the play button. When a track finishes it rewinds to 0:00; press play again to replay it. Going back to the list stops the playback and keeps your place in the list.
+3. **Seek**: drag or click the slider.
+4. **Upload**: press the upload icon in the top bar, type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it.
+5. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
 
 ## Configuration
 
