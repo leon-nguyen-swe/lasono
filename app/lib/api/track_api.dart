@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../models/track.dart';
+import '../models/track_page.dart';
 
 /// Backend origin. Override with `--dart-define=API_BASE_URL=...`.
 const defaultApiBaseUrl = String.fromEnvironment(
@@ -46,16 +47,9 @@ class TrackApi {
   final Duration _requestTimeout;
 
   Future<Track> getTrack(String id) async {
-    final http.Response response;
-    try {
-      response = await _client
-          .get(Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}'))
-          .timeout(_requestTimeout);
-    } on TimeoutException {
-      throw const TrackApiException('Request timed out');
-    } on http.ClientException {
-      throw const TrackApiException('Cannot reach the server');
-    }
+    final response = await _get(
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}'),
+    );
 
     return switch (response.statusCode) {
       200 => Track.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
@@ -63,6 +57,32 @@ class TrackApi {
       400 => throw const TrackApiException('Invalid id'),
       final status => throw TrackApiException('Server error ($status)'),
     };
+  }
+
+  /// Lists tracks newest first, one page at a time. Pass the previous page's
+  /// [TrackPage.nextCursor] as [cursor] to get the page after it.
+  Future<TrackPage> listTracks({String? cursor, int? limit}) async {
+    // A `?` followed by nothing is not added when there are no parameters.
+    final query = {'cursor': ?cursor, 'limit': ?limit?.toString()};
+    final uri = Uri.parse('$_baseUrl$_prefix/tracks')
+        .replace(queryParameters: query.isEmpty ? null : query);
+    final response = await _get(uri);
+
+    return switch (response.statusCode) {
+      200 => TrackPage.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      final status => throw TrackApiException('Server error ($status)'),
+    };
+  }
+
+  // Without a timeout a request the server never answers would wait forever.
+  Future<http.Response> _get(Uri uri) async {
+    try {
+      return await _client.get(uri).timeout(_requestTimeout);
+    } on TimeoutException {
+      throw const TrackApiException('Request timed out');
+    } on http.ClientException {
+      throw const TrackApiException('Cannot reach the server');
+    }
   }
 
   Uri streamUrl(String id) =>
