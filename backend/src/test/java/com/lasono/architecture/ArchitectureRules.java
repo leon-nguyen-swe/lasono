@@ -5,7 +5,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import com.tngtech.archunit.lang.ArchRule;
 
 /**
- * The architecture rules from PROJECT_STATUS.md. Each rule takes the root package of a module, so
+ * The architecture rules of LaSono (Clean Architecture). Each rule takes the root package of a module, so
  * the same rule runs on the real code ({@code ArchitectureTest}) and on deliberately broken
  * classes ({@code ArchitectureRulesTest}).
  */
