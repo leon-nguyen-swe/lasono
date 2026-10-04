@@ -11,6 +11,7 @@ import 'package:lasono_app/api/track_api.dart';
 import 'package:lasono_app/audio_picker.dart';
 import 'package:lasono_app/main.dart';
 import 'package:lasono_app/player_service.dart';
+import 'package:lasono_app/screens/track_screen.dart';
 
 import 'fake_player_service.dart';
 
@@ -45,18 +46,59 @@ Future<void> _loadTrack(WidgetTester tester, String id) async {
   await tester.pumpAndSettle();
 }
 
+/// The upload / load-by-id / player screen on its own, without the track list.
+Widget _uploadScreen({
+  TrackApi? api,
+  AudioPicker? pickAudio,
+  PlayerService? player,
+}) =>
+    MaterialApp(
+      home: Scaffold(
+        body: TrackScreen(api: api, pickAudio: pickAudio, player: player),
+      ),
+    );
+
+/// A server whose track list is one page with these titles.
+TrackApi _listApi(List<String> titles) => _api(
+      (_) async => http.Response(
+        jsonEncode({
+          'items': [
+            for (final (index, title) in titles.indexed)
+              {
+                'id': 'id-$index',
+                'title': title,
+                'description': '',
+                'status': 'PROCESSING',
+              },
+          ],
+          'nextCursor': null,
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      ),
+    );
+
 void main() {
   testWidgets('shows the LaSono title screen', (WidgetTester tester) async {
-    await tester.pumpWidget(const LasonoApp());
+    await tester.pumpWidget(LasonoApp(api: _listApi([])));
 
     expect(find.text('LaSono'), findsOneWidget);
   });
 
   testWidgets('does not ship the counter demo', (WidgetTester tester) async {
-    await tester.pumpWidget(const LasonoApp());
+    await tester.pumpWidget(LasonoApp(api: _listApi([])));
 
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byIcon(Icons.add), findsNothing);
+  });
+
+  testWidgets('opens on the list of tracks', (WidgetTester tester) async {
+    await tester.pumpWidget(LasonoApp(api: _listApi(['Vietnamese', 'Second'])));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vietnamese'), findsOneWidget);
+    expect(find.text('Second'), findsOneWidget);
+    expect(find.byKey(const Key('uploadAction')), findsOneWidget);
   });
 
   group('load a track by id', () {
@@ -67,7 +109,7 @@ void main() {
         requested = request.url;
         return _trackResponse();
       });
-      await tester.pumpWidget(LasonoApp(api: api, player: FakePlayerService()));
+      await tester.pumpWidget(_uploadScreen(api: api, player: FakePlayerService()));
 
       await tester.enterText(
         find.byKey(const Key('trackIdField')),
@@ -85,7 +127,7 @@ void main() {
     testWidgets('shows "Track not found" on a 404',
         (WidgetTester tester) async {
       final api = _api((_) async => http.Response('{"status":404}', 404));
-      await tester.pumpWidget(LasonoApp(api: api, player: FakePlayerService()));
+      await tester.pumpWidget(_uploadScreen(api: api, player: FakePlayerService()));
 
       await _loadTrack(tester, _trackId);
 
@@ -99,7 +141,7 @@ void main() {
         calls++;
         return http.Response('{}', 200);
       });
-      await tester.pumpWidget(LasonoApp(api: api, player: FakePlayerService()));
+      await tester.pumpWidget(_uploadScreen(api: api, player: FakePlayerService()));
 
       await tester.tap(find.byKey(const Key('loadButton')));
       await tester.pumpAndSettle();
@@ -131,7 +173,7 @@ void main() {
         return _trackResponse();
       });
       await tester.pumpWidget(
-        LasonoApp(
+        _uploadScreen(
           api: api,
           pickAudio: _picker('song.mp3'),
           player: FakePlayerService(),
@@ -156,7 +198,7 @@ void main() {
         (WidgetTester tester) async {
       final api = _api((_) async => http.Response('{"status":415}', 415));
       await tester.pumpWidget(
-        LasonoApp(
+        _uploadScreen(
           api: api,
           pickAudio: _picker('song.mp3'),
           player: FakePlayerService(),
@@ -180,7 +222,7 @@ void main() {
         calls++;
         return http.Response('{}', 201);
       });
-      await tester.pumpWidget(LasonoApp(api: api, pickAudio: _picker('a.mp3')));
+      await tester.pumpWidget(_uploadScreen(api: api, pickAudio: _picker('a.mp3')));
 
       await tester.enterText(find.byKey(const Key('titleField')), 'My Song');
       await tester.tap(find.byKey(const Key('uploadButton')));
@@ -198,7 +240,7 @@ void main() {
         return http.Response('{}', 201);
       });
       await tester.pumpWidget(
-        LasonoApp(api: api, pickAudio: _picker('song.mp3')),
+        _uploadScreen(api: api, pickAudio: _picker('song.mp3')),
       );
 
       await tester.tap(find.byKey(const Key('chooseFileButton')));
@@ -212,7 +254,7 @@ void main() {
 
     testWidgets('a cancelled picker leaves the selection empty',
         (WidgetTester tester) async {
-      await tester.pumpWidget(LasonoApp(pickAudio: () async => null));
+      await tester.pumpWidget(_uploadScreen(pickAudio: () async => null));
 
       await tester.tap(find.byKey(const Key('chooseFileButton')));
       await tester.pumpAndSettle();
@@ -230,7 +272,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       player = FakePlayerService();
-      await tester.pumpWidget(LasonoApp(api: _trackApi(), player: player));
+      await tester.pumpWidget(_uploadScreen(api: _trackApi(), player: player));
     }
 
     testWidgets('shows no player controls until a track is loaded',
