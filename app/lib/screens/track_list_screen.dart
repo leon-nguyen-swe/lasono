@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../api/track_api.dart';
+import '../audio_picker.dart';
 import '../models/track.dart';
+import '../player_service.dart';
+import 'track_player_screen.dart';
+import 'track_screen.dart';
 
 /// The newest-first list of tracks. It loads one page at a time and asks for the
 /// next page when the user scrolls near the end.
 class TrackListScreen extends StatefulWidget {
-  const TrackListScreen({super.key, this.api});
+  const TrackListScreen({super.key, this.api, this.pickAudio, this.player});
 
   final TrackApi? api;
+  final AudioPicker? pickAudio;
+  final PlayerService? player;
 
   @override
   State<TrackListScreen> createState() => _TrackListScreenState();
@@ -19,6 +25,12 @@ class _TrackListScreenState extends State<TrackListScreen> {
   static const _loadMoreDistance = 200.0;
 
   late final TrackApi _api = widget.api ?? TrackApi();
+
+  // One player shared by the player and upload screens, so only one track plays at a time.
+  PlayerService? _ownedPlayer;
+  PlayerService get _player =>
+      widget.player ?? (_ownedPlayer ??= JustAudioPlayerService());
+
   final _scroll = ScrollController();
   final _tracks = <Track>[];
   final _knownIds = <String>{};
@@ -40,6 +52,7 @@ class _TrackListScreenState extends State<TrackListScreen> {
   @override
   void dispose() {
     _scroll.dispose();
+    _ownedPlayer?.dispose();
     super.dispose();
   }
 
@@ -53,6 +66,45 @@ class _TrackListScreenState extends State<TrackListScreen> {
   void _retry() {
     setState(() => _error = null);
     _loadNextPage();
+  }
+
+  // Back to the first page, as if the screen had just opened.
+  void _refresh() {
+    setState(() {
+      _tracks.clear();
+      _knownIds.clear();
+      _nextCursor = null;
+      _firstPageLoaded = false;
+      _error = null;
+    });
+    _loadNextPage();
+  }
+
+  void _openPlayer(Track track) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            TrackPlayerScreen(track: track, api: _api, player: _player),
+      ),
+    );
+  }
+
+  // The upload form is where new tracks come from, so show the list again from
+  // the top when the user comes back.
+  Future<void> _openUpload() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Upload')),
+          body: TrackScreen(
+            api: _api,
+            pickAudio: widget.pickAudio,
+            player: _player,
+          ),
+        ),
+      ),
+    );
+    if (mounted) _refresh();
   }
 
   Future<void> _loadNextPage() async {
@@ -88,7 +140,17 @@ class _TrackListScreenState extends State<TrackListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('LaSono')),
+      appBar: AppBar(
+        title: const Text('LaSono'),
+        actions: [
+          IconButton(
+            key: const Key('uploadAction'),
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Upload',
+            onPressed: _openUpload,
+          ),
+        ],
+      ),
       body: _body(),
     );
   }
@@ -122,6 +184,7 @@ class _TrackListScreenState extends State<TrackListScreen> {
           title: Text(track.title),
           subtitle: track.description.isEmpty ? null : Text(track.description),
           trailing: Text(track.status),
+          onTap: () => _openPlayer(track),
         );
       },
     );
