@@ -41,5 +41,21 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		// These need a real PostgreSQL, see the postgresTest task below.
+		excludeTags 'postgres'
+	}
+}
+
+// Tests tagged "postgres" run against the lasono_test database of a real PostgreSQL (see README).
+// Kept out of `test` and `build` so those still work without a database.
+tasks.register('postgresTest', Test) {
+	description = 'Runs the tests tagged "postgres" against a real PostgreSQL database.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'postgres'
+	}
+	shouldRunAfter tasks.named('test')
 }
