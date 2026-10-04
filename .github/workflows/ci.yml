@@ -23,6 +23,22 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # A throwaway PostgreSQL next to the job, used by the tests tagged "postgres".
+    # Same database name and credentials as src/test/resources/application-postgres-test.yaml.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: lasono_test
+          POSTGRES_USER: lasono
+          POSTGRES_PASSWORD: lasono
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lasono -d lasono_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
 
@@ -35,6 +51,9 @@ jobs:
 
       - name: Run backend tests
         run: ./gradlew test
+
+      - name: Run Postgres tests
+        run: ./gradlew postgresTest
 
   app:
     name: Flutter app
