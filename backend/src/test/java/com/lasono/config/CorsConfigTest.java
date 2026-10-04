@@ -23,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.lasono.track.application.usecase.GetTrackUseCase;
+import com.lasono.track.application.usecase.ListTracksResult;
+import com.lasono.track.application.usecase.ListTracksUseCase;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
 import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
@@ -45,11 +47,15 @@ class CorsConfigTest {
     @Mock
     private StreamTrackUseCase streamTrackUseCase;
 
+    @Mock
+    private ListTracksUseCase listTracksUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        TrackController controller = new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase);
+        TrackController controller =
+            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .addFilters(new CorsConfig().corsFilter(List.of(FLUTTER_ORIGIN, FLUTTER_ORIGIN_IP)))
@@ -62,6 +68,15 @@ class CorsConfigTest {
         when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN));
+    }
+
+    @Test
+    void givenAllowedOrigin_listTracks_returnsAllowOriginHeader() throws Exception {
+        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/tracks").header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
+            .andExpect(status().isOk())
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN));
     }
 
