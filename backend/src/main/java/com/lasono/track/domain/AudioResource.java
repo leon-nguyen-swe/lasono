@@ -100,7 +100,11 @@ public class AudioResource {
         this.waveform = waveform;
         this.status = AudioResourceStatus.READY;
     }
-    
+
+    void processingFailed() {
+        this.status = AudioResourceStatus.FAILED;
+    }
+
     public static AudioResource reconstitute(
         AudioResourceId id,
         AudioResourceStatus status,
