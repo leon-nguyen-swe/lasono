@@ -24,7 +24,7 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
         WHERE id = (
             SELECT id FROM processing_jobs
             WHERE (status = 'PENDING' AND run_after <= now())
-               OR (status = 'RUNNING' AND locked_until <= now())
+               OR (status = 'RUNNING' AND locked_until <= now() AND attempts < max_attempts)
             ORDER BY run_after
             LIMIT 1
             FOR UPDATE SKIP LOCKED)
