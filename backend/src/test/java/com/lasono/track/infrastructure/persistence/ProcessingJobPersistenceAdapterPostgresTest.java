@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.lasono.PostgresIntegrationTest;
+import com.lasono.track.application.port.out.FailureOutcome;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.domain.TrackId;
 
@@ -180,6 +181,43 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         // Even if the old lease would have run out by now.
         jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
 
+        assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
+    }
+
+    @Test
+    void failSendsAJobWithAttemptsLeftBackToPendingAfterTheRetryDelay() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+
+        FailureOutcome outcome = adapter.fail(job.id(), "ffmpeg exited with code 1", Duration.ofMinutes(2));
+
+        assertThat(outcome).isEqualTo(FailureOutcome.WILL_RETRY);
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+            "SELECT status, last_error, locked_until FROM processing_jobs");
+        assertThat(row).containsEntry("status", "PENDING");
+        assertThat(row).containsEntry("last_error", "ffmpeg exited with code 1");
+        assertThat(row.get("locked_until")).isNull();
+        // It may be claimed again in about 2 minutes, not before.
+        Boolean waitsForTheDelay = jdbcTemplate.queryForObject(
+            "SELECT run_after > now() + interval '1 minute' AND run_after <= now() + interval '2 minutes' "
+                + "FROM processing_jobs", Boolean.class);
+        assertThat(waitsForTheDelay).isTrue();
+        assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
+    }
+
+    @Test
+    void failMarksAJobFailedWhenItHasNoAttemptsLeft() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+        // This was the last attempt the job was allowed.
+        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts");
+
+        FailureOutcome outcome = adapter.fail(job.id(), "corrupt audio", Duration.ofMinutes(2));
+
+        assertThat(outcome).isEqualTo(FailureOutcome.GAVE_UP);
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, last_error FROM processing_jobs");
+        assertThat(row).containsEntry("status", "FAILED");
+        assertThat(row).containsEntry("last_error", "corrupt audio");
         assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
     }
 
