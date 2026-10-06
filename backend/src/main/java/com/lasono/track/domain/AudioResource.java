@@ -102,6 +102,9 @@ public class AudioResource {
     }
 
     void processingFailed() {
+        if (this.status != AudioResourceStatus.PROCESSING) {
+            throw new AudioResourceInvalidStateException("Expected state: PROCESSING\nActual state: " + this.status);
+        }
         this.status = AudioResourceStatus.FAILED;
     }
 
