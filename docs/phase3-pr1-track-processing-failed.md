@@ -112,3 +112,61 @@ TrackTest.java:92: error: cannot find symbol  symbol: variable FAILED           
 **Khái niệm: thứ tự các lệnh bảo vệ tính nhất quán.** `audioResource.processingFailed()` chạy **trước** khi đặt `this.status`. Nếu audio resource từ chối (sai trạng thái), exception thoát ra trước dòng gán status, nên track không bị đổi trạng thái một nửa.
 
 **Không cần migration.** `tracks.status` là `VARCHAR(50)` lưu tên enum.
+
+---
+
+## Task 4: `Track` không cho `READY → FAILED` và không cho `FAILED → READY`
+
+**Hành vi kiểm tra.** `READY` và `FAILED` là trạng thái cuối. Track phải ném `TrackInvalidStateException` (cùng loại với `processingCompleted`) khi:
+1. đang `READY` mà gọi `processingFailed()`,
+2. đã `FAILED` mà gọi `processingFailed()` lần nữa,
+3. đã `FAILED` mà gọi `processingCompleted(...)`.
+
+**Test.** `TrackTest`: `shouldRejectFailingProcessingWhenTrackIsReady`, `shouldRejectFailingProcessingWhenTrackIsAlreadyFailed`, `shouldRejectCompletingProcessingWhenTrackHasFailed`.
+
+**RED (lỗi lúc chạy, 2 trong 3 test).**
+
+```text
+8 tests completed, 2 failed
+expected: TrackInvalidStateException but was: AudioResourceInvalidStateException
+```
+
+Đây là RED tinh tế: track vẫn bị từ chối nhờ guard của `AudioResource` (Task 2), nhưng exception thuộc về tầng audio thay vì tầng `Track`. Hai method của cùng một class sẽ báo cùng một lỗi trạng thái bằng hai kiểu exception khác nhau, và tầng HTTP phải xử lý cả hai.
+
+Test 3 **xanh ngay từ đầu** vì `processingCompleted` đã có guard `status != PROCESSING`. Nó là *test bảo vệ* (regression guard): khóa quy tắc "FAILED là trạng thái cuối" để sau này không ai vô tình mở lại. Một test xanh ngay không chứng minh code mới đúng, nên ở đây ta chỉ dựa vào test 1 và 2 làm bằng chứng cho code mới.
+
+**Code tối thiểu.** Thêm guard của `Track` vào đầu `processingFailed()`:
+
+```java
+if (this.status != TrackStatus.PROCESSING) {
+    throw new TrackInvalidStateException("Expected track state: PROCESSING\nActual track state: " + this.status);
+}
+```
+
+**GREEN.** `./gradlew test`: 218 test, 0 lỗi, 0 bị bỏ qua (trước PR là 209; thêm 9 test: 1 + 4 + 1 + 3).
+
+**Được đảm bảo.** `Track` báo lỗi trạng thái nhất quán bằng `TrackInvalidStateException`, và không có đường đi giữa `READY` và `FAILED`.
+
+---
+
+## Tổng kết PR 1
+
+State machine của `Track` sau PR này (`AudioResource` đi song song với nó):
+
+```text
+Track:          PROCESSING ──→ READY
+                    └───────→ FAILED
+AudioResource:  CREATED → UPLOADED → PROCESSING → READY
+                                          └─────→ FAILED
+```
+
+| Task | Test mới | Loại RED |
+|---|---|---|
+| 1 | 1 | lỗi biên dịch |
+| 2 | 4 | lỗi lúc chạy: không ném exception |
+| 3 | 1 | lỗi biên dịch |
+| 4 | 3 (2 RED, 1 bảo vệ) | lỗi lúc chạy: sai loại exception |
+
+**Việc dời sang PR 5:** cho phép `startProcessing()` chạy lại khi retry (xem phần "Quyết định đã đổi").
+
+**Chưa làm ở PR này (có chủ đích):** lưu lý do thất bại (sẽ nằm ở `last_error` của bảng job, PR 2), hiển thị `FAILED` ở API và Flutter (PR 7 và 8).
