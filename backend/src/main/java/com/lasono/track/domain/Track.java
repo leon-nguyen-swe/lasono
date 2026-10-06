@@ -99,6 +99,11 @@ public class Track {
         this.status = TrackStatus.READY;
     }
 
+    public void processingFailed() {
+        this.audioResource.processingFailed();
+        this.status = TrackStatus.FAILED;
+    }
+
     public void rename(String newTitle) {
         validateTitle(newTitle);
         this.title = newTitle;
