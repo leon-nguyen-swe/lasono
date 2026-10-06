@@ -160,6 +160,29 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         assertThat(jdbcTemplate.queryForObject("SELECT attempts FROM processing_jobs", Integer.class)).isEqualTo(1);
     }
 
+    @Test
+    void completeMarksTheJobDoneAndReleasesTheLease() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+
+        adapter.complete(job.id());
+
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, locked_until FROM processing_jobs");
+        assertThat(row).containsEntry("status", "DONE");
+        assertThat(row.get("locked_until")).isNull();
+    }
+
+    @Test
+    void aCompletedJobIsNeverClaimedAgain() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+        adapter.complete(job.id());
+        // Even if the old lease would have run out by now.
+        jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
+
+        assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
+    }
+
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
