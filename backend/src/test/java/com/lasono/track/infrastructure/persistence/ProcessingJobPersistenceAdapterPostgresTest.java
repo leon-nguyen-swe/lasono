@@ -221,6 +221,19 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
     }
 
+    @Test
+    void claimNextDoesNotTakeBackAnExpiredJobThatHasNoAttemptsLeft() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        adapter.claimNext(Duration.ofMinutes(5));
+        // Every attempt has killed the worker: the lease expired and the attempts are used up.
+        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts, locked_until = now() - interval '1 minute'");
+
+        assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
+
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT attempts = max_attempts FROM processing_jobs", Boolean.class)).isTrue();
+    }
+
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
