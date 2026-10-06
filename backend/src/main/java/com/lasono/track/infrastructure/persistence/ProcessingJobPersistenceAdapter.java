@@ -1,5 +1,7 @@
 package com.lasono.track.infrastructure.persistence;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
@@ -13,6 +15,18 @@ import com.lasono.track.domain.TrackId;
 
 @Repository
 public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
+
+    // The database clock decides "now", so the app and the database cannot disagree about time.
+    private static final String CLAIM_NEXT_SQL = """
+        UPDATE processing_jobs
+        SET status = 'RUNNING', attempts = attempts + 1, locked_until = now() + make_interval(secs => ?)
+        WHERE id = (
+            SELECT id FROM processing_jobs
+            WHERE status = 'PENDING' AND run_after <= now()
+            ORDER BY run_after
+            LIMIT 1)
+        RETURNING id, track_id, attempts, max_attempts
+        """;
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -29,24 +43,19 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
 
     @Override
     public Optional<ProcessingJob> claimNext(Duration lease) {
-        // The database clock decides "now", so the app and the database cannot disagree about time.
-        return jdbcTemplate.query(
-                """
-                UPDATE processing_jobs
-                SET status = 'RUNNING', attempts = attempts + 1, locked_until = now() + make_interval(secs => ?)
-                WHERE id = (
-                    SELECT id FROM processing_jobs
-                    WHERE status = 'PENDING' AND run_after <= now()
-                    ORDER BY run_after
-                    LIMIT 1)
-                RETURNING id, track_id, attempts, max_attempts
-                """,
-                (rs, rowNumber) -> new ProcessingJob(
-                    rs.getObject("id", UUID.class),
-                    new TrackId(rs.getObject("track_id", UUID.class)),
-                    rs.getInt("attempts"),
-                    rs.getInt("max_attempts")),
-                lease.toMillis() / 1000.0)
+        return jdbcTemplate.query(CLAIM_NEXT_SQL, ProcessingJobPersistenceAdapter::toJob, seconds(lease))
             .stream().findFirst();
+    }
+
+    private static ProcessingJob toJob(ResultSet rs, int rowNumber) throws SQLException {
+        return new ProcessingJob(
+            rs.getObject("id", UUID.class),
+            new TrackId(rs.getObject("track_id", UUID.class)),
+            rs.getInt("attempts"),
+            rs.getInt("max_attempts"));
+    }
+
+    private static double seconds(Duration duration) {
+        return duration.toMillis() / 1000.0;
     }
 }
