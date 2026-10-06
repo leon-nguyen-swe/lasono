@@ -43,6 +43,7 @@ public abstract class PostgresIntegrationTest {
                 .isEqualTo(TEST_DATABASE);
         }
 
+        jdbcTemplate.update("DELETE FROM processing_jobs");
         jdbcTemplate.update("DELETE FROM audio_resources");
         jdbcTemplate.update("DELETE FROM tracks");
     }
