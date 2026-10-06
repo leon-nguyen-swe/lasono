@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.lasono.track.application.port.out.FailureOutcome;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.domain.TrackId;
@@ -53,6 +54,22 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
     public void complete(UUID jobId) {
         jdbcTemplate.update(
             "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", jobId);
+    }
+
+    @Override
+    public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
+        String newStatus = jdbcTemplate.queryForObject(
+            """
+            UPDATE processing_jobs
+            SET status = CASE WHEN attempts < max_attempts THEN 'PENDING' ELSE 'FAILED' END,
+                run_after = CASE WHEN attempts < max_attempts THEN now() + make_interval(secs => ?) ELSE run_after END,
+                locked_until = NULL,
+                last_error = ?
+            WHERE id = ?
+            RETURNING status
+            """,
+            String.class, seconds(retryDelay), error, jobId);
+        return "PENDING".equals(newStatus) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
     }
 
     private static ProcessingJob toJob(ResultSet rs, int rowNumber) throws SQLException {

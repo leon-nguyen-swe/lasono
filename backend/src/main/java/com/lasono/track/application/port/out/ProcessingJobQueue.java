@@ -19,4 +19,10 @@ public interface ProcessingJobQueue {
 
     /** Marks a claimed job as done, so it is never claimed again. */
     void complete(UUID jobId);
+
+    /**
+     * Records that an attempt failed. A job with attempts left goes back to PENDING and is not
+     * claimed before {@code retryDelay} has passed; a job without attempts left becomes FAILED.
+     */
+    FailureOutcome fail(UUID jobId, String error, Duration retryDelay);
 }
