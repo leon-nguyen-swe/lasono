@@ -49,6 +49,12 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
             .stream().findFirst();
     }
 
+    @Override
+    public void complete(UUID jobId) {
+        jdbcTemplate.update(
+            "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", jobId);
+    }
+
     private static ProcessingJob toJob(ResultSet rs, int rowNumber) throws SQLException {
         return new ProcessingJob(
             rs.getObject("id", UUID.class),

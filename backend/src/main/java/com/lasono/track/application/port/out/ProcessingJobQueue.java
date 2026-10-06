@@ -2,6 +2,7 @@ package com.lasono.track.application.port.out;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 
 import com.lasono.track.domain.TrackId;
 
@@ -15,4 +16,7 @@ public interface ProcessingJobQueue {
      * {@code lease}. Returns empty when no job is due.
      */
     Optional<ProcessingJob> claimNext(Duration lease);
+
+    /** Marks a claimed job as done, so it is never claimed again. */
+    void complete(UUID jobId);
 }
