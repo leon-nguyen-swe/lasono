@@ -125,6 +125,23 @@ public class AudioResourceTest {
     }
 
     @Test
+    void shouldTransitionFromProcessingToFailed() {
+        AudioResource resource = createResource();
+        OriginalAudio originalAudio = createOriginalAudio();
+
+        resource.uploadCompleted(originalAudio);
+        resource.startProcessing();
+
+        resource.processingFailed();
+
+        assertEquals(AudioResourceStatus.FAILED, resource.getStatus());
+        assertEquals(originalAudio, resource.getOriginalAudio());
+        assertEquals(null, resource.getStreamingAudio());
+        assertEquals(null, resource.getAudioDuration());
+        assertEquals(null, resource.getWaveform());
+    }
+
+    @Test
     void shouldRejectStartingProcessingFromCreated() {
         AudioResource resource = createResource();
 
