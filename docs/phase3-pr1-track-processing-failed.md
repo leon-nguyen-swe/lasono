@@ -81,3 +81,34 @@ if (this.status != AudioResourceStatus.PROCESSING) {
 **Được đảm bảo.** `FAILED` chỉ đạt được từ `PROCESSING`, và là trạng thái cuối: không thể fail lần hai, và `READY` không thể đổi thành `FAILED`.
 
 **Khái niệm: guard clause.** Kiểm tra điều kiện sai ở đầu method và ném lỗi ngay, thay vì lồng `if`. Cùng mẫu với `startProcessing` và `processingCompleted`. Giữ quy tắc state machine ngay trong entity nghĩa là không có chỗ nào khác có thể "lách" quy tắc.
+
+---
+
+## Task 3: `Track.processingFailed()` chuyển `PROCESSING → FAILED`
+
+**Hành vi kiểm tra.** Khi xử lý thất bại, gọi `track.processingFailed()` thì cả `TrackStatus` (cái người dùng thấy) lẫn `AudioResourceStatus` (Task 1 và 2) cùng thành `FAILED`. Hai trạng thái luôn đi cùng nhau.
+
+**Test.** `TrackTest.shouldMoveTrackAndAudioResourceToFailedWhenProcessingFails`
+
+**RED (lỗi biên dịch).**
+
+```text
+TrackTest.java:90: error: cannot find symbol  symbol: method processingFailed()  location: variable track of type Track
+TrackTest.java:92: error: cannot find symbol  symbol: variable FAILED             location: class TrackStatus
+> Task :compileTestJava FAILED
+```
+
+`AudioResourceStatus.FAILED` không báo lỗi vì đã có từ Task 1.
+
+**Code tối thiểu.**
+- `TrackStatus`: thêm `FAILED`.
+- `Track`: thêm `public void processingFailed() { audioResource.processingFailed(); this.status = TrackStatus.FAILED; }`.
+- `Track` chưa tự kiểm tra trạng thái của chính nó trong method này. Việc đó thuộc Task 4.
+
+**GREEN.** `TrackTest`: 5 test, `AudioResourceTest`: 22 test, đều 0 lỗi.
+
+**Được đảm bảo.** Track và audio resource luôn cùng chuyển sang `FAILED`.
+
+**Khái niệm: thứ tự các lệnh bảo vệ tính nhất quán.** `audioResource.processingFailed()` chạy **trước** khi đặt `this.status`. Nếu audio resource từ chối (sai trạng thái), exception thoát ra trước dòng gán status, nên track không bị đổi trạng thái một nửa.
+
+**Không cần migration.** `tracks.status` là `VARCHAR(50)` lưu tên enum.
