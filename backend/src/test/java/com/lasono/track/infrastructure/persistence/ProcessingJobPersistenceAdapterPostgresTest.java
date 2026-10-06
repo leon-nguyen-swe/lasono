@@ -63,6 +63,33 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
     }
 
+    @Test
+    void claimNextSkipsAJobThatIsNotDueYet() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        jdbcTemplate.update("UPDATE processing_jobs SET run_after = now() + interval '1 hour'");
+
+        assertThat(adapter.claimNext(Duration.ofMinutes(5))).isEmpty();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class))
+            .isEqualTo("PENDING");
+    }
+
+    @Test
+    void claimNextTakesTheJobThatHasWaitedLongestFirst() {
+        UUID newerTrack = insertTrack();
+        UUID olderTrack = insertTrack();
+        // The "older" job is stored second, but it became due first.
+        adapter.enqueue(new TrackId(newerTrack));
+        adapter.enqueue(new TrackId(olderTrack));
+        jdbcTemplate.update(
+            "UPDATE processing_jobs SET run_after = now() - interval '1 hour' WHERE track_id = ?", olderTrack);
+
+        Optional<ProcessingJob> claimed = adapter.claimNext(Duration.ofMinutes(5));
+
+        assertThat(claimed).isPresent();
+        assertThat(claimed.get().trackId()).isEqualTo(new TrackId(olderTrack));
+    }
+
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
