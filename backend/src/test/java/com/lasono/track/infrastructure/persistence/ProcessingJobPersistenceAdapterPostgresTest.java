@@ -3,10 +3,16 @@ package com.lasono.track.infrastructure.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,6 +94,42 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
 
         assertThat(claimed).isPresent();
         assertThat(claimed.get().trackId()).isEqualTo(new TrackId(olderTrack));
+    }
+
+    @Test
+    void workersClaimingAtTheSameTimeNeverTakeTheSameJob() throws Exception {
+        int jobCount = 100;
+        int workerCount = 8;
+        for (int i = 0; i < jobCount; i++) {
+            adapter.enqueue(new TrackId(insertTrack()));
+        }
+
+        ExecutorService workers = Executors.newFixedThreadPool(workerCount);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<List<TrackId>>> results = new ArrayList<>();
+        for (int i = 0; i < workerCount; i++) {
+            results.add(workers.submit(() -> {
+                go.await();
+                List<TrackId> claimedByThisWorker = new ArrayList<>();
+                Optional<ProcessingJob> job;
+                while ((job = adapter.claimNext(Duration.ofMinutes(5))).isPresent()) {
+                    claimedByThisWorker.add(job.get().trackId());
+                }
+                return claimedByThisWorker;
+            }));
+        }
+        go.countDown();
+
+        List<TrackId> claimed = new ArrayList<>();
+        for (Future<List<TrackId>> result : results) {
+            claimed.addAll(result.get(60, TimeUnit.SECONDS));
+        }
+        workers.shutdown();
+
+        assertThat(claimed).doesNotHaveDuplicates();
+        assertThat(claimed).hasSize(jobCount);
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM processing_jobs WHERE attempts <> 1", Integer.class)).isZero();
     }
 
     private UUID insertTrack() {
