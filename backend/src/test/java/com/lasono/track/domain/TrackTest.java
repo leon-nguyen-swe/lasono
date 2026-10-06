@@ -94,6 +94,74 @@ class TrackTest {
     }
 
     @Test
+    void shouldRejectFailingProcessingWhenTrackIsReady() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingCompleted(
+            new StreamingAudio("streaming/test.mp3", AudioFormat.MP3, 500L, "audio/mpeg"),
+            new AudioDuration(180000L),
+            new Waveform(java.util.List.of(0.1f, 0.5f, 0.2f))
+        );
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingFailed()
+        );
+
+        assertEquals(TrackStatus.READY, track.getStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingWhenTrackIsAlreadyFailed() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingFailed();
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingFailed()
+        );
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
+    }
+
+    @Test
+    void shouldRejectCompletingProcessingWhenTrackHasFailed() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingFailed();
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingCompleted(
+                new StreamingAudio("streaming/test.mp3", AudioFormat.MP3, 500L, "audio/mpeg"),
+                new AudioDuration(180000L),
+                new Waveform(java.util.List.of(0.1f, 0.5f, 0.2f))
+            )
+        );
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
+    }
+
+    @Test
     void shouldRejectCompletingProcessingWhenTrackIsNotProcessing() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
