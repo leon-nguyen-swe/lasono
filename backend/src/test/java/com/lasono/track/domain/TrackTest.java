@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.lasono.track.domain.audio.exception.AudioResourceInvalidStateException;
 import com.lasono.track.domain.audio.model.AudioDuration;
 import com.lasono.track.domain.audio.model.AudioFormat;
+import com.lasono.track.domain.audio.model.AudioResourceStatus;
 import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
@@ -66,6 +67,30 @@ class TrackTest {
         );
 
         assertEquals(TrackStatus.READY, track.getStatus());
+    }
+
+    @Test
+    void shouldMoveTrackAndAudioResourceToFailedWhenProcessingFails() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(
+            new OriginalAudio(
+                "original/test.wav",
+                AudioFormat.WAV,
+                1000L,
+                "audio/wav"
+            )
+        );
+        track.startProcessing();
+
+        track.processingFailed();
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
+        assertEquals(AudioResourceStatus.FAILED, track.toSnapshot().audioResourceStatus());
     }
 
     @Test
