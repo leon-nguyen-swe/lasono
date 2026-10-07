@@ -37,6 +37,15 @@ public class RunNextProcessingJobUseCase {
         this.trackRepository = trackRepository;
     }
 
+    /** Runs jobs until none is due and returns how many were taken. */
+    public int runAllDue() {
+        int taken = 0;
+        while (execute()) {
+            taken++;
+        }
+        return taken;
+    }
+
     /** Returns true when a job was taken, so the caller knows it may be worth asking again at once. */
     public boolean execute() {
         Optional<ProcessingJob> claimed = queue.claimNext(LEASE);

@@ -133,6 +133,25 @@ class RunNextProcessingJobUseCaseTest {
         assertEquals(TrackStatus.READY, trackRepository.findById(id).orElseThrow().getStatus());
     }
 
+    @Test
+    void runAllDue_shouldRunEveryDueJobAndCountThem() {
+        TrackId first = anUploadedTrackWithAJob();
+        TrackId second = anUploadedTrackWithAJob();
+        TrackId third = anUploadedTrackWithAJob();
+
+        int taken = useCase.runAllDue();
+
+        assertEquals(3, taken);
+        for (TrackId id : new TrackId[] {first, second, third}) {
+            assertEquals(TrackStatus.READY, trackRepository.findById(id).orElseThrow().getStatus());
+        }
+    }
+
+    @Test
+    void runAllDue_shouldReturnZeroWhenNoJobIsDue() {
+        assertEquals(0, useCase.runAllDue());
+    }
+
     private TrackId anUploadedTrackWithAJob() {
         TrackId id = anUploadedTrack();
         queue.enqueue(id);
