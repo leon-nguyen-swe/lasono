@@ -111,13 +111,40 @@ class RunNextProcessingJobUseCaseTest {
         assertEquals(InMemoryProcessingJobQueue.Status.FAILED, queue.jobs.get(0).status);
     }
 
-    /** A track as the upload leaves it: the original file is stored, the track is PROCESSING, a job waits. */
+    @Test
+    void execute_shouldLeaveAReadyTrackReadyWhenTheJobCannotBeReportedDone() {
+        InMemoryProcessingJobQueue brokenQueue = new InMemoryProcessingJobQueue() {
+            @Override
+            public void complete(UUID jobId) {
+                throw new IllegalStateException("db down");
+            }
+        };
+        ProcessTrackUseCase processTrack = new ProcessTrackUseCase(trackRepository, storage, processor);
+        RunNextProcessingJobUseCase brokenUseCase =
+            new RunNextProcessingJobUseCase(brokenQueue, processTrack, trackRepository);
+        TrackId id = anUploadedTrack();
+        brokenQueue.enqueue(id);
+
+        for (int attempt = 1; attempt <= InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            brokenUseCase.execute();
+        }
+
+        assertEquals(InMemoryProcessingJobQueue.Status.FAILED, brokenQueue.jobs.get(0).status);
+        assertEquals(TrackStatus.READY, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
     private TrackId anUploadedTrackWithAJob() {
+        TrackId id = anUploadedTrack();
+        queue.enqueue(id);
+        return id;
+    }
+
+    /** A track as the upload leaves it: the original file is stored and the track is PROCESSING. */
+    private TrackId anUploadedTrack() {
         StorageKey key = storage.store(new ByteArrayInputStream(ORIGINAL), AudioFormat.WAV);
         Track track = new Track(new TrackId(UUID.randomUUID()), "My Song", "desc");
         track.uploadCompleted(new OriginalAudio(key.value(), AudioFormat.WAV, ORIGINAL.length, "audio/wav"));
         trackRepository.save(track);
-        queue.enqueue(track.getId());
         return track.getId();
     }
 }

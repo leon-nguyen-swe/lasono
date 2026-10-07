@@ -10,6 +10,7 @@ import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
+import com.lasono.track.domain.model.TrackStatus;
 
 /**
  * Takes the next due processing job from the queue and runs it. A worker calls this over and over.
@@ -55,13 +56,18 @@ public class RunNextProcessingJobUseCase {
         return true;
     }
 
-    /** No retry is left, so the user must see that this track will never be playable. */
+    /**
+     * No retry is left, so the user must see that this track will never be playable. A track that is
+     * already READY stays READY: the audio was processed, only reporting the job as done kept failing.
+     */
     private void markTrackFailed(TrackId trackId) {
-        trackRepository.findById(trackId).ifPresent(track -> {
-            track.startProcessing();
-            track.processingFailed();
-            trackRepository.save(track);
-        });
+        trackRepository.findById(trackId)
+            .filter(track -> track.getStatus() == TrackStatus.PROCESSING)
+            .ifPresent(track -> {
+                track.startProcessing();
+                track.processingFailed();
+                trackRepository.save(track);
+            });
     }
 
     /** 30 seconds after the first failure, then twice as long after each next one. */
