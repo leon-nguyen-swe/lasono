@@ -28,9 +28,8 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly 'org.postgresql:postgresql'
 
-	// Security: only the password hashing for now. The full starter locks every endpoint as soon as it is
-	// on the classpath, so it is added together with the SecurityConfig that opens the public ones.
-	implementation 'org.springframework.security:spring-security-crypto'
+	// Security. As soon as this is on the classpath every endpoint is locked, so SecurityConfig lists the public ones.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
