@@ -59,11 +59,24 @@ public class ProcessTrackUseCase {
 
         byte[] mp3 = processed.streamingAudio();
         StorageKey mp3Key = audioStorage.store(new ByteArrayInputStream(mp3), AudioFormat.MP3);
-        track.processingCompleted(
-            new StreamingAudio(mp3Key.value(), AudioFormat.MP3, mp3.length, "audio/mpeg"),
-            processed.duration(),
-            processed.waveform());
-        trackRepository.save(track);
+        try {
+            track.processingCompleted(
+                new StreamingAudio(mp3Key.value(), AudioFormat.MP3, mp3.length, "audio/mpeg"),
+                processed.duration(),
+                processed.waveform());
+            trackRepository.save(track);
+        } catch (RuntimeException e) {
+            deleteQuietly(mp3Key, e);
+            throw e;
+        }
+    }
+
+    private void deleteQuietly(StorageKey key, RuntimeException cause) {
+        try {
+            audioStorage.delete(key);
+        } catch (RuntimeException cleanupFailure) {
+            cause.addSuppressed(cleanupFailure);
+        }
     }
 
     private ProcessedAudio process(OriginalAudio original) {
