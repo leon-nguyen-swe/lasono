@@ -35,7 +35,7 @@ class InMemoryProcessingJobQueueTest {
         queue.enqueue(trackId);
         ProcessingJob job = queue.claimNext(LEASE).orElseThrow();
 
-        queue.complete(job.id());
+        queue.complete(job);
 
         assertThat(queue.claimNext(LEASE)).isEmpty();
     }
@@ -81,12 +81,12 @@ class InMemoryProcessingJobQueueTest {
 
         for (int attempt = 1; attempt < InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
             ProcessingJob job = queue.claimNext(LEASE).orElseThrow();
-            assertThat(queue.fail(job.id(), "boom", DELAY)).isEqualTo(FailureOutcome.WILL_RETRY);
+            assertThat(queue.fail(job, "boom", DELAY)).isEqualTo(FailureOutcome.WILL_RETRY);
         }
         ProcessingJob last = queue.claimNext(LEASE).orElseThrow();
 
         assertThat(last.attempts()).isEqualTo(InMemoryProcessingJobQueue.MAX_ATTEMPTS);
-        assertThat(queue.fail(last.id(), "boom", DELAY)).isEqualTo(FailureOutcome.GAVE_UP);
+        assertThat(queue.fail(last, "boom", DELAY)).isEqualTo(FailureOutcome.GAVE_UP);
         assertThat(queue.claimNext(LEASE)).isEmpty();
     }
 }

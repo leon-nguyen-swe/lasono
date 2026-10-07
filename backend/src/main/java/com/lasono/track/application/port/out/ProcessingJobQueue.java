@@ -19,13 +19,13 @@ public interface ProcessingJobQueue {
     Optional<ProcessingJob> claimNext(Duration lease);
 
     /** Marks a claimed job as done, so it is never claimed again. */
-    void complete(UUID jobId);
+    void complete(ProcessingJob job);
 
     /**
      * Records that an attempt failed. A job with attempts left goes back to PENDING and is not
      * claimed before {@code retryDelay} has passed; a job without attempts left becomes FAILED.
      */
-    FailureOutcome fail(UUID jobId, String error, Duration retryDelay);
+    FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay);
 
     /**
      * Gives up on jobs that are RUNNING, whose lease has expired and that have no attempts left: the

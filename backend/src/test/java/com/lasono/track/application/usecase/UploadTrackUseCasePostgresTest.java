@@ -98,13 +98,13 @@ class UploadTrackUseCasePostgresTest extends PostgresIntegrationTest {
         }
 
         @Override
-        public void complete(UUID jobId) {
-            real.complete(jobId);
+        public void complete(ProcessingJob job) {
+            real.complete(job);
         }
 
         @Override
-        public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
-            return real.fail(jobId, error, retryDelay);
+        public FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay) {
+            return real.fail(job, error, retryDelay);
         }
 
         @Override

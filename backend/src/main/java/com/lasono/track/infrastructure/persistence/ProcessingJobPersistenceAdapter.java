@@ -52,13 +52,13 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
     }
 
     @Override
-    public void complete(UUID jobId) {
+    public void complete(ProcessingJob job) {
         jdbcTemplate.update(
-            "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", jobId);
+            "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", job.id());
     }
 
     @Override
-    public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
+    public FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay) {
         String newStatus = jdbcTemplate.queryForObject(
             """
             UPDATE processing_jobs
@@ -69,7 +69,7 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
             WHERE id = ?
             RETURNING status
             """,
-            String.class, seconds(retryDelay), error, jobId);
+            String.class, seconds(retryDelay), error, job.id());
         return "PENDING".equals(newStatus) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
     }
 

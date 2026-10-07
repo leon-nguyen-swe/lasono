@@ -166,7 +166,7 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         adapter.enqueue(new TrackId(insertTrack()));
         ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
 
-        adapter.complete(job.id());
+        adapter.complete(job);
 
         Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, locked_until FROM processing_jobs");
         assertThat(row).containsEntry("status", "DONE");
@@ -177,7 +177,7 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
     void aCompletedJobIsNeverClaimedAgain() {
         adapter.enqueue(new TrackId(insertTrack()));
         ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
-        adapter.complete(job.id());
+        adapter.complete(job);
         // Even if the old lease would have run out by now.
         jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
 
@@ -189,7 +189,7 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         adapter.enqueue(new TrackId(insertTrack()));
         ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
 
-        FailureOutcome outcome = adapter.fail(job.id(), "ffmpeg exited with code 1", Duration.ofMinutes(2));
+        FailureOutcome outcome = adapter.fail(job, "ffmpeg exited with code 1", Duration.ofMinutes(2));
 
         assertThat(outcome).isEqualTo(FailureOutcome.WILL_RETRY);
         Map<String, Object> row = jdbcTemplate.queryForMap(
@@ -212,7 +212,7 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         // This was the last attempt the job was allowed.
         jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts");
 
-        FailureOutcome outcome = adapter.fail(job.id(), "corrupt audio", Duration.ofMinutes(2));
+        FailureOutcome outcome = adapter.fail(job, "corrupt audio", Duration.ofMinutes(2));
 
         assertThat(outcome).isEqualTo(FailureOutcome.GAVE_UP);
         Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, last_error FROM processing_jobs");

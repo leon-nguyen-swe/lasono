@@ -63,13 +63,13 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
     }
 
     @Override
-    public void complete(UUID jobId) {
-        find(jobId).status = Status.DONE;
+    public void complete(ProcessingJob claimed) {
+        find(claimed.id()).status = Status.DONE;
     }
 
     @Override
-    public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
-        Job job = find(jobId);
+    public FailureOutcome fail(ProcessingJob claimed, String error, Duration retryDelay) {
+        Job job = find(claimed.id());
         job.lastError = error;
         job.lastRetryDelay = retryDelay;
         if (job.attempts >= MAX_ATTEMPTS) {

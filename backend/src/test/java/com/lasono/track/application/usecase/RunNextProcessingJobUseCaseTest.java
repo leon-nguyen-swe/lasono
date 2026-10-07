@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.lasono.track.application.port.out.AudioProcessingException;
+import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
 import com.lasono.track.domain.Track;
@@ -115,7 +116,7 @@ class RunNextProcessingJobUseCaseTest {
     void execute_shouldLeaveAReadyTrackReadyWhenTheJobCannotBeReportedDone() {
         InMemoryProcessingJobQueue brokenQueue = new InMemoryProcessingJobQueue() {
             @Override
-            public void complete(UUID jobId) {
+            public void complete(ProcessingJob job) {
                 throw new IllegalStateException("db down");
             }
         };

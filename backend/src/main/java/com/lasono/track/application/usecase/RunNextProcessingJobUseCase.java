@@ -59,9 +59,9 @@ public class RunNextProcessingJobUseCase {
         ProcessingJob job = claimed.get();
         try {
             processTrack.execute(job.trackId().getValue());
-            queue.complete(job.id());
+            queue.complete(job);
         } catch (RuntimeException e) {
-            FailureOutcome outcome = queue.fail(job.id(), e.toString(), retryDelay(job.attempts()));
+            FailureOutcome outcome = queue.fail(job, e.toString(), retryDelay(job.attempts()));
             if (outcome == FailureOutcome.GAVE_UP) {
                 markTrackFailed(job.trackId());
             }
