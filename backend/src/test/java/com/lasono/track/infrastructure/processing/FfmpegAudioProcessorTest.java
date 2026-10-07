@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -76,6 +77,14 @@ class FfmpegAudioProcessorTest {
             .hasMessageContaining("ffprobe");
     }
 
+    @Test
+    void rejectsAudioThatHasNoSound() throws Exception {
+        // A valid WAV file whose length is zero: ffprobe reads it, but there is nothing to draw.
+        Path empty = generate("empty.wav", "anullsrc=channel_layout=stereo:sample_rate=44100", "0");
+
+        assertThatThrownBy(() -> process(empty)).isInstanceOf(AudioProcessingException.class);
+    }
+
     private String probe(Path file, String entry) throws Exception {
         Path output = tempDir.resolve("probe-" + entry + ".txt");
         Process ffprobe = new ProcessBuilder(
@@ -106,11 +115,19 @@ class FfmpegAudioProcessorTest {
     }
 
     private Path generate(String fileName, String lavfiSource) throws Exception {
+        return generate(fileName, lavfiSource, null);
+    }
+
+    /** {@code maxSeconds} cuts the audio to that length; {@code null} keeps it as the source makes it. */
+    private Path generate(String fileName, String lavfiSource, String maxSeconds) throws Exception {
         Path file = tempDir.resolve(fileName);
-        Process ffmpeg = new ProcessBuilder(
-                "ffmpeg", "-v", "error", "-y",
-                "-f", "lavfi", "-i", lavfiSource,
-                "-ar", "44100", "-ac", "2", file.toString())
+        List<String> command = new ArrayList<>(List.of(
+            "ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", lavfiSource, "-ar", "44100", "-ac", "2"));
+        if (maxSeconds != null) {
+            command.addAll(List.of("-t", maxSeconds));
+        }
+        command.add(file.toString());
+        Process ffmpeg = new ProcessBuilder(command)
             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .redirectError(ProcessBuilder.Redirect.DISCARD)
             .start();
