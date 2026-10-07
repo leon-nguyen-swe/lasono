@@ -3,6 +3,7 @@ package com.lasono.track.application.usecase;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
@@ -30,6 +31,7 @@ public class UploadTrackUseCase {
         this.processingJobQueue = processingJobQueue;
     }
 
+    @Transactional
     public UploadTrackResult execute(UploadTrackCommand command) {
         AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
 
