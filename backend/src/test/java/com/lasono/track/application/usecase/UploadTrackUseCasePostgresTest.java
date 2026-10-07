@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,6 +51,18 @@ class UploadTrackUseCasePostgresTest extends PostgresIntegrationTest {
 
         assertThat(count("tracks")).isZero();
         assertThat(count("audio_resources")).isZero();
+    }
+
+    @Test
+    void aSuccessfulUploadStoresTheTrackAndAPendingJobTogether() {
+        UploadTrackResult result = useCase.execute(anUpload());
+
+        assertThat(count("tracks")).isEqualTo(1);
+        assertThat(count("audio_resources")).isEqualTo(1);
+        List<Map<String, Object>> jobs = jdbcTemplate.queryForList("SELECT track_id, status FROM processing_jobs");
+        assertThat(jobs).hasSize(1);
+        assertThat(jobs.get(0)).containsEntry("track_id", UUID.fromString(result.trackId()));
+        assertThat(jobs.get(0)).containsEntry("status", "PENDING");
     }
 
     private static UploadTrackCommand anUpload() {
