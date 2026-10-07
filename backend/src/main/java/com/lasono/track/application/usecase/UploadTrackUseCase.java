@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 import com.lasono.track.application.port.out.AudioStorage;
+import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
@@ -17,13 +18,16 @@ public class UploadTrackUseCase {
 
     private final AudioStorage audioStorage;
     private final TrackRepository trackRepository;
+    private final ProcessingJobQueue processingJobQueue;
 
     public UploadTrackUseCase(
         AudioStorage audioStorage,
-        TrackRepository trackRepository
+        TrackRepository trackRepository,
+        ProcessingJobQueue processingJobQueue
     ) {
         this.audioStorage = audioStorage;
         this.trackRepository = trackRepository;
+        this.processingJobQueue = processingJobQueue;
     }
 
     public UploadTrackResult execute(UploadTrackCommand command) {

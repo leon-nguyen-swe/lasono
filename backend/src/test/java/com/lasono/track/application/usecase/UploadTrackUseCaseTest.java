@@ -31,11 +31,13 @@ public class UploadTrackUseCaseTest {
 
     private UploadTrackUseCase useCase;
     private InMemoryTrackRepository trackRepository;
+    private InMemoryProcessingJobQueue jobQueue;
 
     @BeforeEach
     void setUp() {
         trackRepository = new InMemoryTrackRepository();
-        useCase = new UploadTrackUseCase(new FakeAudioStorage(), trackRepository);
+        jobQueue = new InMemoryProcessingJobQueue();
+        useCase = new UploadTrackUseCase(new FakeAudioStorage(), trackRepository, jobQueue);
     }
 
     @Test
@@ -184,7 +186,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldPropagateAudioStorageException() {
-        UploadTrackUseCase failingUseCase = new UploadTrackUseCase(new FailingAudioStorage(), trackRepository);
+        UploadTrackUseCase failingUseCase = new UploadTrackUseCase(new FailingAudioStorage(), trackRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
@@ -201,7 +203,7 @@ public class UploadTrackUseCaseTest {
     @Test
     void execute_shouldNotStoreFileWhenTitleIsBlank() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
-        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository);
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "   ", "desc",
                 new ByteArrayInputStream("data".getBytes()),
@@ -216,7 +218,7 @@ public class UploadTrackUseCaseTest {
     @Test
     void execute_shouldDeleteStoredFileWhenFileSizeIsZero() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
-        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository);
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
@@ -243,7 +245,7 @@ public class UploadTrackUseCaseTest {
                 return Optional.empty();
             }
         };
-        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, failingRepository);
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, failingRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
@@ -261,7 +263,7 @@ public class UploadTrackUseCaseTest {
     void execute_shouldKeepOriginalExceptionWhenCleanupDeleteFails() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         storage.failOnDelete = true;
-        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository);
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
@@ -278,7 +280,7 @@ public class UploadTrackUseCaseTest {
     @Test
     void execute_shouldKeepStoredFileOnSuccess() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
-        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository);
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
                 new ByteArrayInputStream("data".getBytes()),
