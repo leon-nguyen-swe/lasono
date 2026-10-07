@@ -45,9 +45,22 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform {
-		// These need a real PostgreSQL, see the postgresTest task below.
-		excludeTags 'postgres'
+		// These need a real PostgreSQL or the ffmpeg program, see the postgresTest and ffmpegTest tasks below.
+		excludeTags 'postgres', 'ffmpeg'
 	}
+}
+
+// Tests tagged "ffmpeg" run the real ffmpeg and ffprobe programs, which must be installed.
+// Kept out of `test` and `build` so those still work on a machine without them.
+tasks.register('ffmpegTest', Test) {
+	description = 'Runs the tests tagged "ffmpeg" with the real ffmpeg and ffprobe programs.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'ffmpeg'
+	}
+	shouldRunAfter tasks.named('test')
 }
 
 // Tests tagged "postgres" run against the lasono_test database of a real PostgreSQL (see README).
