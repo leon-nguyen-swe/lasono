@@ -42,11 +42,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldCreateTrackWithUploadedAudio() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -57,11 +53,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldReturnValidTrackId() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -72,11 +64,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldPersistTrackToRepository() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -86,11 +74,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldEnqueueAProcessingJobForTheNewTrack() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -100,11 +84,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldStoreCorrectStorageKeyInTrack() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -120,11 +100,7 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldSupportWavFormat() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/wav"
-        );
+        UploadTrackCommand command = anUpload("My Song", 12345L, "audio/wav");
 
         UploadTrackResult result = useCase.execute(command);
 
@@ -134,66 +110,42 @@ public class UploadTrackUseCaseTest {
 
     @Test
     void execute_shouldThrowWhenTitleIsNull() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                null, "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload(null, 12345L, "audio/mpeg");
 
         assertThrows(TrackTitleInvalidException.class, () -> useCase.execute(command));
     }
 
     @Test
     void execute_shouldThrowWhenTitleIsBlank() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "   ", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("   ", 12345L, "audio/mpeg");
 
         assertThrows(TrackTitleInvalidException.class, () -> useCase.execute(command));
     }
 
     @Test
     void execute_shouldThrowWhenMimeTypeIsUnsupported() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/ogg"
-        );
+        UploadTrackCommand command = anUpload("My Song", 12345L, "audio/ogg");
 
         assertThrows(AudioFormatInvalidException.class, () -> useCase.execute(command));
     }
 
     @Test
     void execute_shouldThrowWhenMimeTypeIsNull() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, null
-        );
+        UploadTrackCommand command = anUpload("My Song", 12345L, null);
 
         assertThrows(AudioFormatInvalidException.class, () -> useCase.execute(command));
     }
 
     @Test
     void execute_shouldThrowWhenFileSizeIsZero() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                0L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("My Song", 0L, "audio/mpeg");
 
         assertThrows(OriginalAudioInvalidException.class, () -> useCase.execute(command));
     }
 
     @Test
     void execute_shouldThrowWhenFileSizeIsNegative() {
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                -1L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("My Song", -1L, "audio/mpeg");
 
         assertThrows(OriginalAudioInvalidException.class, () -> useCase.execute(command));
     }
@@ -201,11 +153,7 @@ public class UploadTrackUseCaseTest {
     @Test
     void execute_shouldPropagateAudioStorageException() {
         UploadTrackUseCase failingUseCase = new UploadTrackUseCase(new FailingAudioStorage(), trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         assertThrows(AudioStorageException.class, () -> failingUseCase.execute(command));
     }
@@ -218,11 +166,7 @@ public class UploadTrackUseCaseTest {
     void execute_shouldNotStoreFileWhenTitleIsBlank() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "   ", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("   ", 12345L, "audio/mpeg");
 
         assertThrows(TrackTitleInvalidException.class, () -> recordingUseCase.execute(command));
 
@@ -233,11 +177,7 @@ public class UploadTrackUseCaseTest {
     void execute_shouldDeleteStoredFileWhenFileSizeIsZero() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                0L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("My Song", 0L, "audio/mpeg");
 
         assertThrows(OriginalAudioInvalidException.class, () -> recordingUseCase.execute(command));
 
@@ -260,11 +200,7 @@ public class UploadTrackUseCaseTest {
             }
         };
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, failingRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         RuntimeException thrown = assertThrows(RuntimeException.class, () -> recordingUseCase.execute(command));
 
@@ -279,11 +215,7 @@ public class UploadTrackUseCaseTest {
         RuntimeException enqueueFailure = new IllegalStateException("queue down");
         jobQueue.enqueueFailure = enqueueFailure;
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         RuntimeException thrown = assertThrows(RuntimeException.class, () -> recordingUseCase.execute(command));
 
@@ -297,11 +229,7 @@ public class UploadTrackUseCaseTest {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         storage.failOnDelete = true;
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                0L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload("My Song", 0L, "audio/mpeg");
 
         OriginalAudioInvalidException thrown = assertThrows(
             OriginalAudioInvalidException.class, () -> recordingUseCase.execute(command)
@@ -314,16 +242,24 @@ public class UploadTrackUseCaseTest {
     void execute_shouldKeepStoredFileOnSuccess() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
-        UploadTrackCommand command = new UploadTrackCommand(
-                "My Song", "desc",
-                new ByteArrayInputStream("data".getBytes()),
-                12345L, "audio/mpeg"
-        );
+        UploadTrackCommand command = anUpload();
 
         recordingUseCase.execute(command);
 
         assertEquals(1, storage.stored.size());
         assertTrue(storage.deleted.isEmpty());
+    }
+
+    private static UploadTrackCommand anUpload() {
+        return anUpload("My Song", 12345L, "audio/mpeg");
+    }
+
+    private static UploadTrackCommand anUpload(String title, long fileSize, String mimeType) {
+        return new UploadTrackCommand(
+                title, "desc",
+                new ByteArrayInputStream("data".getBytes()),
+                fileSize, mimeType
+        );
     }
 
     private static final class RecordingAudioStorage implements AudioStorage {
