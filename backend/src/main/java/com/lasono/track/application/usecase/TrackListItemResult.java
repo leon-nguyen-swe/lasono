@@ -4,5 +4,6 @@ public record TrackListItemResult(
     String id,
     String title,
     String description,
-    String status
+    String status,
+    Double durationSeconds
 ) {}

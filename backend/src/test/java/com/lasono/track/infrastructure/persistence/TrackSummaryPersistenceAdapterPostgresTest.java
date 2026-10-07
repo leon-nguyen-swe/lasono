@@ -1,6 +1,7 @@
 package com.lasono.track.infrastructure.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -41,7 +42,7 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
 
         TrackSummary summary = adapter.findNewestAfter(null, 10).get(0);
 
-        assertThat(summary).isEqualTo(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START));
+        assertThat(summary).isEqualTo(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START, null));
     }
 
     @Test
@@ -135,6 +136,50 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
         } while (page.size() == 3);
 
         assertThat(visited).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    void readsTheDurationOfAProcessedTrack() {
+        UUID id = UUID.randomUUID();
+        insert(id, "My song", START);
+        insertAudio(id, 3500L);
+
+        assertThat(adapter.findNewestAfter(null, 10).get(0).durationMs()).isEqualTo(3500L);
+    }
+
+    @Test
+    void hasNoDurationWhenTheAudioIsNotProcessedYetOrThereIsNoAudioRow() {
+        UUID uploaded = UUID.randomUUID();
+        UUID withoutAudio = UUID.randomUUID();
+        insert(uploaded, "uploaded", START);
+        insertAudio(uploaded, null);
+        insert(withoutAudio, "no audio row", START.plusSeconds(1));
+
+        assertThat(adapter.findNewestAfter(null, 10))
+            .extracting(TrackSummary::durationMs)
+            .containsExactly(null, null);
+    }
+
+    @Test
+    void givesEachTrackItsOwnDuration() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        UUID third = UUID.randomUUID();
+        insert(first, "first", START);
+        insert(second, "second", START.plusSeconds(1));
+        insert(third, "third", START.plusSeconds(2));
+        insertAudio(first, 1000L);
+        insertAudio(third, 3000L);
+
+        assertThat(adapter.findNewestAfter(null, 10))
+            .extracting(TrackSummary::title, TrackSummary::durationMs)
+            .containsExactly(tuple("third", 3000L), tuple("second", null), tuple("first", 1000L));
+    }
+
+    private void insertAudio(UUID trackId, Long durationMs) {
+        jdbcTemplate.update(
+            "INSERT INTO audio_resources (id, track_id, status, duration_ms) VALUES (?, ?, 'READY', ?)",
+            UUID.randomUUID(), trackId, durationMs);
     }
 
     private void insert(UUID id, String title, Instant createdAt) {

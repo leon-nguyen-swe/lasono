@@ -78,13 +78,27 @@ class TrackControllerTest {
     void givenExistingTrack_getTrack_returns200WithTrackInfo() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PROCESSING", "audio/mpeg", null)
+            new GetTrackResult(id.toString(), "My song", "desc", "PROCESSING", "audio/mpeg", null, null)
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.id").value(id.toString()))
             .andExpect(jsonPath("$.status").value("PROCESSING"));
+    }
+
+    @Test
+    void givenReadyTrack_getTrack_returnsDurationAndWaveform() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getTrackUseCase.execute(id)).thenReturn(
+            new GetTrackResult(id.toString(), "My song", "desc", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
+        );
+
+        mockMvc.perform(get("/api/v1/tracks/{id}", id))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.durationSeconds").value(3.5))
+            .andExpect(jsonPath("$.waveform.length()").value(2))
+            .andExpect(jsonPath("$.waveform[1]").value(0.5));
     }
 
     @Test
@@ -110,7 +124,7 @@ class TrackControllerTest {
     void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
         UUID id = UUID.randomUUID();
         when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(
-            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING")),
+            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING", null)),
             "next-cursor"
         ));
 

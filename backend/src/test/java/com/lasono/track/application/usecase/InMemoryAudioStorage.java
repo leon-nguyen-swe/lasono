@@ -39,7 +39,11 @@ class InMemoryAudioStorage implements AudioStorage {
 
     @Override
     public InputStream retrieveRange(StorageKey key, long offset, long length) {
-        throw new UnsupportedOperationException("not needed yet");
+        byte[] content = files.get(key.value());
+        if (content == null) {
+            throw new AudioStorageException("No such file: " + key.value(), new IllegalStateException());
+        }
+        return new ByteArrayInputStream(content, (int) offset, (int) length);
     }
 
     @Override

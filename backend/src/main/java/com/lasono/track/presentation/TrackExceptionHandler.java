@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.lasono.track.application.usecase.InvalidPageRequestException;
 import com.lasono.track.application.usecase.InvalidRangeException;
 import com.lasono.track.application.usecase.TrackNotFoundException;
+import com.lasono.track.application.usecase.TrackNotReadyException;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
@@ -36,6 +37,11 @@ public class TrackExceptionHandler {
     @ExceptionHandler(TrackNotFoundException.class)
     public ProblemDetail handleTrackNotFound(TrackNotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(TrackNotReadyException.class)
+    public ProblemDetail handleTrackNotReady(TrackNotReadyException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(InvalidRangeException.class)

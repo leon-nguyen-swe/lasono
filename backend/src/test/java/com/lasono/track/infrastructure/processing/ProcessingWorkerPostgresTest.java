@@ -22,6 +22,10 @@ import org.springframework.test.context.TestPropertySource;
 import com.lasono.PostgresIntegrationTest;
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.application.usecase.GetTrackResult;
+import com.lasono.track.application.usecase.GetTrackUseCase;
+import com.lasono.track.application.usecase.ListTracksUseCase;
+import com.lasono.track.application.usecase.TrackListItemResult;
 import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
@@ -51,6 +55,12 @@ class ProcessingWorkerPostgresTest extends PostgresIntegrationTest {
     @Autowired
     private AudioStorage audioStorage;
 
+    @Autowired
+    private GetTrackUseCase getTrack;
+
+    @Autowired
+    private ListTracksUseCase listTracks;
+
     @TempDir
     private Path tempDir;
 
@@ -71,6 +81,14 @@ class ProcessingWorkerPostgresTest extends PostgresIntegrationTest {
         try (InputStream mp3 = audioStorage.retrieve(new StorageKey(track.streamingAudio().getStorageKey()))) {
             assertThat(mp3.readAllBytes()).isNotEmpty();
         }
+
+        // What the API shows for the finished track.
+        GetTrackResult shown = getTrack.execute(id.getValue());
+        assertThat(shown.status()).isEqualTo("READY");
+        assertThat(shown.waveform()).hasSize(200);
+        assertThat(shown.durationSeconds()).isCloseTo(3.0, within(0.15));
+        TrackListItemResult listed = listTracks.execute(null, null).items().get(0);
+        assertThat(listed.durationSeconds()).isCloseTo(3.0, within(0.15));
     }
 
     private String jobStatus() {

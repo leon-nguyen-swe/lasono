@@ -5,6 +5,10 @@ import java.util.UUID;
 
 import com.lasono.track.domain.model.TrackStatus;
 
-/** The few fields of a track the list needs, without loading the whole track and its audio. */
-public record TrackSummary(UUID id, String title, String description, TrackStatus status, Instant createdAt) {
+/**
+ * The few fields of a track the list needs, without loading the whole track and its audio.
+ * {@code durationMs} is null until the audio has been processed.
+ */
+public record TrackSummary(
+    UUID id, String title, String description, TrackStatus status, Instant createdAt, Long durationMs) {
 }

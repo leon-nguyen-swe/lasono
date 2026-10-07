@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import com.lasono.track.application.usecase.GetTrackUseCase;
 import com.lasono.track.application.usecase.InvalidPageRequestException;
 import com.lasono.track.application.usecase.ListTracksUseCase;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
+import com.lasono.track.application.usecase.TrackNotReadyException;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
@@ -86,6 +89,17 @@ class TrackExceptionHandlerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Invalid cursor"));
+    }
+
+    @Test
+    void givenTrackThatIsNotReady_streamTrack_returns409() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(streamTrackUseCase.execute(id, null)).thenThrow(new TrackNotReadyException(id, "PROCESSING"));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.detail").value("Track " + id + " is not ready to be played, its status is PROCESSING"));
     }
 
     @Test
