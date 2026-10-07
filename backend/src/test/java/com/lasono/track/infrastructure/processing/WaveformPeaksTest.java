@@ -1,6 +1,7 @@
 package com.lasono.track.infrastructure.processing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -26,5 +27,20 @@ class WaveformPeaksTest {
         List<Float> peaks = WaveformPeaks.fromPcm(samples, 2);
 
         assertThat(peaks).containsExactly(0.5f, 1.0f);
+    }
+
+    @Test
+    void givesOnePeakPerSampleWhenThereAreFewerSamplesThanParts() {
+        short[] samples = {8192, -16384, 0};
+
+        List<Float> peaks = WaveformPeaks.fromPcm(samples, 200);
+
+        assertThat(peaks).containsExactly(0.25f, 0.5f, 0.0f);
+    }
+
+    @Test
+    void rejectsAudioWithoutSamples() {
+        assertThatThrownBy(() -> WaveformPeaks.fromPcm(new short[0], 200))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 }
