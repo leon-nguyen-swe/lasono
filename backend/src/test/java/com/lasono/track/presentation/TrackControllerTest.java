@@ -88,6 +88,20 @@ class TrackControllerTest {
     }
 
     @Test
+    void givenReadyTrack_getTrack_returnsDurationAndWaveform() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getTrackUseCase.execute(id)).thenReturn(
+            new GetTrackResult(id.toString(), "My song", "desc", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
+        );
+
+        mockMvc.perform(get("/api/v1/tracks/{id}", id))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.durationSeconds").value(3.5))
+            .andExpect(jsonPath("$.waveform.length()").value(2))
+            .andExpect(jsonPath("$.waveform[1]").value(0.5));
+    }
+
+    @Test
     void givenUnknownTrackId_getTrack_returns404() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
