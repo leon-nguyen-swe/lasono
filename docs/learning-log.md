@@ -21,3 +21,25 @@ Thêm `FOR UPDATE SKIP LOCKED` vào phần `SELECT` của câu lấy job.
 **Takeaway**
 
 **Open question**
+
+## 2026-10-07: Khóa ngoại lỗi khi `JdbcTemplate` ghi trong transaction chung với Hibernate
+
+**Context**
+Upload tạo track (qua JPA/Hibernate) rồi xếp một job (qua `JdbcTemplate`, SQL thẳng). Ta bọc cả hai trong một `@Transactional` để chúng cùng thành công hoặc cùng bị hoàn tác.
+
+**Symptom**
+Unit test (dùng fake) và test rollback đều xanh. Test chạy upload thành công trên PostgreSQL thật lỗi: `violates foreign key constraint "fk_processing_jobs_track"`, `Key (track_id)=(...) is not present in table "tracks"`.
+
+**How it works (step by step)**
+1. `@Transactional` mở một transaction, và Hibernate với `JdbcTemplate` dùng chung một kết nối DB.
+2. `save(track)` của Hibernate chỉ đưa entity vào bộ nhớ của nó (persistence context). Câu `INSERT INTO tracks` được **hoãn** tới lúc flush (thường là lúc commit).
+3. `JdbcTemplate` gửi `INSERT INTO processing_jobs` thẳng tới DB. Hibernate không biết có lệnh này nên không flush trước.
+4. DB kiểm tra khóa ngoại ngay khi chạy câu lệnh: dòng `tracks` chưa tồn tại nên bị từ chối.
+5. Trước khi có `@Transactional`, mỗi `save` tự commit riêng nên dòng `tracks` đã có sẵn. Vì vậy lỗi chỉ lộ ra sau khi thêm transaction.
+
+**Fix**
+Dùng `saveAndFlush` trong adapter của track, để dòng được ghi xuống DB trước khi `save()` trả về.
+
+**Takeaway**
+
+**Open question**

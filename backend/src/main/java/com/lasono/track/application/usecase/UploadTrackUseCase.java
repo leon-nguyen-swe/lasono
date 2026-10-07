@@ -3,8 +3,10 @@ package com.lasono.track.application.usecase;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.lasono.track.application.port.out.AudioStorage;
+import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
@@ -17,15 +19,19 @@ public class UploadTrackUseCase {
 
     private final AudioStorage audioStorage;
     private final TrackRepository trackRepository;
+    private final ProcessingJobQueue processingJobQueue;
 
     public UploadTrackUseCase(
         AudioStorage audioStorage,
-        TrackRepository trackRepository
+        TrackRepository trackRepository,
+        ProcessingJobQueue processingJobQueue
     ) {
         this.audioStorage = audioStorage;
         this.trackRepository = trackRepository;
+        this.processingJobQueue = processingJobQueue;
     }
 
+    @Transactional
     public UploadTrackResult execute(UploadTrackCommand command) {
         AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
 
@@ -48,6 +54,7 @@ public class UploadTrackUseCase {
 
             track.uploadCompleted(originalAudio);
             trackRepository.save(track);
+            processingJobQueue.enqueue(track.getId());
         } catch (RuntimeException e) {
             deleteQuietly(key, e);
             throw e;
