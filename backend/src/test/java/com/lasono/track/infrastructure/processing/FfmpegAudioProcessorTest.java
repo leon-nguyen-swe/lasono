@@ -1,9 +1,12 @@
 package com.lasono.track.infrastructure.processing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.lasono.track.application.port.out.AudioProcessingException;
 import com.lasono.track.application.port.out.ProcessedAudio;
 
 /**
@@ -61,6 +65,15 @@ class FfmpegAudioProcessorTest {
         assertThat(probe(mp3, "format_name")).isEqualTo("mp3");
         assertThat(Double.parseDouble(probe(mp3, "duration"))).isCloseTo(3.0, within(0.1));
         assertThat(Long.parseLong(probe(mp3, "bit_rate"))).isCloseTo(128_000L, within(8_000L));
+    }
+
+    @Test
+    void rejectsAFileThatIsNotAudio() {
+        byte[] notAudio = "this is just text, not an audio file".getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> processor.process(new ByteArrayInputStream(notAudio)))
+            .isInstanceOf(AudioProcessingException.class)
+            .hasMessageContaining("ffprobe");
     }
 
     private String probe(Path file, String entry) throws Exception {
