@@ -78,7 +78,7 @@ class TrackControllerTest {
     void givenExistingTrack_getTrack_returns200WithTrackInfo() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PROCESSING", "audio/mpeg", null)
+            new GetTrackResult(id.toString(), "My song", "desc", "PROCESSING", "audio/mpeg", null, null)
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))

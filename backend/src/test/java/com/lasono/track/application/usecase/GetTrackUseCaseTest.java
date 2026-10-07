@@ -85,4 +85,36 @@ class GetTrackUseCaseTest {
         assertEquals("audio/mpeg", result.mimeType());
         assertEquals(3.5, result.durationSeconds());
     }
+
+    @Test
+    void returnsTheWaveformWhenTrackIsReady() {
+        UUID id = UUID.randomUUID();
+        Track track = new Track(new TrackId(id), "My song", "Some description");
+        track.uploadCompleted(new OriginalAudio(
+            "original.wav", AudioFormat.fromMimeType("audio/mpeg"), 2048, "audio/wav"
+        ));
+        track.startProcessing();
+        track.processingCompleted(
+            new StreamingAudio("stream.mp3", AudioFormat.fromMimeType("audio/mpeg"), 1024, "audio/mpeg"),
+            new AudioDuration(3500),
+            new Waveform(List.of(0.1f, 0.5f))
+        );
+        when(trackRepository.findById(new TrackId(id))).thenReturn(Optional.of(track));
+
+        GetTrackResult result = useCase.execute(id);
+
+        assertEquals(List.of(0.1f, 0.5f), result.waveform());
+    }
+
+    @Test
+    void hasNoWaveformWhileTheTrackIsStillProcessing() {
+        UUID id = UUID.randomUUID();
+        Track track = new Track(new TrackId(id), "My song", "Some description");
+        track.uploadCompleted(new OriginalAudio(
+            "abc.mp3", AudioFormat.fromMimeType("audio/mpeg"), 1024, "audio/mpeg"
+        ));
+        when(trackRepository.findById(new TrackId(id))).thenReturn(Optional.of(track));
+
+        assertNull(useCase.execute(id).waveform());
+    }
 }

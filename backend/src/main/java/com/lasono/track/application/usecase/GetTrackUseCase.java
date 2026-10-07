@@ -39,7 +39,8 @@ public class GetTrackUseCase {
             snapshot.description(),
             snapshot.trackStatus().toString(),
             mimeType,
-            durationSeconds
-        );        
+            durationSeconds,
+            snapshot.waveform() != null ? snapshot.waveform().getSamples() : null
+        );
     }
 }
