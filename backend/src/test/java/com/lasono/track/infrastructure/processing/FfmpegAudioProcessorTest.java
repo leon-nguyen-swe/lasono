@@ -52,6 +52,29 @@ class FfmpegAudioProcessorTest {
         assertThat(peaks.stream().skip(110).toList()).isNotEmpty().allMatch(peak -> peak < 0.01f);
     }
 
+    @Test
+    void convertsTheAudioToA128KbpsMp3() throws Exception {
+        ProcessedAudio result = process(sineWave(3));
+
+        // Ask ffprobe, not the processor, what the converted bytes really are.
+        Path mp3 = Files.write(tempDir.resolve("streaming.mp3"), result.streamingAudio());
+        assertThat(probe(mp3, "format_name")).isEqualTo("mp3");
+        assertThat(Double.parseDouble(probe(mp3, "duration"))).isCloseTo(3.0, within(0.1));
+        assertThat(Long.parseLong(probe(mp3, "bit_rate"))).isCloseTo(128_000L, within(8_000L));
+    }
+
+    private String probe(Path file, String entry) throws Exception {
+        Path output = tempDir.resolve("probe-" + entry + ".txt");
+        Process ffprobe = new ProcessBuilder(
+                "ffprobe", "-v", "error", "-show_entries", "format=" + entry,
+                "-of", "default=noprint_wrappers=1:nokey=1", file.toString())
+            .redirectOutput(output.toFile())
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start();
+        assertThat(ffprobe.waitFor(30, TimeUnit.SECONDS)).as("ffprobe finished").isTrue();
+        return Files.readString(output).trim();
+    }
+
     private ProcessedAudio process(Path audioFile) throws Exception {
         try (InputStream audio = Files.newInputStream(audioFile)) {
             return processor.process(audio);
