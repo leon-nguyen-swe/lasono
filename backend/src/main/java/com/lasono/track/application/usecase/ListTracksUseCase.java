@@ -54,7 +54,8 @@ public class ListTracksUseCase {
             summary.id().toString(),
             summary.title(),
             summary.description(),
-            summary.status().name()
+            summary.status().name(),
+            summary.durationMs() != null ? summary.durationMs() / 1000.0 : null
         );
     }
 }

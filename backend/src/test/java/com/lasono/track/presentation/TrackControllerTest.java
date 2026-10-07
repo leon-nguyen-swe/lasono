@@ -124,7 +124,7 @@ class TrackControllerTest {
     void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
         UUID id = UUID.randomUUID();
         when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(
-            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING")),
+            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING", null)),
             "next-cursor"
         ));
 

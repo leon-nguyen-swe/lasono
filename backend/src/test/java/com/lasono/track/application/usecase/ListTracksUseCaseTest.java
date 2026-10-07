@@ -54,7 +54,7 @@ class ListTracksUseCaseTest {
     @Test
     void mapsTheTrackFieldsToTheResult() {
         UUID id = UUID.randomUUID();
-        reader.add(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START));
+        reader.add(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START, null));
 
         TrackListItemResult item = useCase.execute(null, null).items().get(0);
 
@@ -62,6 +62,16 @@ class ListTracksUseCaseTest {
         assertEquals("My song", item.title());
         assertEquals("Some description", item.description());
         assertEquals("PROCESSING", item.status());
+        assertNull(item.durationSeconds(), "a track that is still processing has no duration");
+    }
+
+    @Test
+    void showsTheDurationInSecondsOfAProcessedTrack() {
+        reader.add(new TrackSummary(UUID.randomUUID(), "My song", "", TrackStatus.READY, START, 3500L));
+
+        TrackListItemResult item = useCase.execute(null, null).items().get(0);
+
+        assertEquals(3.5, item.durationSeconds());
     }
 
     @Test
@@ -174,7 +184,7 @@ class ListTracksUseCaseTest {
     }
 
     private void addTrack(String title, long secondsAfterStart) {
-        reader.add(new TrackSummary(UUID.randomUUID(), title, "", TrackStatus.PROCESSING, START.plusSeconds(secondsAfterStart)));
+        reader.add(new TrackSummary(UUID.randomUUID(), title, "", TrackStatus.PROCESSING, START.plusSeconds(secondsAfterStart), null));
     }
 
     private static List<String> titles(ListTracksResult result) {

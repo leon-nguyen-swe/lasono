@@ -41,7 +41,7 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
 
         TrackSummary summary = adapter.findNewestAfter(null, 10).get(0);
 
-        assertThat(summary).isEqualTo(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START));
+        assertThat(summary).isEqualTo(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START, null));
     }
 
     @Test

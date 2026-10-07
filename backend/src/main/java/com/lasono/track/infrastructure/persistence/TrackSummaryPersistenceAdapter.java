@@ -32,7 +32,8 @@ public class TrackSummaryPersistenceAdapter implements TrackSummaryReader {
             track.getTitle(),
             track.getDescription(),
             track.getStatus(),
-            track.getCreatedAt()
+            track.getCreatedAt(),
+            null
         );
     }
 }
