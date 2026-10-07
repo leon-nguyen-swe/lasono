@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:lasono_app/api/track_api.dart';
 import 'package:lasono_app/player_service.dart';
 import 'package:lasono_app/screens/track_list_screen.dart';
+import 'package:lasono_app/screens/waveform_view.dart';
 
 import '../fake_player_service.dart';
 
@@ -16,7 +17,7 @@ Map<String, dynamic> _item(int i) => {
       'id': 'id-$i',
       'title': 'Track $i',
       'description': '',
-      'status': 'PROCESSING',
+      'status': 'READY',
     };
 
 http.Response _page(Iterable<int> ids, {String? next}) => http.Response(
@@ -35,9 +36,29 @@ class _Server {
   final Map<String?, _Route> routes;
   final cursors = <String?>[];
 
+  /// The ids asked for with GET /api/v1/tracks/{id}, which also carries the waveform.
+  final details = <String>[];
+
   late final TrackApi api = TrackApi(
     baseUrl: 'http://api.test',
     client: MockClient((request) async {
+      if (request.url.pathSegments.length > 3) {
+        final id = request.url.pathSegments.last;
+        details.add(id);
+        return http.Response(
+          jsonEncode({
+            'id': id,
+            'title': 'Track',
+            'description': '',
+            'status': 'READY',
+            'mimeType': 'audio/mpeg',
+            'durationSeconds': 3.0,
+            'waveform': [0.2, 0.8, 0.5],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       final cursor = request.url.queryParameters['cursor'];
       cursors.add(cursor);
       return routes[cursor]!();
@@ -120,6 +141,32 @@ void main() {
       expect(find.text('Track 0'), findsOneWidget);
       expect(find.text('Cannot reach the server'), findsNothing);
       expect(server.cursors, [null, null]);
+    });
+
+    testWidgets('shows the duration of a ready track and dashes while it is processing',
+        (WidgetTester tester) async {
+      final server = _Server({
+        null: () => http.Response(
+              jsonEncode({
+                'items': [
+                  {..._item(0), 'status': 'READY', 'durationSeconds': 185.0},
+                  {..._item(1), 'status': 'PROCESSING', 'durationSeconds': null},
+                ],
+                'nextCursor': null,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+      });
+
+      await _pump(tester, server);
+      await tester.pumpAndSettle();
+
+      expect(find.text('3:05'), findsOneWidget);
+      expect(find.text('--:--'), findsOneWidget);
+      expect(find.text('READY'), findsOneWidget);
+      expect(find.byIcon(Icons.hourglass_top), findsOneWidget,
+          reason: 'only the processing track has an hourglass');
     });
   });
 
@@ -254,6 +301,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppBar, 'Track 1'), findsOneWidget);
+      // The list does not carry the waveform, so the player fetches the track once to draw it.
+      expect(server.details, ['id-1']);
+      expect(find.byType(WaveformView), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('playButton')));
       await tester.pumpAndSettle();

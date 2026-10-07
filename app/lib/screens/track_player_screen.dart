@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/track_api.dart';
 import '../models/track.dart';
 import '../player_service.dart';
-import 'player_controls.dart';
+import 'track_playback.dart';
 
 /// Plays one track chosen from the list. Closing the screen stops the playback,
 /// because [PlayerControls] stops the player when it is removed.
@@ -27,17 +27,7 @@ class TrackPlayerScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           if (track.description.isNotEmpty) Text(track.description),
-          Row(
-            children: [
-              const Text('Status: '),
-              Text(track.status),
-            ],
-          ),
-          PlayerControls(
-            key: ValueKey(track.id),
-            player: player,
-            streamUrl: api.streamUrl(track.id),
-          ),
+          TrackPlayback(track: track, api: api, player: player),
         ],
       ),
     );

@@ -4,7 +4,7 @@ import '../api/track_api.dart';
 import '../audio_picker.dart';
 import '../models/track.dart';
 import '../player_service.dart';
-import 'player_controls.dart';
+import 'track_playback.dart';
 
 class TrackScreen extends StatefulWidget {
   const TrackScreen({super.key, this.api, this.pickAudio, this.player});
@@ -157,17 +157,7 @@ class _TrackScreenState extends State<TrackScreen> {
           Text(track.title, style: Theme.of(context).textTheme.titleLarge),
           Text(track.description),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('Status: '),
-              Text(track.status),
-            ],
-          ),
-          PlayerControls(
-            key: ValueKey(track.id),
-            player: _player,
-            streamUrl: _api.streamUrl(track.id),
-          ),
+          TrackPlayback(track: track, api: _api, player: _player),
         ],
       ],
     );
