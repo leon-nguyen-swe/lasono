@@ -2,20 +2,25 @@ package com.lasono.track.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.lasono.track.application.port.out.AudioProcessingException;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
+import com.lasono.track.domain.TrackRepository;
 import com.lasono.track.domain.TrackSnapshot;
 import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.audio.model.OriginalAudio;
@@ -97,6 +102,49 @@ class ProcessTrackUseCaseTest {
 
         assertTrue(processor.received.isEmpty(), "a failed track must not be processed again");
         assertEquals(TrackStatus.FAILED, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldThrowWhenTheTrackDoesNotExist() {
+        UUID missing = UUID.randomUUID();
+
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(missing));
+    }
+
+    @Test
+    void execute_shouldRethrowAndStoreNothingWhenTheProcessorFails() {
+        TrackId id = anUploadedTrack();
+        RuntimeException failure = new AudioProcessingException("corrupt audio");
+        processor.failure = failure;
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> useCase.execute(id.getValue()));
+
+        assertSame(failure, thrown);
+        assertEquals(1, storage.files.size(), "only the original file may exist");
+        assertEquals(TrackStatus.PROCESSING, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldDeleteTheStoredMp3AndRethrowWhenSavingFails() {
+        TrackId id = anUploadedTrack();
+        RuntimeException saveFailure = new IllegalStateException("db down");
+        TrackRepository failingSave = new TrackRepository() {
+            @Override
+            public Track save(Track track) {
+                throw saveFailure;
+            }
+
+            @Override
+            public Optional<Track> findById(TrackId trackId) {
+                return trackRepository.findById(trackId);
+            }
+        };
+        ProcessTrackUseCase failingUseCase = new ProcessTrackUseCase(failingSave, storage, processor);
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> failingUseCase.execute(id.getValue()));
+
+        assertSame(saveFailure, thrown);
+        assertEquals(1, storage.files.size(), "the converted MP3 must be deleted again");
     }
 
     private TrackId aFailedTrack() {
