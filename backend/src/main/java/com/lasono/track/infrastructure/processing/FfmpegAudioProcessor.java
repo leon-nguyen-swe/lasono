@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -95,12 +96,23 @@ public class FfmpegAudioProcessor implements AudioProcessor {
      */
     private Path run(Path workDir, String name, String... command) throws IOException, InterruptedException {
         Path stdout = workDir.resolve(name + ".out");
-        new ProcessBuilder(command)
+        Path stderr = workDir.resolve(name + ".err");
+        int exitCode = new ProcessBuilder(command)
             .redirectOutput(stdout.toFile())
-            .redirectError(workDir.resolve(name + ".err").toFile())
+            .redirectError(stderr.toFile())
             .start()
             .waitFor();
+        if (exitCode != 0) {
+            throw new AudioProcessingException(
+                command[0] + " failed with exit code " + exitCode + ": " + shortened(stderr));
+        }
         return stdout;
+    }
+
+    /** The start of an error file: enough to see what went wrong without flooding the log. */
+    private static String shortened(Path errorFile) throws IOException {
+        String text = new String(Files.readAllBytes(errorFile), StandardCharsets.UTF_8).trim();
+        return text.length() > 500 ? text.substring(0, 500) + "..." : text;
     }
 
     private static void deleteQuietly(Path directory) {
