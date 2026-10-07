@@ -52,12 +52,11 @@ public class UploadTrackUseCase {
 
             track.uploadCompleted(originalAudio);
             trackRepository.save(track);
+            processingJobQueue.enqueue(track.getId());
         } catch (RuntimeException e) {
             deleteQuietly(key, e);
             throw e;
         }
-
-        processingJobQueue.enqueue(track.getId());
 
         return new UploadTrackResult(
             track.getId().getValue().toString(),
