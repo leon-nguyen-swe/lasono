@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -103,14 +104,18 @@ public class FfmpegAudioProcessor implements AudioProcessor {
     private Path run(Path workDir, String name, String... command) throws IOException, InterruptedException {
         Path stdout = workDir.resolve(name + ".out");
         Path stderr = workDir.resolve(name + ".err");
-        int exitCode = new ProcessBuilder(command)
+        Process program = new ProcessBuilder(command)
             .redirectOutput(stdout.toFile())
             .redirectError(stderr.toFile())
-            .start()
-            .waitFor();
-        if (exitCode != 0) {
+            .start();
+        if (!program.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            program.destroyForcibly().waitFor();
             throw new AudioProcessingException(
-                command[0] + " failed with exit code " + exitCode + ": " + shortened(stderr));
+                command[0] + " timed out after " + timeout.toSeconds() + " seconds and was stopped");
+        }
+        if (program.exitValue() != 0) {
+            throw new AudioProcessingException(
+                command[0] + " failed with exit code " + program.exitValue() + ": " + shortened(stderr));
         }
         return stdout;
     }
