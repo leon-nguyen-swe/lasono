@@ -85,6 +85,20 @@ public class UploadTrackUseCaseTest {
     }
 
     @Test
+    void execute_shouldEnqueueAProcessingJobForTheNewTrack() {
+        UploadTrackCommand command = new UploadTrackCommand(
+                "My Song", "desc",
+                new ByteArrayInputStream("data".getBytes()),
+                12345L, "audio/mpeg"
+        );
+
+        UploadTrackResult result = useCase.execute(command);
+
+        TrackId trackId = new TrackId(java.util.UUID.fromString(result.trackId()));
+        assertEquals(List.of(trackId), jobQueue.enqueued);
+    }
+
+    @Test
     void execute_shouldStoreCorrectStorageKeyInTrack() {
         UploadTrackCommand command = new UploadTrackCommand(
                 "My Song", "desc",
