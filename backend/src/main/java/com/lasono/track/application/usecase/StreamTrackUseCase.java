@@ -10,9 +10,8 @@ import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
-import com.lasono.track.domain.TrackSnapshot;
-import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
+import com.lasono.track.domain.model.TrackStatus;
 
 @Component 
 public class StreamTrackUseCase {
@@ -32,25 +31,19 @@ public class StreamTrackUseCase {
         Track track = trackRepository.findById(new TrackId(trackId))
             .orElseThrow(() -> new TrackNotFoundException(trackId));
         
-        TrackSnapshot snapshot = track.toSnapshot();
-
-        String storageKeyValue;
-        long fileSize;
-        String mimeType;
-
-        if (snapshot.streamingAudio() != null) {
-            StreamingAudio audio = snapshot.streamingAudio();
-            storageKeyValue = audio.getStorageKey();
-            fileSize = audio.getFileSize();
-            mimeType = audio.getMimeType();
-        } else if (snapshot.originalAudio() != null) {
-            OriginalAudio originalAudio = snapshot.originalAudio();
-            storageKeyValue = originalAudio.getStorageKey();
-            fileSize = originalAudio.getFileSize();
-            mimeType = originalAudio.getMimeType();
-        } else {
-            throw new IllegalStateException("Track " + trackId + " has no audio resource");
+        // Only the converted MP3 is played. The original upload can be a huge WAV, or a corrupt file
+        // when processing failed, so a track that is not READY has nothing to stream yet.
+        if (track.getStatus() != TrackStatus.READY) {
+            throw new TrackNotReadyException(trackId, track.getStatus().name());
         }
+
+        StreamingAudio audio = track.toSnapshot().streamingAudio();
+        if (audio == null) {
+            throw new IllegalStateException("Track " + trackId + " is READY but has no streaming audio");
+        }
+        String storageKeyValue = audio.getStorageKey();
+        long fileSize = audio.getFileSize();
+        String mimeType = audio.getMimeType();
 
         long[] range = RangeHeaderParser.parse(rangeHeader, fileSize);
         long start = range[0];
