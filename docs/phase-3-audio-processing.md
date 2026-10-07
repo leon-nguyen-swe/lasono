@@ -22,7 +22,7 @@ Real backend (`./gradlew bootRun`), PostgreSQL 17 in Docker (dev database `lason
 | 9 | Upload 2 KB of random bytes as `audio/wav` | `PROCESSING`, then `FAILED` after 95 s (attempts at once, +30 s, +60 s); stream answers `409`; the job row is `FAILED`, `attempts = 3`, `last_error` names the ffprobe failure |
 | 10 | Leftovers | No `lasono-audio-*` temporary directory is left behind |
 
-The Flutter UI was then tried in a real browser by the project owner (2026-10-07): two real files were uploaded and both became `READY`, and the track list showed the duration with the `READY` badge, the hourglass with `PROCESSING` and a red `FAILED` (the corrupt file from the check above). The waveform drawing and seeking inside the player are covered by widget tests (106, against a fake server); they have not been confirmed by eye yet.
+The Flutter UI was then tried in a real browser by the project owner (2026-10-07): two real files were uploaded and both became `READY`, and the track list showed the duration with the `READY` badge, the hourglass with `PROCESSING` and a red `FAILED` (the corrupt file from the check above). In the player the owner also confirmed that the waveform appears, that the part already played is coloured, and that tapping the waveform seeks. The owner found the drawing plain (visual polish is left for later), and the app still showed Flutter's "DEBUG" banner in the corner, which is fixed separately.
 
 Automated tests at the end of the phase: 265 backend tests, 40 `postgresTest`, 7 `ffmpegTest`, 106 Flutter tests, 0 failures. `postgresTest` includes an end-to-end test (upload, then the worker makes the track READY) with a real PostgreSQL and a real ffmpeg.
 
