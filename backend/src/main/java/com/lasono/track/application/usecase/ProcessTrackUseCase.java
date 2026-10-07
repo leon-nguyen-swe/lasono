@@ -18,6 +18,7 @@ import com.lasono.track.domain.TrackRepository;
 import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
+import com.lasono.track.domain.model.TrackStatus;
 
 /**
  * Processes the audio of one uploaded track: reads its duration, builds its waveform and stores an
@@ -43,6 +44,11 @@ public class ProcessTrackUseCase {
     public void execute(UUID trackId) {
         Track track = trackRepository.findById(new TrackId(trackId))
             .orElseThrow(() -> new TrackNotFoundException(trackId));
+        if (track.getStatus() != TrackStatus.PROCESSING) {
+            // Already finished (READY or FAILED), e.g. the worker died after saving but before
+            // reporting the job as done. Running the job again must change nothing.
+            return;
+        }
         OriginalAudio original = track.toSnapshot().originalAudio();
 
         // Only in memory: the database keeps the track as it was until the work is finished, so a
