@@ -2,6 +2,7 @@ package com.lasono.track.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -72,6 +73,39 @@ class ProcessTrackUseCaseTest {
         assertEquals("audio/mpeg", streaming.getMimeType());
         assertEquals(FakeAudioProcessor.MP3_BYTES.length, streaming.getFileSize());
         assertArrayEquals(FakeAudioProcessor.MP3_BYTES, storage.files.get(streaming.getStorageKey()));
+    }
+
+    @Test
+    void execute_shouldDoNothingWhenTheTrackIsAlreadyReady() {
+        TrackId id = anUploadedTrack();
+        useCase.execute(id.getValue());
+        processor.received.clear();
+        int storedFiles = storage.files.size();
+
+        useCase.execute(id.getValue());
+
+        assertTrue(processor.received.isEmpty(), "a finished track must not be processed again");
+        assertEquals(storedFiles, storage.files.size());
+        assertEquals(TrackStatus.READY, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldDoNothingWhenTheTrackHasFailed() {
+        TrackId id = aFailedTrack();
+
+        useCase.execute(id.getValue());
+
+        assertTrue(processor.received.isEmpty(), "a failed track must not be processed again");
+        assertEquals(TrackStatus.FAILED, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    private TrackId aFailedTrack() {
+        TrackId id = anUploadedTrack();
+        Track track = trackRepository.findById(id).orElseThrow();
+        track.startProcessing();
+        track.processingFailed();
+        trackRepository.save(track);
+        return id;
     }
 
     /** A track as it is right after the upload: the original file is stored and the track is PROCESSING. */
