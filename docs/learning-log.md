@@ -43,3 +43,27 @@ Dùng `saveAndFlush` trong adapter của track, để dòng được ghi xuống
 **Takeaway**
 
 **Open question**
+
+
+## 2026-10-07: Worker chậm ghi đè kết quả của worker đã nhận job thay nó
+
+**Context**
+Job có "lease" (`locked_until`). Nếu worker chạy quá lâu hoặc chết, lease hết hạn và worker khác được claim lại job đó (`attempts` tăng thêm 1). Worker cũ có thể vẫn đang chạy, rồi gọi `complete` hoặc `fail` sau khi worker mới đã nhận job.
+
+**Symptom**
+Chưa thấy trên máy thật; test mô phỏng bằng tay lộ ra: `complete` và `fail` cũ chỉ cập nhật theo `id`, nên worker chậm (lượt 1) đổi job của worker mới (lượt 2) sang `DONE`, hoặc đưa nó về `PENDING` kèm lỗi cũ.
+
+**How it works (step by step)**
+1. Worker A claim job: `status = RUNNING`, `attempts = 1`, lease 10 phút. A cầm bản `ProcessingJob` có `attempts = 1`.
+2. A chạy quá 10 phút. Lease hết hạn nhưng job vẫn `RUNNING`.
+3. Worker B claim: điều kiện `RUNNING AND locked_until <= now() AND attempts < max_attempts` đúng, nên `attempts = 2` và lease mới.
+4. A xong và gọi `complete`. Câu lệnh `WHERE id = ?` khớp dòng của B, nên ghi đè.
+5. Với `WHERE id = ? AND status = 'RUNNING' AND attempts = ?`: A cầm `attempts = 1` còn dòng là `2`, không khớp dòng nào, nên không đổi gì. `fail` thấy "0 dòng" và trả `LEASE_LOST`, để use case không đánh dấu track `FAILED` nhầm.
+6. Nếu lease đã hết nhưng chưa ai claim lại, `attempts` vẫn khớp và A vẫn được `complete` (việc đã xong thì giữ).
+
+**Fix**
+`complete` và `fail` nhận cả `ProcessingJob` đã claim và dùng `attempts` làm "token" trong điều kiện `WHERE`.
+
+**Takeaway**
+
+**Open question**
