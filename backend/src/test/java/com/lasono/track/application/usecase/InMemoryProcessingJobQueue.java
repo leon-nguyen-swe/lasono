@@ -11,10 +11,31 @@ import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.domain.TrackId;
 
-/** Remembers the tracks that were queued. Claiming and finishing jobs is not needed by any test yet. */
+/**
+ * Behaves like the real queue without a database: a job is claimed once per attempt and is retried
+ * until it has used {@link #MAX_ATTEMPTS}. Time does not exist here, so a retry delay is only recorded.
+ */
 class InMemoryProcessingJobQueue implements ProcessingJobQueue {
 
+    static final int MAX_ATTEMPTS = 3;
+
+    enum Status { PENDING, RUNNING, DONE, FAILED }
+
+    static final class Job {
+        final UUID id = UUID.randomUUID();
+        final TrackId trackId;
+        Status status = Status.PENDING;
+        int attempts;
+        String lastError;
+        Duration lastRetryDelay;
+
+        Job(TrackId trackId) {
+            this.trackId = trackId;
+        }
+    }
+
     final List<TrackId> enqueued = new ArrayList<>();
+    final List<Job> jobs = new ArrayList<>();
     /** When set, {@link #enqueue} throws it instead of queueing. */
     RuntimeException enqueueFailure;
 
@@ -24,20 +45,40 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
             throw enqueueFailure;
         }
         enqueued.add(trackId);
+        jobs.add(new Job(trackId));
     }
 
     @Override
     public Optional<ProcessingJob> claimNext(Duration lease) {
-        throw new UnsupportedOperationException("not needed yet");
+        return jobs.stream()
+            .filter(job -> job.status == Status.PENDING)
+            .findFirst()
+            .map(job -> {
+                job.status = Status.RUNNING;
+                job.attempts++;
+                return new ProcessingJob(job.id, job.trackId, job.attempts, MAX_ATTEMPTS);
+            });
     }
 
     @Override
     public void complete(UUID jobId) {
-        throw new UnsupportedOperationException("not needed yet");
+        find(jobId).status = Status.DONE;
     }
 
     @Override
     public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
-        throw new UnsupportedOperationException("not needed yet");
+        Job job = find(jobId);
+        job.lastError = error;
+        job.lastRetryDelay = retryDelay;
+        if (job.attempts >= MAX_ATTEMPTS) {
+            job.status = Status.FAILED;
+            return FailureOutcome.GAVE_UP;
+        }
+        job.status = Status.PENDING;
+        return FailureOutcome.WILL_RETRY;
+    }
+
+    private Job find(UUID jobId) {
+        return jobs.stream().filter(job -> job.id.equals(jobId)).findFirst().orElseThrow();
     }
 }
