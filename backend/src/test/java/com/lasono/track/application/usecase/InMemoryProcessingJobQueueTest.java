@@ -41,6 +41,41 @@ class InMemoryProcessingJobQueueTest {
     }
 
     @Test
+    void aRunningJobWhoseLeaseExpiredIsClaimedAgainWhileAttemptsRemain() {
+        queue.enqueue(trackId);
+        queue.claimNext(LEASE);
+
+        queue.expireLeases();
+
+        assertThat(queue.claimNext(LEASE).orElseThrow().attempts()).isEqualTo(2);
+    }
+
+    @Test
+    void failExhaustedGivesUpOnAnExpiredRunningJobWithNoAttemptsLeft() {
+        queue.enqueue(trackId);
+        for (int attempt = 1; attempt <= InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            queue.claimNext(LEASE).orElseThrow();
+            queue.expireLeases();
+        }
+
+        assertThat(queue.claimNext(LEASE)).as("no attempt is left").isEmpty();
+        assertThat(queue.failExhausted()).containsExactly(trackId);
+        assertThat(queue.failExhausted()).as("reported once").isEmpty();
+    }
+
+    @Test
+    void failExhaustedLeavesAJobWhoseLastAttemptIsStillWithinItsLease() {
+        queue.enqueue(trackId);
+        for (int attempt = 1; attempt < InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            queue.claimNext(LEASE).orElseThrow();
+            queue.expireLeases();
+        }
+        queue.claimNext(LEASE).orElseThrow();
+
+        assertThat(queue.failExhausted()).isEmpty();
+    }
+
+    @Test
     void aFailedJobIsRetriedUntilItRunsOutOfAttempts() {
         queue.enqueue(trackId);
 

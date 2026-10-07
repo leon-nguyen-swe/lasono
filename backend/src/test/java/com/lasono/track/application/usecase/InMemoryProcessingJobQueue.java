@@ -26,6 +26,7 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
         final TrackId trackId;
         Status status = Status.PENDING;
         int attempts;
+        boolean leaseExpired;
         String lastError;
         Duration lastRetryDelay;
 
@@ -51,10 +52,11 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
     @Override
     public Optional<ProcessingJob> claimNext(Duration lease) {
         return jobs.stream()
-            .filter(job -> job.status == Status.PENDING)
+            .filter(job -> job.status == Status.PENDING || (isExpired(job) && job.attempts < MAX_ATTEMPTS))
             .findFirst()
             .map(job -> {
                 job.status = Status.RUNNING;
+                job.leaseExpired = false;
                 job.attempts++;
                 return new ProcessingJob(job.id, job.trackId, job.attempts, MAX_ATTEMPTS);
             });
@@ -78,9 +80,22 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
         return FailureOutcome.WILL_RETRY;
     }
 
+    /** Time does not exist here, so a test says when the leases of the running jobs have run out. */
+    void expireLeases() {
+        jobs.stream().filter(job -> job.status == Status.RUNNING).forEach(job -> job.leaseExpired = true);
+    }
+
     @Override
     public List<TrackId> failExhausted() {
-        return List.of();
+        List<Job> exhausted = jobs.stream()
+            .filter(job -> isExpired(job) && job.attempts >= MAX_ATTEMPTS)
+            .toList();
+        exhausted.forEach(job -> job.status = Status.FAILED);
+        return exhausted.stream().map(job -> job.trackId).toList();
+    }
+
+    private static boolean isExpired(Job job) {
+        return job.status == Status.RUNNING && job.leaseExpired;
     }
 
     private Job find(UUID jobId) {
