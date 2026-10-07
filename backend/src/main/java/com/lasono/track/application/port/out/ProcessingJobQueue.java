@@ -1,6 +1,7 @@
 package com.lasono.track.application.port.out;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,11 +19,18 @@ public interface ProcessingJobQueue {
     Optional<ProcessingJob> claimNext(Duration lease);
 
     /** Marks a claimed job as done, so it is never claimed again. */
-    void complete(UUID jobId);
+    void complete(ProcessingJob job);
 
     /**
      * Records that an attempt failed. A job with attempts left goes back to PENDING and is not
      * claimed before {@code retryDelay} has passed; a job without attempts left becomes FAILED.
      */
-    FailureOutcome fail(UUID jobId, String error, Duration retryDelay);
+    FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay);
+
+    /**
+     * Gives up on jobs that are RUNNING, whose lease has expired and that have no attempts left: the
+     * worker died on every attempt, so nobody will ever finish them. Marks them FAILED and returns
+     * their tracks, so the caller can tell the users.
+     */
+    List<TrackId> failExhausted();
 }

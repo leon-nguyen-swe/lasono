@@ -16,3 +16,6 @@ spring:
 lasono:
   storage:
     root: /tmp/lasono-test-storage
+  processing:
+    # No background thread should take jobs behind the back of a test; the worker test turns it on.
+    worker-enabled: false

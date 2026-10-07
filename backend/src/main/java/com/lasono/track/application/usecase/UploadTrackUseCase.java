@@ -20,6 +20,7 @@ public class UploadTrackUseCase {
     private final AudioStorage audioStorage;
     private final TrackRepository trackRepository;
     private final ProcessingJobQueue processingJobQueue;
+    private final StoredAudioCleanup cleanup;
 
     public UploadTrackUseCase(
         AudioStorage audioStorage,
@@ -29,6 +30,7 @@ public class UploadTrackUseCase {
         this.audioStorage = audioStorage;
         this.trackRepository = trackRepository;
         this.processingJobQueue = processingJobQueue;
+        this.cleanup = new StoredAudioCleanup(audioStorage);
     }
 
     @Transactional
@@ -56,7 +58,7 @@ public class UploadTrackUseCase {
             trackRepository.save(track);
             processingJobQueue.enqueue(track.getId());
         } catch (RuntimeException e) {
-            deleteQuietly(key, e);
+            cleanup.deleteQuietly(key, e);
             throw e;
         }
 
@@ -65,13 +67,5 @@ public class UploadTrackUseCase {
             track.getTitle(),
             track.getStatus().toString()
         );
-    }
-
-    private void deleteQuietly(StorageKey key, RuntimeException cause) {
-        try {
-            audioStorage.delete(key);
-        } catch (RuntimeException cleanupFailure) {
-            cause.addSuppressed(cleanupFailure);
-        }
     }
 }

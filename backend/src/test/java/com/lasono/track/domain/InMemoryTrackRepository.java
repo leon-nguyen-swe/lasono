@@ -4,18 +4,34 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Keeps what was saved, not the object itself: like a database, a change the caller did not
+ * {@link #save} is not visible to the next {@link #findById}.
+ */
 public class InMemoryTrackRepository implements TrackRepository {
 
-    private final Map<TrackId, Track> store = new HashMap<>();
+    private final Map<TrackId, TrackSnapshot> store = new HashMap<>();
 
     @Override
     public Track save(Track track) {
-        store.put(track.getId(), track);
+        store.put(track.getId(), track.toSnapshot());
         return track;
     }
 
     @Override
     public Optional<Track> findById(TrackId id) {
-        return Optional.ofNullable(store.get(id));
+        return Optional.ofNullable(store.get(id)).map(InMemoryTrackRepository::toTrack);
+    }
+
+    private static Track toTrack(TrackSnapshot snapshot) {
+        AudioResource audioResource = AudioResource.reconstitute(
+            snapshot.audioResourceId(),
+            snapshot.audioResourceStatus(),
+            snapshot.originalAudio(),
+            snapshot.streamingAudio(),
+            snapshot.audioDuration(),
+            snapshot.waveform());
+        return Track.reconstitute(
+            snapshot.trackId(), snapshot.title(), snapshot.description(), snapshot.trackStatus(), audioResource);
     }
 }

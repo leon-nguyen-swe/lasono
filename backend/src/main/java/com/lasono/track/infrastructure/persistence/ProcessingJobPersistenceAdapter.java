@@ -3,6 +3,7 @@ package com.lasono.track.infrastructure.persistence;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,25 +52,48 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
     }
 
     @Override
-    public void complete(UUID jobId) {
+    public void complete(ProcessingJob job) {
+        // "attempts = ?" tells whether this worker still holds the job: a worker that took it over
+        // after our lease ran out has counted one more attempt. If so, its result is the one to keep.
         jdbcTemplate.update(
-            "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", jobId);
+            """
+            UPDATE processing_jobs SET status = 'DONE', locked_until = NULL
+            WHERE id = ? AND status = 'RUNNING' AND attempts = ?
+            """,
+            job.id(), job.attempts());
     }
 
     @Override
-    public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
-        String newStatus = jdbcTemplate.queryForObject(
+    public FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay) {
+        List<String> newStatus = jdbcTemplate.queryForList(
             """
             UPDATE processing_jobs
             SET status = CASE WHEN attempts < max_attempts THEN 'PENDING' ELSE 'FAILED' END,
                 run_after = CASE WHEN attempts < max_attempts THEN now() + make_interval(secs => ?) ELSE run_after END,
                 locked_until = NULL,
                 last_error = ?
-            WHERE id = ?
+            WHERE id = ? AND status = 'RUNNING' AND attempts = ?
             RETURNING status
             """,
-            String.class, seconds(retryDelay), error, jobId);
-        return "PENDING".equals(newStatus) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
+            String.class, seconds(retryDelay), error, job.id(), job.attempts());
+        if (newStatus.isEmpty()) {
+            return FailureOutcome.LEASE_LOST;
+        }
+        return "PENDING".equals(newStatus.get(0)) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
+    }
+
+    @Override
+    public List<TrackId> failExhausted() {
+        return jdbcTemplate.query(
+            """
+            UPDATE processing_jobs
+            SET status = 'FAILED',
+                locked_until = NULL,
+                last_error = 'The lease expired and no attempts are left: the worker kept dying'
+            WHERE status = 'RUNNING' AND locked_until <= now() AND attempts >= max_attempts
+            RETURNING track_id
+            """,
+            (rs, rowNumber) -> new TrackId(rs.getObject("track_id", UUID.class)));
     }
 
     private static ProcessingJob toJob(ResultSet rs, int rowNumber) throws SQLException {
