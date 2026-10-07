@@ -37,7 +37,7 @@ class _TrackPlaybackState extends State<TrackPlayback> {
   @override
   void initState() {
     super.initState();
-    _pollWhileProcessing();
+    _keepUpToDate();
   }
 
   @override
@@ -45,7 +45,7 @@ class _TrackPlaybackState extends State<TrackPlayback> {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.track, widget.track)) {
       _track = widget.track;
-      _pollWhileProcessing();
+      _keepUpToDate();
     }
   }
 
@@ -57,11 +57,16 @@ class _TrackPlaybackState extends State<TrackPlayback> {
 
   // The server converts the audio in the background, so a track that was just uploaded is
   // PROCESSING for a while. Ask again every few seconds until it is READY or FAILED.
-  void _pollWhileProcessing() {
+  // The track list does not carry the waveform, so a READY track that came without it is
+  // fetched once.
+  void _keepUpToDate() {
     _timer?.cancel();
-    _timer = _track.status == 'PROCESSING'
-        ? Timer.periodic(_pollInterval, (_) => _askForTheTrack())
-        : null;
+    _timer = null;
+    if (_track.status == 'PROCESSING') {
+      _timer = Timer.periodic(_pollInterval, (_) => _askForTheTrack());
+    } else if (_track.status == 'READY' && _track.waveform == null) {
+      _askForTheTrack();
+    }
   }
 
   Future<void> _askForTheTrack() async {
@@ -109,6 +114,7 @@ class _TrackPlaybackState extends State<TrackPlayback> {
           key: ValueKey(track.id),
           player: widget.player,
           streamUrl: widget.api.streamUrl(track.id),
+          waveform: track.waveform,
         ),
       'FAILED' => Text(
           'Processing failed. This track cannot be played.',

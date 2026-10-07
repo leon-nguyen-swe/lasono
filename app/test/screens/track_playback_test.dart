@@ -10,20 +10,33 @@ import 'package:lasono_app/api/track_api.dart';
 import 'package:lasono_app/models/track.dart';
 import 'package:lasono_app/screens/player_controls.dart';
 import 'package:lasono_app/screens/track_playback.dart';
+import 'package:lasono_app/screens/waveform_view.dart';
 
 import '../fake_player_service.dart';
 
 const _pollInterval = Duration(seconds: 3);
 
-Track _track(String status, {double? durationSeconds, String id = 'id-1'}) => Track(
+Track _track(
+  String status, {
+  double? durationSeconds,
+  List<double>? waveform,
+  String id = 'id-1',
+}) =>
+    Track(
       id: id,
       title: 'My Song',
       description: '',
       status: status,
       durationSeconds: durationSeconds,
+      waveform: waveform,
     );
 
-http.Response _trackResponse(String status, {double? durationSeconds}) => http.Response(
+http.Response _trackResponse(
+  String status, {
+  double? durationSeconds,
+  List<double>? waveform,
+}) =>
+    http.Response(
       jsonEncode({
         'id': 'id-1',
         'title': 'My Song',
@@ -31,6 +44,7 @@ http.Response _trackResponse(String status, {double? durationSeconds}) => http.R
         'status': status,
         'mimeType': 'audio/mpeg',
         'durationSeconds': durationSeconds,
+        'waveform': waveform,
       }),
       200,
       headers: {'content-type': 'application/json'},
@@ -68,7 +82,7 @@ Future<void> _waitOnePoll(WidgetTester tester) async {
 void main() {
   testWidgets('a ready track shows its duration and can be played',
       (WidgetTester tester) async {
-    await _pump(tester, _track('READY', durationSeconds: 185));
+    await _pump(tester, _track('READY', durationSeconds: 185, waveform: [0.5]));
 
     expect(find.text('READY'), findsOneWidget);
     expect(find.text('3:05'), findsOneWidget);
@@ -97,7 +111,9 @@ void main() {
     testWidgets('asks again every 3 seconds, then shows the controls and stops once READY',
         (WidgetTester tester) async {
       final server = _Server((call) =>
-          call == 0 ? _trackResponse('PROCESSING') : _trackResponse('READY', durationSeconds: 185));
+          call == 0
+              ? _trackResponse('PROCESSING')
+              : _trackResponse('READY', durationSeconds: 185, waveform: [0.5, 1.0]));
       await _pump(tester, _track('PROCESSING'), server);
 
       await tester.pump(const Duration(seconds: 2));
@@ -113,6 +129,7 @@ void main() {
       expect(find.byType(PlayerControls), findsOneWidget);
       expect(find.text('READY'), findsOneWidget);
       expect(find.text('3:05'), findsOneWidget);
+      expect(find.byType(WaveformView), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 30));
       expect(server.calls, 2, reason: 'a READY track is not polled any more');
@@ -132,11 +149,23 @@ void main() {
 
     testWidgets('does not poll a track that is already READY', (WidgetTester tester) async {
       final server = _Server((_) => _trackResponse('READY'));
-      await _pump(tester, _track('READY'), server);
+      await _pump(tester, _track('READY', waveform: [0.5]), server);
 
       await tester.pump(const Duration(seconds: 30));
 
       expect(server.calls, 0);
+    });
+
+    testWidgets('loads the waveform once for a READY track that came without it',
+        (WidgetTester tester) async {
+      // The track list does not carry the waveform, only GET /tracks/{id} does.
+      final server = _Server((_) => _trackResponse('READY', waveform: [0.2, 0.8]));
+      await _pump(tester, _track('READY'), server);
+      await tester.pump();
+
+      expect(find.byType(WaveformView), findsOneWidget);
+      await tester.pump(const Duration(seconds: 30));
+      expect(server.calls, 1);
     });
 
     testWidgets('keeps asking when one request fails', (WidgetTester tester) async {
