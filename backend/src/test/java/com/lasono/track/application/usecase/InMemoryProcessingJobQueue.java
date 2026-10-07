@@ -78,6 +78,11 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
         return FailureOutcome.WILL_RETRY;
     }
 
+    @Override
+    public List<TrackId> failExhausted() {
+        return List.of();
+    }
+
     private Job find(UUID jobId) {
         return jobs.stream().filter(job -> job.id.equals(jobId)).findFirst().orElseThrow();
     }

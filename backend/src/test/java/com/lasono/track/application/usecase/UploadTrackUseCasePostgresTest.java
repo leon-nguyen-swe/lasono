@@ -106,6 +106,11 @@ class UploadTrackUseCasePostgresTest extends PostgresIntegrationTest {
         public FailureOutcome fail(UUID jobId, String error, Duration retryDelay) {
             return real.fail(jobId, error, retryDelay);
         }
+
+        @Override
+        public List<TrackId> failExhausted() {
+            return real.failExhausted();
+        }
     }
 
     @TestConfiguration

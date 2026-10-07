@@ -234,6 +234,56 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
             "SELECT attempts = max_attempts FROM processing_jobs", Boolean.class)).isTrue();
     }
 
+    @Test
+    void failExhaustedFailsARunningJobWhoseLeaseExpiredAndHasNoAttemptsLeft() {
+        UUID trackId = insertTrack();
+        adapter.enqueue(new TrackId(trackId));
+        adapter.claimNext(Duration.ofMinutes(5));
+        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts, locked_until = now() - interval '1 minute'");
+
+        List<TrackId> failed = adapter.failExhausted();
+
+        assertThat(failed).containsExactly(new TrackId(trackId));
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, last_error, locked_until FROM processing_jobs");
+        assertThat(row).containsEntry("status", "FAILED");
+        assertThat((String) row.get("last_error")).contains("lease");
+        assertThat(row.get("locked_until")).isNull();
+    }
+
+    @Test
+    void failExhaustedReportsAJobOnlyOnce() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        adapter.claimNext(Duration.ofMinutes(5));
+        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts, locked_until = now() - interval '1 minute'");
+        adapter.failExhausted();
+
+        assertThat(adapter.failExhausted()).isEmpty();
+    }
+
+    @Test
+    void failExhaustedLeavesAJobThatStillHasAttemptsLeft() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        adapter.claimNext(Duration.ofMinutes(5));
+        // The lease expired, but claimNext will give this job another attempt.
+        jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
+
+        assertThat(adapter.failExhausted()).isEmpty();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class)).isEqualTo("RUNNING");
+    }
+
+    @Test
+    void failExhaustedLeavesAJobWhoseLastAttemptIsStillWithinItsLease() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        adapter.claimNext(Duration.ofMinutes(5));
+        // The last attempt is running right now: its worker may still finish.
+        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts");
+
+        assertThat(adapter.failExhausted()).isEmpty();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class)).isEqualTo("RUNNING");
+    }
+
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(

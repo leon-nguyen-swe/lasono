@@ -3,6 +3,7 @@ package com.lasono.track.infrastructure.persistence;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -70,6 +71,20 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
             """,
             String.class, seconds(retryDelay), error, jobId);
         return "PENDING".equals(newStatus) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
+    }
+
+    @Override
+    public List<TrackId> failExhausted() {
+        return jdbcTemplate.query(
+            """
+            UPDATE processing_jobs
+            SET status = 'FAILED',
+                locked_until = NULL,
+                last_error = 'The lease expired and no attempts are left: the worker kept dying'
+            WHERE status = 'RUNNING' AND locked_until <= now() AND attempts >= max_attempts
+            RETURNING track_id
+            """,
+            (rs, rowNumber) -> new TrackId(rs.getObject("track_id", UUID.class)));
     }
 
     private static ProcessingJob toJob(ResultSet rs, int rowNumber) throws SQLException {
