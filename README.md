@@ -120,6 +120,10 @@ docker compose exec postgres psql -U lasono -d postgres -c "CREATE DATABASE laso
 
 `ffmpegTest` runs the tests tagged `ffmpeg`. They call the real `ffmpeg` and `ffprobe` programs, so those must be installed (on Ubuntu or WSL: `sudo apt install ffmpeg`). The tests make their own audio files, so no audio is stored in the repository. The backend also needs both programs at runtime to process uploaded tracks; set `lasono.processing.ffmpeg-path`, `lasono.processing.ffprobe-path` or `lasono.processing.timeout-seconds` (default 300) in `application.yaml` if they are not on the `PATH`.
 
+The end-to-end test among the `postgresTest` tests (upload, then the worker makes the track READY) also needs ffmpeg.
+
+A background worker takes the processing jobs of uploaded tracks. It is on by default; `lasono.processing.worker-enabled=false` switches it off and `lasono.processing.poll-interval-ms` (default 2000) sets how often it looks for jobs. The tests of the other modules keep it off.
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |

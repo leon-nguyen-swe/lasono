@@ -52,12 +52,13 @@ jobs:
       - name: Run backend tests
         run: ./gradlew test
 
-      - name: Run Postgres tests
-        run: ./gradlew postgresTest
-
-      # The tests tagged "ffmpeg" run the real ffmpeg and ffprobe programs.
+      # The tests tagged "ffmpeg" run the real ffmpeg and ffprobe programs, and so does the
+      # end-to-end processing test among the Postgres tests, so ffmpeg is installed before both.
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Run Postgres tests
+        run: ./gradlew postgresTest
 
       - name: Run ffmpeg tests
         run: ./gradlew ffmpegTest
