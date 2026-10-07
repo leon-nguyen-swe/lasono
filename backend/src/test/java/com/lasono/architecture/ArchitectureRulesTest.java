@@ -3,6 +3,7 @@ package com.lasono.architecture;
 import static com.lasono.architecture.ArchitectureRules.applicationDoesNotDependOnPresentation;
 import static com.lasono.architecture.ArchitectureRules.domainDoesNotDependOnOtherLayers;
 import static com.lasono.architecture.ArchitectureRules.domainIsFrameworkFree;
+import static com.lasono.architecture.ArchitectureRules.moduleDoesNotDependOn;
 import static com.lasono.architecture.ArchitectureRules.onlyInfrastructureUsesInfrastructure;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,6 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import archfixture.alpha.AlphaFixtures;
 import archfixture.track.application.ApplicationFixtures;
 import archfixture.track.domain.DomainFixtures;
 import archfixture.track.infrastructure.InfrastructureFixtures;
@@ -31,6 +33,8 @@ import com.tngtech.archunit.lang.ArchRule;
 class ArchitectureRulesTest {
 
     private static final String FIXTURE_ROOT = "archfixture.track";
+    private static final String ALPHA = "archfixture.alpha";
+    private static final String BETA = "archfixture.beta";
 
     static Stream<Arguments> violations() {
         return Stream.of(
@@ -47,7 +51,8 @@ class ArchitectureRulesTest {
             arguments("domain depends on presentation", domainDoesNotDependOnOtherLayers(FIXTURE_ROOT), DomainFixtures.DependsOnPresentation.class),
             arguments("application depends on presentation", applicationDoesNotDependOnPresentation(FIXTURE_ROOT), ApplicationFixtures.DependsOnPresentation.class),
             arguments("application depends on infrastructure", onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT), ApplicationFixtures.DependsOnInfrastructure.class),
-            arguments("presentation depends on infrastructure", onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT), PresentationFixtures.DependsOnInfrastructure.class)
+            arguments("presentation depends on infrastructure", onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT), PresentationFixtures.DependsOnInfrastructure.class),
+            arguments("a module depends on another module", moduleDoesNotDependOn(ALPHA, BETA), AlphaFixtures.DependsOnBeta.class)
         );
     }
 
@@ -69,7 +74,8 @@ class ArchitectureRulesTest {
             DomainFixtures.Clean.class,
             ApplicationFixtures.Clean.class,
             InfrastructureFixtures.Clean.class,
-            PresentationFixtures.Clean.class
+            PresentationFixtures.Clean.class,
+            AlphaFixtures.Clean.class
         );
 
         assertThatCode(() -> {
@@ -77,6 +83,7 @@ class ArchitectureRulesTest {
             domainDoesNotDependOnOtherLayers(FIXTURE_ROOT).check(classes);
             applicationDoesNotDependOnPresentation(FIXTURE_ROOT).check(classes);
             onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT).check(classes);
+            moduleDoesNotDependOn(ALPHA, BETA).check(classes);
         }).doesNotThrowAnyException();
     }
 }
