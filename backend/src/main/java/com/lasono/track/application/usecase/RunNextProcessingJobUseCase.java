@@ -37,8 +37,12 @@ public class RunNextProcessingJobUseCase {
         this.trackRepository = trackRepository;
     }
 
-    /** Runs jobs until none is due and returns how many were taken. */
+    /**
+     * First gives up on the jobs nobody can finish any more (their worker died on every attempt), then
+     * runs jobs until none is due. Returns how many jobs were run.
+     */
     public int runAllDue() {
+        queue.failExhausted().forEach(this::markTrackFailed);
         int taken = 0;
         while (execute()) {
             taken++;

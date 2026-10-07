@@ -148,6 +148,21 @@ class RunNextProcessingJobUseCaseTest {
     }
 
     @Test
+    void runAllDue_shouldMarkTheTrackFailedWhenItsWorkerDiedOnEveryAttempt() {
+        TrackId id = anUploadedTrackWithAJob();
+        for (int attempt = 1; attempt <= InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            queue.claimNext(Duration.ofMinutes(10)).orElseThrow();
+            queue.expireLeases(); // the worker died: it never reported the job done or failed
+        }
+
+        int taken = useCase.runAllDue();
+
+        assertEquals(0, taken, "nothing is left to run");
+        assertEquals(InMemoryProcessingJobQueue.Status.FAILED, queue.jobs.get(0).status);
+        assertEquals(TrackStatus.FAILED, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
     void runAllDue_shouldReturnZeroWhenNoJobIsDue() {
         assertEquals(0, useCase.runAllDue());
     }
