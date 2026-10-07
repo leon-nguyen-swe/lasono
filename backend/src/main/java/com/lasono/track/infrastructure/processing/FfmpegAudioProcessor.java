@@ -66,8 +66,14 @@ public class FfmpegAudioProcessor implements AudioProcessor {
         Path output = run(workDir, "probe",
             ffprobePath, "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", source.toString());
-        double seconds = Double.parseDouble(Files.readString(output).trim());
-        return new AudioDuration(Math.round(seconds * 1000));
+        String printed = Files.readString(output).trim();
+        try {
+            return new AudioDuration(Math.round(Double.parseDouble(printed) * 1000));
+        } catch (NumberFormatException e) {
+            // ffprobe exits normally but prints N/A for audio whose length it cannot tell.
+            throw new AudioProcessingException(
+                ffprobePath + " could not tell the duration of the audio (it printed \"" + printed + "\")", e);
+        }
     }
 
     /** Decodes the audio to 8 kHz mono 16-bit PCM and keeps the loudest sample of each of 200 parts. */
