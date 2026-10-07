@@ -49,6 +49,32 @@ void main() {
       expect(track.durationSeconds, 42.0);
     });
 
+    test('maps the waveform peaks of a READY track', () {
+      final track = Track.fromJson({
+        'id': 'abc',
+        'title': 'Ready',
+        'description': '',
+        'status': 'READY',
+        'mimeType': 'audio/mpeg',
+        'durationSeconds': 3.5,
+        'waveform': [0.1, 0.5, 1],
+      });
+
+      expect(track.waveform, [0.1, 0.5, 1.0]);
+    });
+
+    test('has no waveform while the track is processing', () {
+      final track = Track.fromJson({
+        'id': 'abc',
+        'title': 'Processing',
+        'description': '',
+        'status': 'PROCESSING',
+        'waveform': null,
+      });
+
+      expect(track.waveform, isNull);
+    });
+
     test('treats a missing description as empty', () {
       final track = Track.fromJson({
         'id': 'abc',
