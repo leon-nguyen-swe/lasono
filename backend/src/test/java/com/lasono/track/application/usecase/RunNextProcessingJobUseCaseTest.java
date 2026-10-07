@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.lasono.track.application.port.out.AudioProcessingException;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
 import com.lasono.track.domain.Track;
@@ -56,6 +58,32 @@ class RunNextProcessingJobUseCaseTest {
 
         assertFalse(tookAJob);
         assertTrue(processor.received.isEmpty());
+    }
+
+    @Test
+    void execute_shouldReleaseTheJobForARetryWhenProcessingFailsAndAttemptsRemain() {
+        TrackId id = anUploadedTrackWithAJob();
+        processor.failure = new AudioProcessingException("corrupt audio");
+
+        boolean tookAJob = useCase.execute();
+
+        InMemoryProcessingJobQueue.Job job = queue.jobs.get(0);
+        assertTrue(tookAJob);
+        assertEquals(InMemoryProcessingJobQueue.Status.PENDING, job.status);
+        assertTrue(job.lastError.contains("corrupt audio"), "the queue must know why it failed");
+        assertEquals(TrackStatus.PROCESSING, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldWaitTwiceAsLongBeforeEachRetry() {
+        anUploadedTrackWithAJob();
+        processor.failure = new AudioProcessingException("corrupt audio");
+
+        useCase.execute();
+        assertEquals(Duration.ofSeconds(30), queue.jobs.get(0).lastRetryDelay);
+
+        useCase.execute();
+        assertEquals(Duration.ofSeconds(60), queue.jobs.get(0).lastRetryDelay);
     }
 
     /** A track as the upload leaves it: the original file is stored, the track is PROCESSING, a job waits. */

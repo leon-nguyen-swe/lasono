@@ -18,6 +18,8 @@ public class RunNextProcessingJobUseCase {
     /** Longer than the FFmpeg timeout (5 minutes), so a running job is not taken by another worker. */
     private static final Duration LEASE = Duration.ofMinutes(10);
 
+    private static final Duration RETRY_BASE_DELAY = Duration.ofSeconds(30);
+
     private final ProcessingJobQueue queue;
     private final ProcessTrackUseCase processTrack;
     private final TrackRepository trackRepository;
@@ -39,8 +41,17 @@ public class RunNextProcessingJobUseCase {
             return false;
         }
         ProcessingJob job = claimed.get();
-        processTrack.execute(job.trackId().getValue());
-        queue.complete(job.id());
+        try {
+            processTrack.execute(job.trackId().getValue());
+            queue.complete(job.id());
+        } catch (RuntimeException e) {
+            queue.fail(job.id(), e.toString(), retryDelay(job.attempts()));
+        }
         return true;
+    }
+
+    /** 30 seconds after the first failure, then twice as long after each next one. */
+    private static Duration retryDelay(int attempts) {
+        return RETRY_BASE_DELAY.multipliedBy(1L << (attempts - 1));
     }
 }
