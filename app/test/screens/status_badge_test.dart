@@ -17,16 +17,18 @@ void main() {
     expect(find.text('READY'), findsOneWidget);
   });
 
-  testWidgets('shows a spinner only while the track is processing',
+  // A still icon, not a spinner: a spinner animates forever, which tires the eye in a long list
+  // and keeps widget tests from ever settling.
+  testWidgets('shows an hourglass only while the track is processing',
       (WidgetTester tester) async {
     await _pump(tester, 'PROCESSING');
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byIcon(Icons.hourglass_top), findsOneWidget);
 
     await _pump(tester, 'READY');
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byIcon(Icons.hourglass_top), findsNothing);
 
     await _pump(tester, 'FAILED');
-    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byIcon(Icons.hourglass_top), findsNothing);
   });
 
   testWidgets('shows a failed track in the error colour',

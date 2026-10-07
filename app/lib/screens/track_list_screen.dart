@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../api/track_api.dart';
 import '../audio_picker.dart';
+import '../format_duration.dart';
 import '../models/track.dart';
 import '../player_service.dart';
+import 'status_badge.dart';
 import 'track_player_screen.dart';
 import 'track_screen.dart';
 
@@ -183,7 +185,14 @@ class _TrackListScreenState extends State<TrackListScreen> {
           key: Key('track-${track.id}'),
           title: Text(track.title),
           subtitle: track.description.isEmpty ? null : Text(track.description),
-          trailing: Text(track.status),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(formatSeconds(track.durationSeconds)),
+              const SizedBox(width: 12),
+              StatusBadge(status: track.status),
+            ],
+          ),
           onTap: () => _openPlayer(track),
         );
       },

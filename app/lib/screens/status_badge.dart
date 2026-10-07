@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 /// Shows where a track is in its life: PROCESSING while the server converts the audio, READY when
 /// it can be played, FAILED when the conversion gave up.
+///
+/// A still hourglass marks PROCESSING, not a spinner: a spinner animates forever, which tires the
+/// eye in a long list and keeps widget tests from ever settling.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.status});
 
@@ -19,12 +22,8 @@ class StatusBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        const SizedBox(width: 8),
+        Icon(Icons.hourglass_top, size: 14, color: colors.onSurface),
+        const SizedBox(width: 4),
         label,
       ],
     );

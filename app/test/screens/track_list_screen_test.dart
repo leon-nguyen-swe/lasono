@@ -121,6 +121,32 @@ void main() {
       expect(find.text('Cannot reach the server'), findsNothing);
       expect(server.cursors, [null, null]);
     });
+
+    testWidgets('shows the duration of a ready track and dashes while it is processing',
+        (WidgetTester tester) async {
+      final server = _Server({
+        null: () => http.Response(
+              jsonEncode({
+                'items': [
+                  {..._item(0), 'status': 'READY', 'durationSeconds': 185.0},
+                  {..._item(1), 'durationSeconds': null},
+                ],
+                'nextCursor': null,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            ),
+      });
+
+      await _pump(tester, server);
+      await tester.pumpAndSettle();
+
+      expect(find.text('3:05'), findsOneWidget);
+      expect(find.text('--:--'), findsOneWidget);
+      expect(find.text('READY'), findsOneWidget);
+      expect(find.byIcon(Icons.hourglass_top), findsOneWidget,
+          reason: 'only the processing track has an hourglass');
+    });
   });
 
   group('next pages', () {
