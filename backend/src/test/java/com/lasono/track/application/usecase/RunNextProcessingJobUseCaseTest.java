@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.lasono.track.application.port.out.AudioProcessingException;
+import com.lasono.track.application.port.out.ProcessedAudio;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
@@ -132,6 +134,29 @@ class RunNextProcessingJobUseCaseTest {
 
         assertEquals(InMemoryProcessingJobQueue.Status.FAILED, brokenQueue.jobs.get(0).status);
         assertEquals(TrackStatus.READY, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldLeaveTheJobAndTheTrackAloneWhenAnotherWorkerTookTheJobOver() {
+        TrackId id = anUploadedTrackWithAJob();
+        // While this worker is busy, its lease runs out and a second worker claims the same job.
+        FakeAudioProcessor slowProcessor = new FakeAudioProcessor() {
+            @Override
+            public ProcessedAudio process(InputStream original) {
+                queue.expireLeases();
+                queue.claimNext(Duration.ofMinutes(10));
+                throw new AudioProcessingException("took too long");
+            }
+        };
+        RunNextProcessingJobUseCase slowWorker = new RunNextProcessingJobUseCase(
+            queue, new ProcessTrackUseCase(trackRepository, storage, slowProcessor), trackRepository);
+
+        slowWorker.execute();
+
+        InMemoryProcessingJobQueue.Job job = queue.jobs.get(0);
+        assertEquals(InMemoryProcessingJobQueue.Status.RUNNING, job.status, "the second worker still owns it");
+        assertEquals(2, job.attempts);
+        assertEquals(TrackStatus.PROCESSING, trackRepository.findById(id).orElseThrow().getStatus());
     }
 
     @Test

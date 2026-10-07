@@ -64,12 +64,18 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
 
     @Override
     public void complete(ProcessingJob claimed) {
-        find(claimed.id()).status = Status.DONE;
+        Job job = find(claimed.id());
+        if (holds(job, claimed)) {
+            job.status = Status.DONE;
+        }
     }
 
     @Override
     public FailureOutcome fail(ProcessingJob claimed, String error, Duration retryDelay) {
         Job job = find(claimed.id());
+        if (!holds(job, claimed)) {
+            return FailureOutcome.LEASE_LOST;
+        }
         job.lastError = error;
         job.lastRetryDelay = retryDelay;
         if (job.attempts >= MAX_ATTEMPTS) {
@@ -92,6 +98,11 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
             .toList();
         exhausted.forEach(job -> job.status = Status.FAILED);
         return exhausted.stream().map(job -> job.trackId).toList();
+    }
+
+    /** The claiming worker still holds the job unless another worker has counted a newer attempt. */
+    private static boolean holds(Job job, ProcessingJob claimed) {
+        return job.status == Status.RUNNING && job.attempts == claimed.attempts();
     }
 
     private static boolean isExpired(Job job) {

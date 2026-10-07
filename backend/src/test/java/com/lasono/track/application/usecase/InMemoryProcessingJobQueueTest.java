@@ -76,6 +76,32 @@ class InMemoryProcessingJobQueueTest {
     }
 
     @Test
+    void aWorkerThatLostItsJobCannotCompleteIt() {
+        queue.enqueue(trackId);
+        ProcessingJob slowWorkersJob = queue.claimNext(LEASE).orElseThrow();
+        queue.expireLeases();
+        queue.claimNext(LEASE).orElseThrow();
+
+        queue.complete(slowWorkersJob);
+
+        assertThat(queue.jobs.get(0).status).isEqualTo(InMemoryProcessingJobQueue.Status.RUNNING);
+    }
+
+    @Test
+    void aWorkerThatLostItsJobCannotFailIt() {
+        queue.enqueue(trackId);
+        ProcessingJob slowWorkersJob = queue.claimNext(LEASE).orElseThrow();
+        queue.expireLeases();
+        queue.claimNext(LEASE).orElseThrow();
+
+        FailureOutcome outcome = queue.fail(slowWorkersJob, "too late", DELAY);
+
+        assertThat(outcome).isEqualTo(FailureOutcome.LEASE_LOST);
+        assertThat(queue.jobs.get(0).status).isEqualTo(InMemoryProcessingJobQueue.Status.RUNNING);
+        assertThat(queue.jobs.get(0).lastError).isNull();
+    }
+
+    @Test
     void aFailedJobIsRetriedUntilItRunsOutOfAttempts() {
         queue.enqueue(trackId);
 
