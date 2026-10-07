@@ -2,11 +2,13 @@ package com.lasono.track.infrastructure.processing;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.ShortBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,8 @@ import com.lasono.track.domain.audio.model.Waveform;
 
 @Component
 public class FfmpegAudioProcessor implements AudioProcessor {
+
+    private static final int WAVEFORM_PEAKS = 200;
 
     private final String ffmpegPath;
     private final String ffprobePath;
@@ -44,7 +48,8 @@ public class FfmpegAudioProcessor implements AudioProcessor {
             Files.copy(original, source);
 
             AudioDuration duration = readDuration(source, workDir);
-            return new ProcessedAudio(duration, new Waveform(List.of(0f)), new byte[0]);
+            Waveform waveform = buildWaveform(source, workDir);
+            return new ProcessedAudio(duration, waveform, new byte[0]);
         } catch (IOException e) {
             throw new AudioProcessingException("Failed to process the audio", e);
         } catch (InterruptedException e) {
@@ -61,6 +66,17 @@ public class FfmpegAudioProcessor implements AudioProcessor {
             "-of", "default=noprint_wrappers=1:nokey=1", source.toString());
         double seconds = Double.parseDouble(Files.readString(output).trim());
         return new AudioDuration(Math.round(seconds * 1000));
+    }
+
+    /** Decodes the audio to 8 kHz mono 16-bit PCM and keeps the loudest sample of each of 200 parts. */
+    private Waveform buildWaveform(Path source, Path workDir) throws IOException, InterruptedException {
+        Path pcm = run(workDir, "pcm",
+            ffmpegPath, "-v", "error", "-i", source.toString(),
+            "-ac", "1", "-ar", "8000", "-f", "s16le", "-");
+        ShortBuffer buffer = ByteBuffer.wrap(Files.readAllBytes(pcm)).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer();
+        short[] samples = new short[buffer.remaining()];
+        buffer.get(samples);
+        return new Waveform(WaveformPeaks.fromPcm(samples, WAVEFORM_PEAKS));
     }
 
     /**
