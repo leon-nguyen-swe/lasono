@@ -3,16 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../player_service.dart';
+import 'waveform_view.dart';
 
 class PlayerControls extends StatefulWidget {
   const PlayerControls({
     super.key,
     required this.player,
     required this.streamUrl,
+    this.waveform,
   });
 
   final PlayerService player;
   final Uri streamUrl;
+
+  /// Peaks of the track, drawn above the slider. Null when the track has none.
+  final List<double>? waveform;
 
   @override
   State<PlayerControls> createState() => _PlayerControlsState();
@@ -116,6 +121,13 @@ class _PlayerControlsState extends State<PlayerControls> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.waveform case final peaks? when peaks.isNotEmpty)
+          WaveformView(
+            key: const Key('waveform'),
+            peaks: peaks,
+            progress: canSeek ? valueMs / maxMs : 0,
+            onSeek: canSeek ? (fraction) => _seekTo(fraction * maxMs) : null,
+          ),
         Slider(
           key: const Key('seekSlider'),
           min: 0,
