@@ -101,6 +101,7 @@ Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
 ```bash
 cd backend && ./gradlew test          # backend tests (in-memory H2, no database needed)
 cd backend && ./gradlew postgresTest  # backend tests that need a real PostgreSQL (see below)
+cd backend && ./gradlew ffmpegTest    # backend tests that run the real ffmpeg and ffprobe (see below)
 cd app && flutter test                # widget and unit tests
 cd app && flutter analyze             # static analysis
 ```
@@ -114,6 +115,10 @@ cd app && flutter analyze             # static analysis
 ```bash
 docker compose exec postgres psql -U lasono -d postgres -c "CREATE DATABASE lasono_test"
 ```
+
+### ffmpeg tests
+
+`ffmpegTest` runs the tests tagged `ffmpeg`. They call the real `ffmpeg` and `ffprobe` programs, so those must be installed (on Ubuntu or WSL: `sudo apt install ffmpeg`). The tests make their own audio files, so no audio is stored in the repository. The backend also needs both programs at runtime to process uploaded tracks; set `lasono.processing.ffmpeg-path`, `lasono.processing.ffprobe-path` or `lasono.processing.timeout-seconds` (default 300) in `application.yaml` if they are not on the `PATH`.
 
 ## Troubleshooting
 
