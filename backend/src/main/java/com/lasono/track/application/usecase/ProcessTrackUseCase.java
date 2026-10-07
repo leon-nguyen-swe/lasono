@@ -30,6 +30,7 @@ public class ProcessTrackUseCase {
     private final TrackRepository trackRepository;
     private final AudioStorage audioStorage;
     private final AudioProcessor audioProcessor;
+    private final StoredAudioCleanup cleanup;
 
     public ProcessTrackUseCase(
         TrackRepository trackRepository,
@@ -39,6 +40,7 @@ public class ProcessTrackUseCase {
         this.trackRepository = trackRepository;
         this.audioStorage = audioStorage;
         this.audioProcessor = audioProcessor;
+        this.cleanup = new StoredAudioCleanup(audioStorage);
     }
 
     public void execute(UUID trackId) {
@@ -66,16 +68,8 @@ public class ProcessTrackUseCase {
                 processed.waveform());
             trackRepository.save(track);
         } catch (RuntimeException e) {
-            deleteQuietly(mp3Key, e);
+            cleanup.deleteQuietly(mp3Key, e);
             throw e;
-        }
-    }
-
-    private void deleteQuietly(StorageKey key, RuntimeException cause) {
-        try {
-            audioStorage.delete(key);
-        } catch (RuntimeException cleanupFailure) {
-            cause.addSuppressed(cleanupFailure);
         }
     }
 
