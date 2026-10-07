@@ -49,7 +49,8 @@ public class FfmpegAudioProcessor implements AudioProcessor {
 
             AudioDuration duration = readDuration(source, workDir);
             Waveform waveform = buildWaveform(source, workDir);
-            return new ProcessedAudio(duration, waveform, new byte[0]);
+            byte[] streamingAudio = convertToMp3(source, workDir);
+            return new ProcessedAudio(duration, waveform, streamingAudio);
         } catch (IOException e) {
             throw new AudioProcessingException("Failed to process the audio", e);
         } catch (InterruptedException e) {
@@ -77,6 +78,15 @@ public class FfmpegAudioProcessor implements AudioProcessor {
         short[] samples = new short[buffer.remaining()];
         buffer.get(samples);
         return new Waveform(WaveformPeaks.fromPcm(samples, WAVEFORM_PEAKS));
+    }
+
+    /** Converts the audio to a 128 kbps MP3, the one format every browser plays and that streams well. */
+    private byte[] convertToMp3(Path source, Path workDir) throws IOException, InterruptedException {
+        Path mp3 = workDir.resolve("streaming.mp3");
+        run(workDir, "mp3",
+            ffmpegPath, "-v", "error", "-i", source.toString(),
+            "-vn", "-codec:a", "libmp3lame", "-b:a", "128k", mp3.toString());
+        return Files.readAllBytes(mp3);
     }
 
     /**
