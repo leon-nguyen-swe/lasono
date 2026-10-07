@@ -26,6 +26,14 @@ class InMemoryAudioStorageTest {
     }
 
     @Test
+    void returnsOnlyTheRequestedRangeOfAFile() throws Exception {
+        StorageKey key = storage.store(
+            new ByteArrayInputStream("0123456789".getBytes(StandardCharsets.UTF_8)), AudioFormat.MP3);
+
+        assertThat(storage.retrieveRange(key, 2, 4).readAllBytes()).isEqualTo("2345".getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void forgetsAFileThatWasDeleted() {
         StorageKey key = storage.store(new ByteArrayInputStream(new byte[] {1}), AudioFormat.WAV);
 
