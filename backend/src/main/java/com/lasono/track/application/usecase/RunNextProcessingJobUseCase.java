@@ -5,8 +5,10 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
+import com.lasono.track.application.port.out.FailureOutcome;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
+import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
 
 /**
@@ -45,9 +47,21 @@ public class RunNextProcessingJobUseCase {
             processTrack.execute(job.trackId().getValue());
             queue.complete(job.id());
         } catch (RuntimeException e) {
-            queue.fail(job.id(), e.toString(), retryDelay(job.attempts()));
+            FailureOutcome outcome = queue.fail(job.id(), e.toString(), retryDelay(job.attempts()));
+            if (outcome == FailureOutcome.GAVE_UP) {
+                markTrackFailed(job.trackId());
+            }
         }
         return true;
+    }
+
+    /** No retry is left, so the user must see that this track will never be playable. */
+    private void markTrackFailed(TrackId trackId) {
+        trackRepository.findById(trackId).ifPresent(track -> {
+            track.startProcessing();
+            track.processingFailed();
+            trackRepository.save(track);
+        });
     }
 
     /** 30 seconds after the first failure, then twice as long after each next one. */

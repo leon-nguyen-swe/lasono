@@ -86,6 +86,31 @@ class RunNextProcessingJobUseCaseTest {
         assertEquals(Duration.ofSeconds(60), queue.jobs.get(0).lastRetryDelay);
     }
 
+    @Test
+    void execute_shouldMarkTheTrackFailedWhenTheJobRunsOutOfAttempts() {
+        TrackId id = anUploadedTrackWithAJob();
+        processor.failure = new AudioProcessingException("corrupt audio");
+
+        for (int attempt = 1; attempt <= InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            assertEquals(TrackStatus.PROCESSING, trackRepository.findById(id).orElseThrow().getStatus());
+            useCase.execute();
+        }
+
+        assertEquals(InMemoryProcessingJobQueue.Status.FAILED, queue.jobs.get(0).status);
+        assertEquals(TrackStatus.FAILED, trackRepository.findById(id).orElseThrow().getStatus());
+    }
+
+    @Test
+    void execute_shouldGiveUpQuietlyOnAJobWhoseTrackDoesNotExist() {
+        queue.enqueue(new TrackId(UUID.randomUUID()));
+
+        for (int attempt = 1; attempt <= InMemoryProcessingJobQueue.MAX_ATTEMPTS; attempt++) {
+            useCase.execute();
+        }
+
+        assertEquals(InMemoryProcessingJobQueue.Status.FAILED, queue.jobs.get(0).status);
+    }
+
     /** A track as the upload leaves it: the original file is stored, the track is PROCESSING, a job waits. */
     private TrackId anUploadedTrackWithAJob() {
         StorageKey key = storage.store(new ByteArrayInputStream(ORIGINAL), AudioFormat.WAV);
