@@ -274,6 +274,25 @@ public class UploadTrackUseCaseTest {
     }
 
     @Test
+    void execute_shouldDeleteStoredFileAndRethrowWhenEnqueueFails() {
+        RecordingAudioStorage storage = new RecordingAudioStorage();
+        RuntimeException enqueueFailure = new IllegalStateException("queue down");
+        jobQueue.enqueueFailure = enqueueFailure;
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
+        UploadTrackCommand command = new UploadTrackCommand(
+                "My Song", "desc",
+                new ByteArrayInputStream("data".getBytes()),
+                12345L, "audio/mpeg"
+        );
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> recordingUseCase.execute(command));
+
+        assertSame(enqueueFailure, thrown);
+        assertEquals(1, storage.stored.size());
+        assertEquals(storage.stored, storage.deleted);
+    }
+
+    @Test
     void execute_shouldKeepOriginalExceptionWhenCleanupDeleteFails() {
         RecordingAudioStorage storage = new RecordingAudioStorage();
         storage.failOnDelete = true;

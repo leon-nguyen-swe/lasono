@@ -15,9 +15,14 @@ import com.lasono.track.domain.TrackId;
 class InMemoryProcessingJobQueue implements ProcessingJobQueue {
 
     final List<TrackId> enqueued = new ArrayList<>();
+    /** When set, {@link #enqueue} throws it instead of queueing. */
+    RuntimeException enqueueFailure;
 
     @Override
     public void enqueue(TrackId trackId) {
+        if (enqueueFailure != null) {
+            throw enqueueFailure;
+        }
         enqueued.add(trackId);
     }
 
