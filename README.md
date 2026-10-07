@@ -38,6 +38,15 @@ Stop it with `docker compose down`. **Do not add `-v`**, because that deletes th
 
 ### 2. Backend
 
+The backend signs login tokens with a secret that is **not stored in the repository**. Set it once per terminal
+(at least 32 bytes; the backend refuses to start with a shorter one):
+
+```bash
+export LASONO_JWT_SECRET="$(openssl rand -base64 48)"
+```
+
+A new secret signs out everyone who is logged in, so keep the same one while you develop.
+
 ```bash
 cd backend
 ./gradlew bootRun
@@ -75,6 +84,8 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 | Backend URL used by the app | `flutter run ... --dart-define=API_BASE_URL=http://host:8080` | `http://localhost:8080` |
 | Allowed CORS origins | property `lasono.cors.allowed-origins` (comma separated) | `http://localhost:3000,http://127.0.0.1:3000` |
 | Audio storage folder | property `lasono.storage.root` | `./storage/audio` (relative to where the backend starts) |
+| Secret that signs login tokens | environment variable `LASONO_JWT_SECRET` (property `lasono.jwt.secret`), at least 32 bytes | none: the backend does not start without it |
+| Lifetime of a login token | property `lasono.jwt.access-token-ttl` | `15m` |
 | Upload size limit | `spring.servlet.multipart.max-file-size` / `max-request-size` in `backend/src/main/resources/application.yaml` | 50MB / 52MB |
 
 Any Spring property can be overridden on the command line, for example:
