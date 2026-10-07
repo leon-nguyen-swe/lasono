@@ -55,6 +55,13 @@ jobs:
       - name: Run Postgres tests
         run: ./gradlew postgresTest
 
+      # The tests tagged "ffmpeg" run the real ffmpeg and ffprobe programs.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Run ffmpeg tests
+        run: ./gradlew ffmpegTest
+
   app:
     name: Flutter app
     runs-on: ubuntu-latest
