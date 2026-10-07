@@ -16,7 +16,7 @@ Map<String, dynamic> _item(int i) => {
       'id': 'id-$i',
       'title': 'Track $i',
       'description': '',
-      'status': 'PROCESSING',
+      'status': 'READY',
     };
 
 http.Response _page(Iterable<int> ids, {String? next}) => http.Response(
@@ -129,7 +129,7 @@ void main() {
               jsonEncode({
                 'items': [
                   {..._item(0), 'status': 'READY', 'durationSeconds': 185.0},
-                  {..._item(1), 'durationSeconds': null},
+                  {..._item(1), 'status': 'PROCESSING', 'durationSeconds': null},
                 ],
                 'nextCursor': null,
               }),

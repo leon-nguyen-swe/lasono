@@ -21,12 +21,12 @@ const _otherTrackId = '9a1c2d3e-0000-4000-8000-000000000001';
 TrackApi _api(MockClientHandler handler) =>
     TrackApi(baseUrl: 'http://api.test', client: MockClient(handler));
 
-http.Response _trackResponse([String id = _trackId]) => http.Response(
+http.Response _trackResponse([String id = _trackId, String status = 'READY']) => http.Response(
       jsonEncode({
         'id': id,
         'title': 'Vietnamese',
         'description': 'A demo track',
-        'status': 'PROCESSING',
+        'status': status,
         'mimeType': 'audio/mpeg',
         'durationSeconds': null,
       }),
@@ -107,7 +107,7 @@ void main() {
       late Uri requested;
       final api = _api((request) async {
         requested = request.url;
-        return _trackResponse();
+        return _trackResponse(_trackId, 'PROCESSING');
       });
       await tester.pumpWidget(_uploadScreen(api: api, player: FakePlayerService()));
 
@@ -170,7 +170,7 @@ void main() {
           );
         }
         trackRequest = request.url;
-        return _trackResponse();
+        return _trackResponse(_trackId, 'PROCESSING');
       });
       await tester.pumpWidget(
         _uploadScreen(
