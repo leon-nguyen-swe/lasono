@@ -99,6 +99,14 @@ public class Track {
         this.status = TrackStatus.READY;
     }
 
+    public void processingFailed() {
+        if (this.status != TrackStatus.PROCESSING) {
+            throw new TrackInvalidStateException("Expected track state: PROCESSING\nActual track state: " + this.status);
+        }
+        this.audioResource.processingFailed();
+        this.status = TrackStatus.FAILED;
+    }
+
     public void rename(String newTitle) {
         validateTitle(newTitle);
         this.title = newTitle;

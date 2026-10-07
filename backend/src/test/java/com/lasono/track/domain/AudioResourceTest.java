@@ -125,6 +125,85 @@ public class AudioResourceTest {
     }
 
     @Test
+    void shouldTransitionFromProcessingToFailed() {
+        AudioResource resource = createResource();
+        OriginalAudio originalAudio = createOriginalAudio();
+
+        resource.uploadCompleted(originalAudio);
+        resource.startProcessing();
+
+        resource.processingFailed();
+
+        assertEquals(AudioResourceStatus.FAILED, resource.getStatus());
+        assertEquals(originalAudio, resource.getOriginalAudio());
+        assertEquals(null, resource.getStreamingAudio());
+        assertEquals(null, resource.getAudioDuration());
+        assertEquals(null, resource.getWaveform());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingFromCreated() {
+        AudioResource resource = createResource();
+
+        assertThrows(
+            AudioResourceInvalidStateException.class,
+            () -> resource.processingFailed()
+        );
+
+        assertEquals(AudioResourceStatus.CREATED, resource.getStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingFromUploaded() {
+        AudioResource resource = createResource();
+
+        resource.uploadCompleted(createOriginalAudio());
+
+        assertThrows(
+            AudioResourceInvalidStateException.class,
+            () -> resource.processingFailed()
+        );
+
+        assertEquals(AudioResourceStatus.UPLOADED, resource.getStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingFromReady() {
+        AudioResource resource = createResource();
+
+        resource.uploadCompleted(createOriginalAudio());
+        resource.startProcessing();
+        resource.processingCompleted(
+            createStreamingAudio(),
+            createAudioDuration(),
+            createWaveform()
+        );
+
+        assertThrows(
+            AudioResourceInvalidStateException.class,
+            () -> resource.processingFailed()
+        );
+
+        assertEquals(AudioResourceStatus.READY, resource.getStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingFromFailed() {
+        AudioResource resource = createResource();
+
+        resource.uploadCompleted(createOriginalAudio());
+        resource.startProcessing();
+        resource.processingFailed();
+
+        assertThrows(
+            AudioResourceInvalidStateException.class,
+            () -> resource.processingFailed()
+        );
+
+        assertEquals(AudioResourceStatus.FAILED, resource.getStatus());
+    }
+
+    @Test
     void shouldRejectStartingProcessingFromCreated() {
         AudioResource resource = createResource();
 

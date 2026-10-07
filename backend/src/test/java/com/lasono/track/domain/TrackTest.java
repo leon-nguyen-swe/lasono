@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.lasono.track.domain.audio.exception.AudioResourceInvalidStateException;
 import com.lasono.track.domain.audio.model.AudioDuration;
 import com.lasono.track.domain.audio.model.AudioFormat;
+import com.lasono.track.domain.audio.model.AudioResourceStatus;
 import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
@@ -66,6 +67,98 @@ class TrackTest {
         );
 
         assertEquals(TrackStatus.READY, track.getStatus());
+    }
+
+    @Test
+    void shouldMoveTrackAndAudioResourceToFailedWhenProcessingFails() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(
+            new OriginalAudio(
+                "original/test.wav",
+                AudioFormat.WAV,
+                1000L,
+                "audio/wav"
+            )
+        );
+        track.startProcessing();
+
+        track.processingFailed();
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
+        assertEquals(AudioResourceStatus.FAILED, track.toSnapshot().audioResourceStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingWhenTrackIsReady() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingCompleted(
+            new StreamingAudio("streaming/test.mp3", AudioFormat.MP3, 500L, "audio/mpeg"),
+            new AudioDuration(180000L),
+            new Waveform(java.util.List.of(0.1f, 0.5f, 0.2f))
+        );
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingFailed()
+        );
+
+        assertEquals(TrackStatus.READY, track.getStatus());
+    }
+
+    @Test
+    void shouldRejectFailingProcessingWhenTrackIsAlreadyFailed() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingFailed();
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingFailed()
+        );
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
+    }
+
+    @Test
+    void shouldRejectCompletingProcessingWhenTrackHasFailed() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()),
+            "Test Track",
+            null
+        );
+
+        track.uploadCompleted(new OriginalAudio("original/test.wav", AudioFormat.WAV, 1000L, "audio/wav"));
+        track.startProcessing();
+        track.processingFailed();
+
+        assertThrows(
+            TrackInvalidStateException.class,
+            () -> track.processingCompleted(
+                new StreamingAudio("streaming/test.mp3", AudioFormat.MP3, 500L, "audio/mpeg"),
+                new AudioDuration(180000L),
+                new Waveform(java.util.List.of(0.1f, 0.5f, 0.2f))
+            )
+        );
+
+        assertEquals(TrackStatus.FAILED, track.getStatus());
     }
 
     @Test

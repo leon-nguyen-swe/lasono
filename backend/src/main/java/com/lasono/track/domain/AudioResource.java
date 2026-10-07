@@ -100,7 +100,14 @@ public class AudioResource {
         this.waveform = waveform;
         this.status = AudioResourceStatus.READY;
     }
-    
+
+    void processingFailed() {
+        if (this.status != AudioResourceStatus.PROCESSING) {
+            throw new AudioResourceInvalidStateException("Expected state: PROCESSING\nActual state: " + this.status);
+        }
+        this.status = AudioResourceStatus.FAILED;
+    }
+
     public static AudioResource reconstitute(
         AudioResourceId id,
         AudioResourceStatus status,
