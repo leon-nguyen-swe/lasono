@@ -66,8 +66,10 @@ public class TrackPersistenceAdapter implements TrackRepository {
             toFloatArray(snapshot.waveform())
         );
 
-        trackJpaRepository.save(trackEntity);
-        audioResourceJpaRepository.save(audioResourceEntity);
+        // Flush so the rows are in the database before save() returns. Other adapters write with plain
+        // SQL in the same transaction (the job queue) and their foreign keys need these rows to exist.
+        trackJpaRepository.saveAndFlush(trackEntity);
+        audioResourceJpaRepository.saveAndFlush(audioResourceEntity);
 
         return track;
     }
