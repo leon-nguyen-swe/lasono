@@ -57,6 +57,8 @@ public class UploadTrackUseCase {
             throw e;
         }
 
+        processingJobQueue.enqueue(track.getId());
+
         return new UploadTrackResult(
             track.getId().getValue().toString(),
             track.getTitle(),
