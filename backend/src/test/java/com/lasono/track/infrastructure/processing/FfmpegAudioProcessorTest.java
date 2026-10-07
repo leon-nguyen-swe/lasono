@@ -9,9 +9,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -83,6 +85,32 @@ class FfmpegAudioProcessorTest {
         Path empty = generate("empty.wav", "anullsrc=channel_layout=stereo:sample_rate=44100", "0");
 
         assertThatThrownBy(() -> process(empty)).isInstanceOf(AudioProcessingException.class);
+    }
+
+    @Test
+    void stopsAProgramThatRunsTooLongAndCleansUp() throws Exception {
+        // A fake ffprobe that never finishes in time. "exec" makes the script become the sleep
+        // program itself, so stopping the process stops the sleep too.
+        Path slowProbe = tempDir.resolve("slow-ffprobe.sh");
+        Files.writeString(slowProbe, "#!/bin/sh\nexec sleep 20\n");
+        assertThat(slowProbe.toFile().setExecutable(true)).isTrue();
+        FfmpegAudioProcessor impatient = new FfmpegAudioProcessor("ffmpeg", slowProbe.toString(), 1);
+        long workDirsBefore = leftoverWorkDirs();
+
+        long started = System.nanoTime();
+        assertThatThrownBy(() -> impatient.process(new ByteArrayInputStream("any bytes".getBytes(StandardCharsets.UTF_8))))
+            .isInstanceOf(AudioProcessingException.class)
+            .hasMessageContaining("timed out");
+
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(10));
+        assertThat(leftoverWorkDirs()).isEqualTo(workDirsBefore);
+    }
+
+    /** How many working directories of the processor exist in the temporary directory. */
+    private static long leftoverWorkDirs() throws Exception {
+        try (Stream<Path> entries = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
+            return entries.filter(path -> path.getFileName().toString().startsWith("lasono-audio-")).count();
+        }
     }
 
     private String probe(Path file, String entry) throws Exception {
