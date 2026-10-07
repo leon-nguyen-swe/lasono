@@ -53,24 +53,33 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
 
     @Override
     public void complete(ProcessingJob job) {
+        // "attempts = ?" tells whether this worker still holds the job: a worker that took it over
+        // after our lease ran out has counted one more attempt. If so, its result is the one to keep.
         jdbcTemplate.update(
-            "UPDATE processing_jobs SET status = 'DONE', locked_until = NULL WHERE id = ?", job.id());
+            """
+            UPDATE processing_jobs SET status = 'DONE', locked_until = NULL
+            WHERE id = ? AND status = 'RUNNING' AND attempts = ?
+            """,
+            job.id(), job.attempts());
     }
 
     @Override
     public FailureOutcome fail(ProcessingJob job, String error, Duration retryDelay) {
-        String newStatus = jdbcTemplate.queryForObject(
+        List<String> newStatus = jdbcTemplate.queryForList(
             """
             UPDATE processing_jobs
             SET status = CASE WHEN attempts < max_attempts THEN 'PENDING' ELSE 'FAILED' END,
                 run_after = CASE WHEN attempts < max_attempts THEN now() + make_interval(secs => ?) ELSE run_after END,
                 locked_until = NULL,
                 last_error = ?
-            WHERE id = ?
+            WHERE id = ? AND status = 'RUNNING' AND attempts = ?
             RETURNING status
             """,
-            String.class, seconds(retryDelay), error, job.id());
-        return "PENDING".equals(newStatus) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
+            String.class, seconds(retryDelay), error, job.id(), job.attempts());
+        if (newStatus.isEmpty()) {
+            return FailureOutcome.LEASE_LOST;
+        }
+        return "PENDING".equals(newStatus.get(0)) ? FailureOutcome.WILL_RETRY : FailureOutcome.GAVE_UP;
     }
 
     @Override

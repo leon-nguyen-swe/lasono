@@ -208,9 +208,9 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
     @Test
     void failMarksAJobFailedWhenItHasNoAttemptsLeft() {
         adapter.enqueue(new TrackId(insertTrack()));
+        // The job is allowed one attempt only, so the claim below is its last attempt.
+        jdbcTemplate.update("UPDATE processing_jobs SET max_attempts = 1");
         ProcessingJob job = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
-        // This was the last attempt the job was allowed.
-        jdbcTemplate.update("UPDATE processing_jobs SET attempts = max_attempts");
 
         FailureOutcome outcome = adapter.fail(job, "corrupt audio", Duration.ofMinutes(2));
 
@@ -282,6 +282,36 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         assertThat(adapter.failExhausted()).isEmpty();
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class)).isEqualTo("RUNNING");
+    }
+
+    @Test
+    void completeChangesNothingWhenAnotherWorkerHasTakenTheJobOver() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob slowWorkersJob = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+        jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
+        ProcessingJob newWorkersJob = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+
+        adapter.complete(slowWorkersJob);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class)).isEqualTo("RUNNING");
+        adapter.complete(newWorkersJob);
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM processing_jobs", String.class)).isEqualTo("DONE");
+    }
+
+    @Test
+    void failChangesNothingWhenAnotherWorkerHasTakenTheJobOver() {
+        adapter.enqueue(new TrackId(insertTrack()));
+        ProcessingJob slowWorkersJob = adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+        jdbcTemplate.update("UPDATE processing_jobs SET locked_until = now() - interval '1 minute'");
+        adapter.claimNext(Duration.ofMinutes(5)).orElseThrow();
+
+        FailureOutcome outcome = adapter.fail(slowWorkersJob, "too late", Duration.ofMinutes(2));
+
+        assertThat(outcome).isEqualTo(FailureOutcome.LEASE_LOST);
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT status, last_error, attempts FROM processing_jobs");
+        assertThat(row).containsEntry("status", "RUNNING");
+        assertThat(row.get("last_error")).isNull();
+        assertThat(row).containsEntry("attempts", 2);
     }
 
     private UUID insertTrack() {
