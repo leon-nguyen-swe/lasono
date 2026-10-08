@@ -96,7 +96,8 @@ Any Spring property can be overridden on the command line, for example:
 
 ## API
 
-All endpoints are under `/api/v1/tracks`.
+Track endpoints are under `/api/v1/tracks` and account endpoints under `/api/v1/auth` and `/api/v1/users`.
+For now the track endpoints can be called without logging in; that changes when tracks get an owner.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -106,6 +107,18 @@ All endpoints are under `/api/v1/tracks`.
 | `GET` | `/api/v1/tracks/{id}/stream` | Bytes of the converted MP3. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid, `409` if the track is not `READY` (still processing, or processing failed) |
 
 Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
+
+### Accounts
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/auth/register` | JSON `{email, displayName, password}`. Returns `201 {userId, email, displayName}`. The password needs at least 8 characters and at most 72 bytes. Errors: `400` invalid email, name or password, `409` email already registered |
+| `POST` | `/api/v1/auth/login` | JSON `{email, password}`. Returns `200 {accessToken, tokenType: "Bearer", expiresIn}` (`expiresIn` is in seconds, 900 by default). A wrong password and an unknown email give the same `401`, on purpose |
+| `GET` | `/api/v1/users/me` | Needs the header `Authorization: Bearer <accessToken>`. Returns `{userId, email, displayName}`. `401` without a valid token |
+
+Errors come as `application/problem+json`. A request with a token that is expired or not signed by this server gets `401`
+and the header `WWW-Authenticate: Bearer error="invalid_token"`; the body never says why. The token is only signed, not
+encrypted, and holds just the user id, so do not put anything private in it.
 
 ## Tests
 
