@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../data/repository_exception.dart';
 import '../models/track.dart';
@@ -292,4 +292,27 @@ class PlaybackController extends ChangeNotifier {
     duration.dispose();
     super.dispose();
   }
+}
+
+/// Gives the widgets below it the playback controller: `PlaybackScope.of(context)`.
+///
+/// It holds a function that makes the controller, not the controller itself, so the audio player (which needs
+/// the browser) is only made when something first asks for it.
+class PlaybackScope extends InheritedWidget {
+  const PlaybackScope({super.key, required this.read, required super.child});
+
+  final PlaybackController Function() read;
+
+  /// Null when there is no scope above.
+  static PlaybackController? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PlaybackScope>()?.read();
+
+  static PlaybackController of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<PlaybackScope>();
+    assert(scope != null, 'No PlaybackScope above this widget: wrap the app in one');
+    return scope!.read();
+  }
+
+  @override
+  bool updateShouldNotify(PlaybackScope oldWidget) => read != oldWidget.read;
 }

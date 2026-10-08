@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/theme.dart';
+import '../data/app_repositories.dart';
+import '../playback/playback_controller.dart';
 import '../screens/status_badge.dart';
 import '../screens/waveform_view.dart';
 
@@ -10,54 +12,74 @@ import '../screens/waveform_view.dart';
 /// Open it at `/#/dev/gallery` while `flutter run` is serving the app. New components are added here as a
 /// [_Section] when they are built.
 class GalleryScreen extends StatelessWidget {
-  const GalleryScreen({super.key, required this.themeController});
+  const GalleryScreen({super.key, required this.themeController, this.embedded = false});
 
   static const routeName = '/dev/gallery';
 
   final ThemeController themeController;
 
+  /// True when the page is shown inside the app shell, which already has a top bar: then it has no bar of its own.
+  final bool embedded;
+
+  static const _sections = <Widget>[
+    _ColorsSection(),
+    _TypographySection(),
+    _SpacingSection(),
+    _ShapeSection(),
+    _MotionSection(),
+    _BreakpointSection(),
+    _ComponentsSection(),
+    _PlayerSection(),
+  ];
+
+  Widget _themeSwitch() => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.dark_mode_outlined, size: 18),
+          Switch(
+            key: const Key('lightModeSwitch'),
+            value: themeController.mode == ThemeMode.light,
+            onChanged: (_) => themeController.toggle(),
+          ),
+          const Icon(Icons.light_mode_outlined, size: 18),
+        ],
+      );
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: themeController,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Design system'),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.lg),
-              child: Row(
-                children: [
-                  const Icon(Icons.dark_mode_outlined, size: 18),
-                  Switch(
-                    key: const Key('lightModeSwitch'),
-                    value: themeController.mode == ThemeMode.light,
-                    onChanged: (_) => themeController.toggle(),
-                  ),
-                  const Icon(Icons.light_mode_outlined, size: 18),
-                ],
-              ),
-            ),
-          ],
-        ),
-        body: Center(
+      builder: (context, _) {
+        final list = Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: AppBreakpoints.contentMaxWidth),
             child: ListView(
               padding: const EdgeInsets.all(AppSpacing.xl),
-              children: const [
-                _ColorsSection(),
-                _TypographySection(),
-                _SpacingSection(),
-                _ShapeSection(),
-                _MotionSection(),
-                _BreakpointSection(),
-                _ComponentsSection(),
+              children: [
+                if (embedded)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text('Design system', style: Theme.of(context).textTheme.displaySmall)),
+                        _themeSwitch(),
+                      ],
+                    ),
+                  ),
+                ..._sections,
               ],
             ),
           ),
-        ),
-      ),
+        );
+        if (embedded) return list;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Design system'),
+            actions: [Padding(padding: const EdgeInsets.only(right: AppSpacing.lg), child: _themeSwitch())],
+          ),
+          body: list,
+        );
+      },
     );
   }
 }
@@ -486,6 +508,43 @@ class _ComponentsSection extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Starts the made-up tracks in the player bar, to try the bar and the queue.
+class _PlayerSection extends StatelessWidget {
+  const _PlayerSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final world = RepositoriesScope.maybeOf(context)?.fakeWorld;
+    final playback = PlaybackScope.maybeOf(context);
+    return _Section(
+      title: 'Player bar',
+      note: 'The bar at the bottom appears when something plays. The tracks here are made up; their sound is a short tune.',
+      child: world == null || playback == null
+          ? Text(
+              'Not available here: the fake tracks need a debug build, or --dart-define=FAKE_SOCIAL=true.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          : Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.md,
+              children: [
+                FilledButton.icon(
+                  key: const Key('playFakeQueue'),
+                  onPressed: () => playback.playQueue(world.tracks, sourceId: 'gallery'),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Play the 30 fake tracks'),
+                ),
+                OutlinedButton(
+                  key: const Key('stopFakeQueue'),
+                  onPressed: playback.stop,
+                  child: const Text('Stop'),
+                ),
+              ],
+            ),
     );
   }
 }

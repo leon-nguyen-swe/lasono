@@ -54,7 +54,9 @@ class AppRepositories {
   /// The real backend, with made-up data where [flags] say the backend is not built yet.
   ///
   /// Without any flag the real repositories are used as they are. With one, every call is routed by id (see
-  /// `routing_repositories.dart`), because fake and real ids can then be on one screen.
+  /// `routing_repositories.dart`), because fake and real ids can then be on one screen. [routeFakeIds] does the
+  /// same routing with no flag on, so that fake ids (the design system page plays fake tracks) work too; a real
+  /// id still goes to the real backend untouched.
   factory AppRepositories.create({
     required SessionController session,
     FakeFlags flags = FakeFlags.environment,
@@ -62,6 +64,7 @@ class AppRepositories {
     http.Client? client,
     FakeWorld? world,
     FakeBehavior? behavior,
+    bool routeFakeIds = false,
   }) {
     final trackApi = TrackApi(baseUrl: baseUrl, client: client, auth: session);
     final api = ApiClient(baseUrl: baseUrl, client: client, auth: session);
@@ -73,7 +76,7 @@ class AppRepositories {
     final realFeed = HttpFeedRepository(api);
     final realSearch = HttpSearchRepository(api);
 
-    if (!flags.any) {
+    if (!flags.any && !routeFakeIds) {
       return AppRepositories(
         tracks: trackApi,
         users: realUsers,
@@ -146,6 +149,10 @@ class RepositoriesScope extends InheritedWidget {
   const RepositoriesScope({super.key, required this.repositories, required super.child});
 
   final AppRepositories repositories;
+
+  /// Null when there is no scope above (the design system page is also shown on its own in tests).
+  static AppRepositories? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RepositoriesScope>()?.repositories;
 
   static AppRepositories of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<RepositoriesScope>();
