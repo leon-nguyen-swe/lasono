@@ -144,6 +144,7 @@ class TrackApi {
   Future<String> uploadTrack({
     required String title,
     String description = '',
+    String visibility = 'PUBLIC',
     required String filename,
     required Uint8List bytes,
   }) async {
@@ -161,6 +162,7 @@ class TrackApi {
           ..headers.addAll(_bearer(token))
           ..fields['title'] = trimmedTitle
           ..fields['description'] = description
+          ..fields['visibility'] = visibility
           ..files.add(
             http.MultipartFile.fromBytes(
               'file',

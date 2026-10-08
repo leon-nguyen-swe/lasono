@@ -29,6 +29,7 @@ class _TrackScreenState extends State<TrackScreen> {
       widget.player ?? (_ownedPlayer ??= JustAudioPlayerService());
 
   PickedAudio? _picked;
+  bool _private = false;
   Track? _track;
   String? _error;
   bool _loading = false;
@@ -90,6 +91,7 @@ class _TrackScreenState extends State<TrackScreen> {
       final trackId = await _api.uploadTrack(
         title: _titleController.text,
         description: _descriptionController.text,
+        visibility: _private ? 'PRIVATE' : 'PUBLIC',
         filename: picked.name,
         bytes: picked.bytes,
       );
@@ -114,6 +116,14 @@ class _TrackScreenState extends State<TrackScreen> {
           key: const Key('descriptionField'),
           controller: _descriptionController,
           decoration: const InputDecoration(labelText: 'Description'),
+        ),
+        SwitchListTile(
+          key: const Key('privateSwitch'),
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Private'),
+          subtitle: const Text('Only you can see and play it'),
+          value: _private,
+          onChanged: _loading ? null : (value) => setState(() => _private = value),
         ),
         const SizedBox(height: 12),
         Row(

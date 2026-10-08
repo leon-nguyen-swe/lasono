@@ -214,6 +214,47 @@ void main() {
       expect(find.text('PROCESSING'), findsOneWidget);
     });
 
+    testWidgets('uploads a public track unless Private is switched on',
+        (WidgetTester tester) async {
+      final bodies = <String>[];
+      final api = _api((request) async {
+        if (request.method == 'POST') {
+          bodies.add(request.body);
+          return http.Response(
+            jsonEncode({'trackId': _trackId}),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return _trackResponse(_trackId, 'PROCESSING');
+      });
+      await tester.pumpWidget(
+        _uploadScreen(
+          api: api,
+          pickAudio: _picker('song.mp3'),
+          player: FakePlayerService(),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('titleField')), 'My Song');
+      await tester.tap(find.byKey(const Key('chooseFileButton')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byKey(const Key('privateSwitch'))).value,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const Key('uploadButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('privateSwitch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('uploadButton')));
+      await tester.pumpAndSettle();
+
+      expect(bodies, hasLength(2));
+      expect(bodies[0], contains('PUBLIC'));
+      expect(bodies[1], contains('PRIVATE'));
+    });
+
     testWidgets('shows the server error and keeps no track on a 415',
         (WidgetTester tester) async {
       final api = _api((_) async => http.Response('{"status":415}', 415));

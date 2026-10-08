@@ -343,6 +343,27 @@ void main() {
       expect(body, contains('content-type: audio/mpeg'));
     });
 
+    test('says who may see the track: public unless told otherwise', () async {
+      final bodies = <String>[];
+      final api = apiWith((request) async {
+        bodies.add(request.body);
+        return created();
+      });
+
+      await api.uploadTrack(title: 'A', filename: 'a.mp3', bytes: audio);
+      await api.uploadTrack(
+        title: 'B',
+        visibility: 'PRIVATE',
+        filename: 'b.mp3',
+        bytes: audio,
+      );
+
+      expect(bodies[0], contains('name="visibility"'));
+      expect(bodies[0], contains('PUBLIC'));
+      expect(bodies[1], contains('PRIVATE'));
+      expect(bodies[1], isNot(contains('PUBLIC')));
+    });
+
     test('sends audio/wav for a .WAV file regardless of case', () async {
       late http.Request captured;
       final api = apiWith((request) async {
