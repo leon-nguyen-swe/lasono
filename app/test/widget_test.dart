@@ -13,6 +13,7 @@ import 'package:lasono_app/main.dart';
 import 'package:lasono_app/player_service.dart';
 import 'package:lasono_app/screens/track_screen.dart';
 
+import 'fake_auth_server.dart';
 import 'fake_player_service.dart';
 
 const _trackId = '3f2b8a52-8f5e-4c1d-9a55-0b7f4f6c2d10';
@@ -80,20 +81,25 @@ TrackApi _listApi(List<String> titles) => _api(
 
 void main() {
   testWidgets('shows the LaSono title screen', (WidgetTester tester) async {
-    await tester.pumpWidget(LasonoApp(api: _listApi([])));
+    await tester.pumpWidget(LasonoApp(session: FakeAuthServer().session(), api: _listApi([])));
 
     expect(find.text('LaSono'), findsOneWidget);
   });
 
   testWidgets('does not ship the counter demo', (WidgetTester tester) async {
-    await tester.pumpWidget(LasonoApp(api: _listApi([])));
+    await tester.pumpWidget(LasonoApp(session: FakeAuthServer().session(), api: _listApi([])));
 
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byIcon(Icons.add), findsNothing);
   });
 
   testWidgets('opens on the list of tracks', (WidgetTester tester) async {
-    await tester.pumpWidget(LasonoApp(api: _listApi(['Vietnamese', 'Second'])));
+    await tester.pumpWidget(
+      LasonoApp(
+        session: FakeAuthServer().session(),
+        api: _listApi(['Vietnamese', 'Second']),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Vietnamese'), findsOneWidget);

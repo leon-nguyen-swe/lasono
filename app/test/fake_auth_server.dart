@@ -22,6 +22,7 @@ class FakeAuthServer {
   /// Whether the refresh cookie is valid, so a reload of the app signs in again.
   bool hasSession = false;
 
+  FutureOr<http.Response> Function()? onRefresh;
   FutureOr<http.Response> Function()? onLogin;
   FutureOr<http.Response> Function()? onRegister;
 
@@ -39,7 +40,8 @@ class FakeAuthServer {
     if (request.body.isNotEmpty) bodies[route] = jsonDecode(request.body);
     switch (route) {
       case 'POST /api/v1/auth/refresh':
-        return hasSession ? _tokens() : _json({'detail': 'Invalid'}, 401);
+        return onRefresh?.call() ??
+            (hasSession ? _tokens() : _json({'detail': 'Invalid'}, 401));
       case 'POST /api/v1/auth/login':
         return onLogin?.call() ?? _tokens();
       case 'POST /api/v1/auth/register':
