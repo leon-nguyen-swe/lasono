@@ -16,6 +16,7 @@ import 'data/app_repositories.dart';
 import 'data/fake_flags.dart';
 import 'player_service.dart';
 import 'playback/playback_controller.dart';
+import 'shell/app_context.dart';
 import 'screens/track_list_screen.dart';
 import 'screens/track_screen.dart';
 
@@ -155,9 +156,12 @@ class _LasonoAppState extends State<LasonoApp> {
         darkTheme: AppTheme.dark,
         themeMode: _theme.mode,
         routerConfig: _router,
-        builder: (context, child) => RepositoriesScope(
-          repositories: _repositories,
-          child: PlaybackScope(read: () => _playback, child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => SessionScope(
+          session: widget.session,
+          child: RepositoriesScope(
+            repositories: _repositories,
+            child: PlaybackScope(read: () => _playback, child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );
