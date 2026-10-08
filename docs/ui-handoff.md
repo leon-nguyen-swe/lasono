@@ -403,7 +403,7 @@ Xem tất cả ở `http://localhost:3000/dev/gallery` (mục "App components", 
 | Component | Việc nó làm | Quyết định đáng nhớ |
 |-----------|-------------|---------------------|
 | `TrackCard` | bìa vuông, tác giả, tiêu đề, nút play tròn lớn, waveform ngay trong card (bấm để seek **và phát**), like, số comment, "x ngày trước", menu owner, nhãn Riêng tư, trạng thái PROCESSING/FAILED | Không biết hàng đợi: bấm play gọi `onPlay` để **trang** biến danh sách thành hàng đợi. Phone: waveform xuống dưới, nhóm bên phải xuống dòng khi hết chỗ |
-| `WaveformView` | cột đã phát đổi màu; rê chuột hiện thời gian + vạch; click seek; avatar comment dưới waveform tại `positionMs`; nội dung nổi lên khi rê vào avatar **hoặc khi phát tới ±1,5 s** | Các comment gần nhau < 22 px gộp thành một avatar kèm "+n". Cần `durationMs`, không có thì không vẽ marker |
+| `WaveformView` | thanh **vuông** đứng trên một đường, **phản chiếu** mờ bên dưới (68% chiều cao cho sóng, 32% cho phản chiếu), vạch mảnh ở chỗ đang phát; cột đã phát đổi màu; rê chuột hiện thời gian + vạch; click seek; avatar comment nằm **trong vùng phản chiếu** tại `positionMs`; nội dung nổi lên khi rê vào avatar **hoặc khi phát tới ±1,5 s** | Các comment gần nhau < 22 px gộp thành một avatar kèm "+n". Cần `durationMs`, không có thì không vẽ marker |
 | `WaveformCache` | danh sách track **không** mang waveform (200 số × 20 track), nên mỗi card tự đọc waveform của mình **một lần** | gộp request đang bay, không nhớ lỗi, không hỏi track chưa READY |
 | `LikeButton`, `FollowButton` | cập nhật ngay (lạc quan), server xác nhận số chính xác; lỗi → quay lại + thông báo tiếng Việt; **bấm lần hai khi lần một chưa xong bị bỏ qua**; chưa đăng nhập → `onNeedLogin`, không gửi request | `unauthorized` khi đang gửi → quay lại + mời đăng nhập lại; mutation check: bỏ chặn bấm đôi / bỏ rollback đều làm test đỏ |
 | `CommentComposer` | "Bình luận tại 1:23": thời điểm lấy theo vị trí đang phát **lúc bắt đầu gõ**, bấm chip để chỉnh (`m:ss`, kiểm tra ≤ độ dài), tối đa 500 ký tự đếm theo ký tự người thấy (emoji = 1) | khớp quy tắc server (guide 04) để lỗi hiếm khi tới server |
@@ -427,6 +427,28 @@ CHROME_EXECUTABLE=/đường/dẫn/tới/chrome flutter test --platform chrome t
 ```
 Hai test ảnh lỗi (`Image.network`) mô phỏng lỗi theo cách của VM nên bị bỏ qua trên web (`skip: kIsWeb`).
 
+## Lỗi tìm ra khi kiểm tra tay (2026-10-09) và cách đã sửa
+
+Người dùng chạy app thật bằng trình duyệt và báo 6 lỗi. Nguyên nhân gốc và cách giữ cho chúng không quay lại:
+
+| # | Hiện tượng | Nguyên nhân gốc | Cách sửa và giữ |
+|---|------------|-----------------|-----------------|
+| 1, 3, 5 | Bấm phát bài thứ hai thì vẫn ra nhạc bài đầu; hết độ dài bài đầu thì tự chuyển bài; tua gần cuối cũng tự chuyển bài | Trên web, khi `just_audio` đang phát bài A mà gọi `setUrl` cho bài B thì **không hề gán nguồn mới** cho phần tử `<audio>` (đã xác nhận bằng cách ghi log mọi lần gán `audio.src`: bản cũ chỉ có `el1 src=A`, không bao giờ có B). Controller vẫn tưởng đã nạp B nên giao diện hiện B, còn âm thanh và sự kiện "hết bài" là của A | `JustAudioPlayerService.load` gọi `stop()` trước `setUrl`, để `just_audio` dựng player nền mới cho địa chỉ mới (`lib/player_service.dart`). **Test VM không bắt được lỗi này** (cần trình duyệt thật): xem kịch bản kiểm tra tay bên dưới |
+| 2 | Chrome tự điền email/mật khẩu từ bộ nhớ, ô mật khẩu không xoá được ký tự | `AutofillGroup` + `autofillHints` làm Flutter web tạo form cho Chrome điền; sau khi điền, ô mật khẩu mất khả năng sửa | Bỏ `AutofillGroup`/`autofillHints`, đặt `autocorrect: false`, `enableSuggestions: false` (có test). **Đánh đổi:** trình quản lý mật khẩu không điền giúp nữa. Khi Flutter sửa lỗi này có thể bật lại |
+| 4 | Tài khoản mới đã "đang theo dõi" Sơn Tùng, Đen Vâu | Dữ liệu giả cho người dùng mới theo dõi sẵn 3 người để bảng tin không trống | `FakeWorld(newViewerFollowsSome: false)` khi chạy app (như backend thật: tài khoản mới theo dõi không ai). Bảng tin ban đầu trống và có nút dẫn về trang chủ. Test vẫn dùng mặc định `true` |
+| 6 | "Đang xử lý" mà xoá vẫn được, xoá xong về trang chủ | Backend chặn xoá khi `PROCESSING` (`409`), nên lần xoá được là lúc track **đã xong** nhưng thẻ trong danh sách còn hiện trạng thái cũ (chỉ trang track mới tự làm mới). Về trang chủ sau khi xoá ở trang track là chủ ý | `TrackTile` tự hỏi lại mỗi 3 giây khi còn `PROCESSING` và báo cho danh sách khi xong (có test). Mục "Xoá" bị vô hiệu hoá và ghi "(đang xử lý)" khi `PROCESSING` |
+
+Cải tiến kèm theo: tab "Bài hát" / "Người dùng" của tìm kiếm nói rõ loại nào không có kết quả; waveform đổi sang kiểu thanh vuông có phản chiếu.
+
+### Kịch bản kiểm tra tay sau khi đổi code phát nhạc hoặc waveform
+
+Cần chạy lại trong trình duyệt thật vì `flutter test` (VM) không có `<audio>`:
+
+1. Mở trang chủ (đã có ít nhất 3 bài, bài có độ dài khác nhau), bấm phát bài 1, đợi vài giây, bấm phát bài 2: phải **nghe đúng bài 2** và thanh tiến độ chạy theo độ dài bài 2.
+2. Để bài 2 chạy hết: chỉ khi **bài 2 hết** mới tự sang bài 3 (không phải khi hết độ dài bài 1).
+3. Tua nhanh nhiều lần gần cuối waveform: không tự sang bài khác trừ khi thật sự hết bài.
+4. Cách quan sát khách quan (nếu nghi ngờ): chèn vào `index.html` của bản build một đoạn ghi log mọi lần gán `HTMLMediaElement.src`/`play()`/`pause()`; mỗi bài mới phải có một dòng `src=<id bài đó>`.
+
 ## TODO còn lại
 
 | # | Việc | Ghi chú |
@@ -439,4 +461,5 @@ Hai test ảnh lỗi (`Image.network`) mô phỏng lỗi theo cách của VM nê
 | 6 | Search không phân trang | Quyết định có chủ ý của hợp đồng B5 |
 | 7 | Quản lý track mới có: sửa tiêu đề/mô tả, đổi riêng tư/công khai, xoá có xác nhận (trên thẻ và trang track) | Không có xoá hàng loạt |
 | 8 | Chưa có CI chạy `flutter build web` và test trên Chrome | CI hiện chỉ chạy VM |
-| 9 | Kiểm tra tay trên trình duyệt thật: kéo thả upload, đổi tên hồ sơ | Xem mục "Kiểm tra với backend thật" |
+| 9 | Kiểm tra tay còn lại: tự điền mật khẩu của Chrome sau khi sửa (không thể mô phỏng trong trình duyệt tự động) | Người dùng đã thử kéo thả upload và đổi tên hồ sơ: đều đạt |
+| 10 | Không có test tự động chạy trình duyệt cho lớp phát nhạc | Đã thử: máy này không có Chrome trong WSL nên `flutter test --platform chrome` không chạy được. Nếu có CI với Chrome, thêm một test nạp hai địa chỉ liên tiếp vào `JustAudioPlayerService` và kiểm độ dài |
