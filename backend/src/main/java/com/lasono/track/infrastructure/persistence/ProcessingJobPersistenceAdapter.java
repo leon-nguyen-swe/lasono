@@ -46,6 +46,11 @@ public class ProcessingJobPersistenceAdapter implements ProcessingJobQueue {
     }
 
     @Override
+    public void discardJobsOf(TrackId trackId) {
+        jdbcTemplate.update("DELETE FROM processing_jobs WHERE track_id = ?", trackId.getValue());
+    }
+
+    @Override
     public Optional<ProcessingJob> claimNext(Duration lease) {
         return jdbcTemplate.query(CLAIM_NEXT_SQL, ProcessingJobPersistenceAdapter::toJob, seconds(lease))
             .stream().findFirst();

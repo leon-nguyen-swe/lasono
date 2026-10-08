@@ -103,6 +103,11 @@ class UploadTrackUseCasePostgresTest extends PostgresIntegrationTest {
         }
 
         @Override
+        public void discardJobsOf(TrackId trackId) {
+            real.discardJobsOf(trackId);
+        }
+
+        @Override
         public Optional<ProcessingJob> claimNext(Duration lease) {
             return real.claimNext(lease);
         }

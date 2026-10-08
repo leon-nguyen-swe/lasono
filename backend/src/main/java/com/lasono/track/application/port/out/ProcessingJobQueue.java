@@ -18,6 +18,12 @@ public interface ProcessingJobQueue {
      */
     Optional<ProcessingJob> claimNext(Duration lease);
 
+    /**
+     * Forgets the jobs of a track that is being deleted, finished or not. The queue points at the track, so the
+     * jobs have to go before the track does.
+     */
+    void discardJobsOf(TrackId trackId);
+
     /** Marks a claimed job as done, so it is never claimed again. */
     void complete(ProcessingJob job);
 

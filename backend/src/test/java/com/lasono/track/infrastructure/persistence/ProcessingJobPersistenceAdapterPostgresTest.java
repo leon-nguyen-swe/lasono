@@ -46,6 +46,29 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
         assertThat(jobs.get(0)).containsEntry("attempts", 0);
     }
 
+    // The queue points at the track, so a track cannot be deleted before its jobs. A job that a worker is running
+    // goes too: the track is only deleted once it is not being processed any more.
+    @Test
+    void discardJobsOfForgetsTheJobsOfThatTrackAndNoOtherEvenWhenOneIsRunning() {
+        UUID doomed = insertTrack();
+        UUID survivor = insertTrack();
+        adapter.enqueue(new TrackId(doomed));
+        adapter.enqueue(new TrackId(survivor));
+        adapter.claimNext(Duration.ofMinutes(5));
+
+        adapter.discardJobsOf(new TrackId(doomed));
+
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM processing_jobs WHERE track_id = ?", Integer.class, doomed)).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM processing_jobs WHERE track_id = ?", Integer.class, survivor)).isEqualTo(1);
+    }
+
+    @Test
+    void discardJobsOfAcceptsATrackWithoutJobs() {
+        adapter.discardJobsOf(new TrackId(insertTrack()));
+    }
+
     @Test
     void claimNextReturnsTheDueJobAndMarksItRunningWithALease() {
         UUID trackId = insertTrack();
