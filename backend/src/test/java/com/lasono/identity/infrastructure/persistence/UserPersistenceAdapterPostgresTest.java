@@ -65,6 +65,39 @@ class UserPersistenceAdapterPostgresTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void aSavedUserCanBeFoundByEmailWithAllItsData() {
+        User alice = aUser("alice@example.com", "Nguyễn Văn Á");
+        adapter.save(alice);
+
+        User found = adapter.findByEmail(new Email("alice@example.com")).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(alice.getId());
+        assertThat(found.getEmail()).isEqualTo(alice.getEmail());
+        assertThat(found.getDisplayName()).isEqualTo(alice.getDisplayName());
+        assertThat(found.getPasswordHash()).isEqualTo("$2a$10$hash");
+    }
+
+    @Test
+    void aSavedUserCanBeFoundById() {
+        User alice = aUser("alice@example.com", "Alice");
+        adapter.save(aUser("bob@example.com", "Bob"));
+        adapter.save(alice);
+
+        User found = adapter.findById(alice.getId()).orElseThrow();
+
+        assertThat(found.getEmail()).isEqualTo(alice.getEmail());
+        assertThat(found.getDisplayName()).isEqualTo(alice.getDisplayName());
+    }
+
+    @Test
+    void anEmailOrIdThatWasNeverSavedGivesNothing() {
+        adapter.save(aUser("alice@example.com", "Alice"));
+
+        assertThat(adapter.findByEmail(new Email("nobody@example.com"))).isEmpty();
+        assertThat(adapter.findById(new UserId(UUID.randomUUID()))).isEmpty();
+    }
+
+    @Test
     void aSecondUserWithTheSameEmailIsRejectedAndTheFirstStays() {
         adapter.save(aUser("alice@example.com", "Alice"));
 

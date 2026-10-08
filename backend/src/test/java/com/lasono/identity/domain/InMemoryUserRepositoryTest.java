@@ -31,6 +31,22 @@ class InMemoryUserRepositoryTest {
     }
 
     @Test
+    void shouldFindASavedUserById() {
+        User alice = aUser("alice@example.com", "Alice");
+
+        repository.save(alice);
+
+        assertSame(alice, repository.findById(alice.getId()).orElseThrow());
+    }
+
+    @Test
+    void shouldNotFindAnIdThatWasNeverSaved() {
+        repository.save(aUser("alice@example.com", "Alice"));
+
+        assertTrue(repository.findById(new UserId(UUID.randomUUID())).isEmpty());
+    }
+
+    @Test
     void shouldNotFindAnEmailThatWasNeverSaved() {
         assertTrue(repository.findByEmail(new Email("nobody@example.com")).isEmpty());
     }

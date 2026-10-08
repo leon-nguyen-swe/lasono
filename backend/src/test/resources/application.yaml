@@ -14,6 +14,9 @@ spring:
     enabled: false
 
 lasono:
+  jwt:
+    # Only for tests. The real secret comes from the LASONO_JWT_SECRET environment variable.
+    secret: test-only-secret-that-is-at-least-32-bytes-long
   storage:
     root: /tmp/lasono-test-storage
   processing:

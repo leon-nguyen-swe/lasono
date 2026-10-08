@@ -38,6 +38,15 @@ Stop it with `docker compose down`. **Do not add `-v`**, because that deletes th
 
 ### 2. Backend
 
+The backend signs login tokens with a secret that is **not stored in the repository**. Set it once per terminal
+(at least 32 bytes; the backend refuses to start with a shorter one):
+
+```bash
+export LASONO_JWT_SECRET="$(openssl rand -base64 48)"
+```
+
+A new secret signs out everyone who is logged in, so keep the same one while you develop.
+
 ```bash
 cd backend
 ./gradlew bootRun
@@ -75,6 +84,8 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 | Backend URL used by the app | `flutter run ... --dart-define=API_BASE_URL=http://host:8080` | `http://localhost:8080` |
 | Allowed CORS origins | property `lasono.cors.allowed-origins` (comma separated) | `http://localhost:3000,http://127.0.0.1:3000` |
 | Audio storage folder | property `lasono.storage.root` | `./storage/audio` (relative to where the backend starts) |
+| Secret that signs login tokens | environment variable `LASONO_JWT_SECRET` (property `lasono.jwt.secret`), at least 32 bytes | none: the backend does not start without it |
+| Lifetime of a login token | property `lasono.jwt.access-token-ttl` | `15m` |
 | Upload size limit | `spring.servlet.multipart.max-file-size` / `max-request-size` in `backend/src/main/resources/application.yaml` | 50MB / 52MB |
 
 Any Spring property can be overridden on the command line, for example:
@@ -85,7 +96,8 @@ Any Spring property can be overridden on the command line, for example:
 
 ## API
 
-All endpoints are under `/api/v1/tracks`.
+Track endpoints are under `/api/v1/tracks` and account endpoints under `/api/v1/auth` and `/api/v1/users`.
+For now the track endpoints can be called without logging in; that changes when tracks get an owner.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -95,6 +107,18 @@ All endpoints are under `/api/v1/tracks`.
 | `GET` | `/api/v1/tracks/{id}/stream` | Bytes of the converted MP3. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid, `409` if the track is not `READY` (still processing, or processing failed) |
 
 Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
+
+### Accounts
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/auth/register` | JSON `{email, displayName, password}`. Returns `201 {userId, email, displayName}`. The password needs at least 8 characters and at most 72 bytes. Errors: `400` invalid email, name or password, `409` email already registered |
+| `POST` | `/api/v1/auth/login` | JSON `{email, password}`. Returns `200 {accessToken, tokenType: "Bearer", expiresIn}` (`expiresIn` is in seconds, 900 by default). A wrong password and an unknown email give the same `401`, on purpose |
+| `GET` | `/api/v1/users/me` | Needs the header `Authorization: Bearer <accessToken>`. Returns `{userId, email, displayName}`. `401` without a valid token |
+
+Errors come as `application/problem+json`. A request with a token that is expired or not signed by this server gets `401`
+and the header `WWW-Authenticate: Bearer error="invalid_token"`; the body never says why. The token is only signed, not
+encrypted, and holds just the user id, so do not put anything private in it.
 
 ## Tests
 

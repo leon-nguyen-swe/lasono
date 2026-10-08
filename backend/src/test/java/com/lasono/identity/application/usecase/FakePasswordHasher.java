@@ -8,6 +8,7 @@ public class FakePasswordHasher implements PasswordHasher {
     public static final String PREFIX = "hashed:";
 
     private int calls;
+    private int matchCalls;
 
     @Override
     public String hash(String rawPassword) {
@@ -15,7 +16,17 @@ public class FakePasswordHasher implements PasswordHasher {
         return PREFIX + rawPassword;
     }
 
+    @Override
+    public boolean matches(String rawPassword, String hash) {
+        matchCalls++;
+        return rawPassword != null && hash != null && hash.equals(PREFIX + rawPassword);
+    }
+
     public int calls() {
         return calls;
+    }
+
+    public int matchCalls() {
+        return matchCalls;
     }
 }

@@ -30,6 +30,8 @@ dependencies {
 
 	// Security. As soon as this is on the classpath every endpoint is locked, so SecurityConfig lists the public ones.
 	implementation 'org.springframework.boot:spring-boot-starter-security'
+	// Signing and checking JWTs (Nimbus), and the filter that reads "Authorization: Bearer ...".
+	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'

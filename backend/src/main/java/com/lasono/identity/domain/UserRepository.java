@@ -1,5 +1,7 @@
 package com.lasono.identity.domain;
 
+import java.util.Optional;
+
 public interface UserRepository {
 
     /**
@@ -9,4 +11,8 @@ public interface UserRepository {
      *         already has the same email
      */
     User save(User user);
+
+    Optional<User> findByEmail(Email email);
+
+    Optional<User> findById(UserId id);
 }

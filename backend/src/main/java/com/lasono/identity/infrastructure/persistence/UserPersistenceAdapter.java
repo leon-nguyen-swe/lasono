@@ -2,12 +2,16 @@ package com.lasono.identity.infrastructure.persistence;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
+import com.lasono.identity.domain.DisplayName;
+import com.lasono.identity.domain.Email;
 import com.lasono.identity.domain.User;
+import com.lasono.identity.domain.UserId;
 import com.lasono.identity.domain.UserRepository;
 import com.lasono.identity.domain.exception.EmailAlreadyRegisteredException;
 
@@ -46,6 +50,25 @@ public class UserPersistenceAdapter implements UserRepository {
         }
 
         return user;
+    }
+
+    @Override
+    public Optional<User> findByEmail(Email email) {
+        return userJpaRepository.findByEmail(email.getValue()).map(UserPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    public Optional<User> findById(UserId id) {
+        return userJpaRepository.findById(id.getValue()).map(UserPersistenceAdapter::toDomain);
+    }
+
+    private static User toDomain(UserJpaEntity entity) {
+        return new User(
+            new UserId(entity.getId()),
+            new Email(entity.getEmail()),
+            new DisplayName(entity.getDisplayName()),
+            entity.getPasswordHash()
+        );
     }
 
     // Only the email constraint means "taken"; any other integrity error is a bug and must not be hidden.
