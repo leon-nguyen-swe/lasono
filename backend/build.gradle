@@ -28,6 +28,9 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly 'org.postgresql:postgresql'
 
+	// Security. As soon as this is on the classpath every endpoint is locked, so SecurityConfig lists the public ones.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

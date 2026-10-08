@@ -54,6 +54,13 @@ public final class ArchitectureRules {
             .because("other layers must depend on ports, and infrastructure implements them");
     }
 
+    /** Modules know nothing about each other; they may only share plain values such as an id. */
+    public static ArchRule moduleDoesNotDependOn(String root, String otherRoot) {
+        return noClasses().that().resideInAPackage(root + "..")
+            .should().dependOnClassesThat().resideInAPackage(otherRoot + "..")
+            .because("modules must not know each other; they share only plain values such as an id");
+    }
+
     private static String domain(String root) {
         return root + "..domain..";
     }
