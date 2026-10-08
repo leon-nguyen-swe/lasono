@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lasono_app/auth/session_controller.dart';
 import 'package:lasono_app/core/theme/theme.dart';
@@ -332,6 +333,78 @@ void main() {
       expect(env.player.stopCalls, 1);
       expect(went, ['/']);
       expect(env.server.count('POST /api/v1/auth/logout'), 1);
+    });
+  });
+
+  group('the keyboard and the tab title', () {
+    Future<(TestEnv, dynamic)> open(WidgetTester tester, {Widget child = const SizedBox()}) async {
+      TestEnv.window(tester);
+      final env = await TestEnv.create(signedIn: true);
+      final playback = env.newPlayback();
+      await playback.playQueue(env.world.tracks.where((t) => t.isReady).toList());
+      await tester.pumpWidget(
+        themed(
+          AppShell(
+            location: '/',
+            session: env.session,
+            themeController: ThemeController(),
+            playback: playback,
+            directory: env.repositories.directory,
+            onGo: (_) {},
+            child: child,
+          ),
+        ),
+      );
+      return (env, playback);
+    }
+
+    testWidgets('Space pauses what is playing, and plays it again', (tester) async {
+      final (env, playback) = await open(tester);
+      await tester.pump();
+      expect(playback.playing, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(playback.playing, isFalse);
+      expect(env.player.pauseCalls, 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(playback.playing, isTrue);
+    });
+
+    testWidgets('Space typed in a text field is a space, and does not touch the music', (tester) async {
+      final (env, playback) = await open(tester, child: const Center(child: TextField(key: Key('someField'))));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('someField')));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+
+      expect(playback.playing, isTrue);
+      expect(env.player.pauseCalls, 0);
+    });
+
+    testWidgets('the title of the tab is the name of the app, or the track that plays', (tester) async {
+      final titles = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemChrome.setApplicationSwitcherDescription') {
+          titles.add((call.arguments as Map)['label'] as String);
+        }
+        return null;
+      });
+      addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+      final (env, playback) = await open(tester);
+      await tester.pump();
+      final track = playback.current!;
+      expect(titles.last, '${track.title} · LaSono');
+
+      await playback.stop();
+      await tester.pump();
+      expect(titles.last, 'LaSono');
+      expect(env.player.stopCalls, 1);
     });
   });
 

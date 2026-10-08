@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../auth/session_controller.dart';
 import '../core/theme/theme.dart';
@@ -50,8 +51,42 @@ class AppShell extends StatelessWidget {
     onGo('/');
   }
 
+  // Space plays or pauses, as on every music site. But in a text field it is a letter of the text, and on a button
+  // it presses the button (the button answers first, so the event never gets here).
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.space) return KeyEventResult.ignored;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null && (focused.widget is EditableText || focused.findAncestorWidgetOfExactType<EditableText>() != null)) {
+      return KeyEventResult.ignored;
+    }
+    if (playback.current == null) return KeyEventResult.ignored;
+    playback.togglePlay();
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Focus(
+      autofocus: true,
+      skipTraversal: true,
+      onKeyEvent: _onKey,
+      // The title of the browser tab follows the music: the track that plays, or just the name of the app.
+      child: ListenableBuilder(
+        listenable: playback,
+        builder: (context, child) {
+          final track = playback.current;
+          return Title(
+            title: track == null ? 'LaSono' : '${track.title} · LaSono',
+            color: AppColors.of(context).background,
+            child: child!,
+          );
+        },
+        child: _frame(context),
+      ),
+    );
+  }
+
+  Widget _frame(BuildContext context) {
     final path = Uri.parse(location).path;
     return Scaffold(
       backgroundColor: AppColors.of(context).background,
