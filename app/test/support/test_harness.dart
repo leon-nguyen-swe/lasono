@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:lasono_app/api/track_api.dart';
 import 'package:lasono_app/audio_picker.dart';
 import 'package:lasono_app/auth/session_controller.dart';
 import 'package:lasono_app/core/theme/theme.dart';
@@ -70,10 +69,6 @@ class TestEnv {
         themeController: theme,
         pickAudio: pickAudio,
         initialLocation: location,
-        api: TrackApi(
-          baseUrl: 'http://api.test',
-          client: MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
-        ),
       );
 
   /// Gives the test a window of this size (and puts it back afterwards).

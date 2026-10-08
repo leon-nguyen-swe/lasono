@@ -6,8 +6,6 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 
 import 'api/auth_api.dart';
-import 'api/profile_api.dart';
-import 'api/track_api.dart';
 import 'app_router.dart';
 import 'audio_picker.dart';
 import 'auth/session_controller.dart';
@@ -36,8 +34,6 @@ void main() {
   runApp(
     LasonoApp(
       session: session,
-      api: TrackApi(auth: session),
-      profileApi: ProfileApi(auth: session),
       repositories: repositories,
     ),
   );
@@ -47,8 +43,6 @@ class LasonoApp extends StatefulWidget {
   const LasonoApp({
     super.key,
     required this.session,
-    this.api,
-    this.profileApi,
     this.pickAudio,
     this.player,
     this.themeController,
@@ -58,9 +52,6 @@ class LasonoApp extends StatefulWidget {
 
   final SessionController session;
 
-  /// The track API of the old screens, which are still in use until their new versions exist.
-  final TrackApi? api;
-  final ProfileApi? profileApi;
   final AudioPicker? pickAudio;
   final PlayerService? player;
 
