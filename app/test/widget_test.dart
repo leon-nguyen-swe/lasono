@@ -38,8 +38,22 @@ http.Response _trackResponse([String id = _trackId, String status = 'READY']) =>
 AudioPicker _picker(String name) =>
     () async => PickedAudio(name: name, bytes: Uint8List.fromList([1, 2, 3]));
 
-/// Answers every GET /api/v1/tracks/{id} with a track carrying that id.
-TrackApi _trackApi() => _api((request) async => _trackResponse(request.url.pathSegments.last));
+/// Answers GET /api/v1/tracks/{id} with a track carrying that id, and
+/// GET /api/v1/tracks/{id}/stream-url with a signed address for it.
+TrackApi _trackApi() => _api((request) async {
+      final segments = request.url.pathSegments;
+      if (segments.last == 'stream-url') {
+        return http.Response(
+          jsonEncode({
+            'url': '/api/v1/tracks/${segments[segments.length - 2]}/stream?expires=1&signature=sig',
+            'expiresAt': '2030-01-01T00:00:00Z',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return _trackResponse(segments.last);
+    });
 
 Future<void> _loadTrack(WidgetTester tester, String id) async {
   await tester.enterText(find.byKey(const Key('trackIdField')), id);
@@ -301,7 +315,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.loaded, [
-        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream'),
+        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream?expires=1&signature=sig'),
       ]);
       expect(player.playCalls, 1);
       expect(find.byIcon(Icons.pause), findsOneWidget);
@@ -387,8 +401,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.loaded, [
-        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream'),
-        Uri.parse('http://api.test/api/v1/tracks/$_otherTrackId/stream'),
+        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream?expires=1&signature=sig'),
+        Uri.parse('http://api.test/api/v1/tracks/$_otherTrackId/stream?expires=1&signature=sig'),
       ]);
     });
 

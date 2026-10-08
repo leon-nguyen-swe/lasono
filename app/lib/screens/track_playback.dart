@@ -113,7 +113,7 @@ class _TrackPlaybackState extends State<TrackPlayback> {
       'READY' => PlayerControls(
           key: ValueKey(track.id),
           player: widget.player,
-          streamUrl: widget.api.streamUrl(track.id),
+          streamUrl: () => widget.api.fetchStreamUrl(track.id),
           waveform: track.waveform,
         ),
       'FAILED' => Text(

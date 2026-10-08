@@ -44,6 +44,17 @@ class _Server {
   late final TrackApi api = TrackApi(
     baseUrl: 'http://api.test',
     client: MockClient((request) async {
+      if (request.url.pathSegments.last == 'stream-url') {
+        final id = request.url.pathSegments[request.url.pathSegments.length - 2];
+        return http.Response(
+          jsonEncode({
+            'url': '/api/v1/tracks/$id/stream?expires=1&signature=sig',
+            'expiresAt': '2030-01-01T00:00:00Z',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
       if (request.url.pathSegments.length > 3) {
         final id = request.url.pathSegments.last;
         details.add(id);
@@ -322,7 +333,7 @@ void main() {
 
       expect(
         player.loaded,
-        [Uri.parse('http://api.test/api/v1/tracks/id-1/stream')],
+        [Uri.parse('http://api.test/api/v1/tracks/id-1/stream?expires=1&signature=sig')],
       );
     });
 

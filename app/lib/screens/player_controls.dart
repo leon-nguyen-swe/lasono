@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../api/track_api.dart';
 import '../player_service.dart';
 import 'waveform_view.dart';
 
@@ -14,7 +15,9 @@ class PlayerControls extends StatefulWidget {
   });
 
   final PlayerService player;
-  final Uri streamUrl;
+  /// Gives the address to play. It is asked for at the first Play, because a
+  /// signed address stops working after a while.
+  final Future<Uri> Function() streamUrl;
 
   /// Peaks of the track, drawn above the slider. Null when the track has none.
   final List<double>? waveform;
@@ -82,9 +85,12 @@ class _PlayerControlsState extends State<PlayerControls> {
         _error = null;
       });
       try {
-        await widget.player.load(widget.streamUrl);
+        await widget.player.load(await widget.streamUrl());
         _loaded = true;
         _listenToPlayer();
+      } on TrackApiException catch (e) {
+        if (mounted) setState(() => _error = e.message);
+        return;
       } on PlaybackException {
         if (mounted) setState(() => _error = 'Cannot play this track');
         return;

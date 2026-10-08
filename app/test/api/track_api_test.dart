@@ -259,16 +259,42 @@ void main() {
     });
   });
 
-  group('TrackApi.streamUrl', () {
-    test('points at /api/v1/tracks/{id}/stream on the configured base url', () {
+  group('TrackApi.fetchStreamUrl', () {
+    const signed = {
+      'url': '/api/v1/tracks/abc/stream?expires=1900000000&signature=sig_-1',
+      'expiresAt': '2030-03-17T17:46:40Z',
+    };
+
+    test('asks GET /tracks/{id}/stream-url and gives the full signed address',
+        () async {
+      late http.Request captured;
       final api = TrackApi(
         baseUrl: 'http://api.test/',
-        client: MockClient((_) async => http.Response('', 200)),
+        client: MockClient((request) async {
+          captured = request;
+          return _json(signed, 200);
+        }),
+      );
+
+      final url = await api.fetchStreamUrl('abc');
+
+      expect(captured.method, 'GET');
+      expect(captured.url.toString(),
+          'http://api.test/api/v1/tracks/abc/stream-url');
+      expect(url.toString(),
+          'http://api.test/api/v1/tracks/abc/stream?expires=1900000000&signature=sig_-1');
+    });
+
+    test('maps 404 to "Track not found"', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => _json({'status': 404}, 404)),
       );
 
       expect(
-        api.streamUrl('abc').toString(),
-        'http://api.test/api/v1/tracks/abc/stream',
+        () => api.fetchStreamUrl('abc'),
+        throwsA(isA<TrackApiException>()
+            .having((e) => e.message, 'message', 'Track not found')),
       );
     });
   });

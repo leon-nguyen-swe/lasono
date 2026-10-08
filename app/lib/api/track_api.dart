@@ -122,8 +122,23 @@ class TrackApi {
     }
   }
 
-  Uri streamUrl(String id) =>
-      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}/stream');
+  /// Asks for an address the audio player can open. The player cannot send the
+  /// login header, so the server signs the permission into the address.
+  Future<Uri> fetchStreamUrl(String id) async {
+    final response = await _get(
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}/stream-url'),
+    );
+
+    return switch (response.statusCode) {
+      // The server gives the path and the query; the host is the one we asked.
+      200 => Uri.parse(
+          '$_baseUrl${(jsonDecode(response.body) as Map<String, dynamic>)['url']}',
+        ),
+      401 => throw const TrackApiException(_logInAgain),
+      404 => throw const TrackApiException('Track not found'),
+      final status => throw TrackApiException('Server error ($status)'),
+    };
+  }
 
   /// Uploads an audio file and returns the new track id.
   Future<String> uploadTrack({
