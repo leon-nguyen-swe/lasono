@@ -9,6 +9,7 @@ import '../format_duration.dart';
 import '../models/track.dart';
 import '../playback/playback_controller.dart';
 import 'cover_art.dart';
+import 'highlighted_text.dart';
 import 'like_button.dart';
 import 'states.dart';
 import 'waveform_view.dart';
@@ -39,6 +40,7 @@ class TrackCard extends StatefulWidget {
     this.onDelete,
     this.onToggleVisibility,
     this.clock,
+    this.highlight,
   });
 
   final Track track;
@@ -66,6 +68,9 @@ class TrackCard extends StatefulWidget {
 
   /// The clock for "3 ngày trước", so a test can fix it.
   final DateTime Function()? clock;
+
+  /// What was searched for: the part of the title that matches is highlighted.
+  final String? highlight;
 
   @override
   State<TrackCard> createState() => _TrackCardState();
@@ -221,7 +226,7 @@ class _TrackCardState extends State<TrackCard> {
                 key: const Key('trackTitle'),
                 borderRadius: AppRadius.all(AppRadius.xs),
                 onTap: widget.onOpen,
-                child: Text(_track.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: compact ? text.titleMedium : text.titleLarge),
+                child: HighlightedText(_track.title, query: widget.highlight, maxLines: 2, overflow: TextOverflow.ellipsis, style: compact ? text.titleMedium : text.titleLarge),
               ),
               if (error != null)
                 Padding(

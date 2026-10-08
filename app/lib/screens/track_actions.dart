@@ -71,6 +71,7 @@ class TrackTile extends StatelessWidget {
     required this.sourceId,
     this.onChanged,
     this.onDeleted,
+    this.highlight,
   });
 
   final Track track;
@@ -83,6 +84,9 @@ class TrackTile extends StatelessWidget {
   final String sourceId;
   final ValueChanged<Track>? onChanged;
   final VoidCallback? onDeleted;
+
+  /// What was searched for, to highlight in the title.
+  final String? highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +110,7 @@ class TrackTile extends StatelessWidget {
       onOpenUser: context.openUser,
       onNeedLogin: context.askToLogin,
       onChanged: changed,
+      highlight: highlight,
       onEdit: () async {
         final updated = await showEditTrack(context, track);
         if (updated != null) changed(track.copyWith(title: updated.title, description: updated.description, visibility: updated.visibility));
