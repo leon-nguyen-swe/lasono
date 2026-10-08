@@ -75,22 +75,24 @@ public class TrackController {
     @GetMapping("/api/v1/tracks")
     public ListTracksResult listTracks(
         @RequestParam(value = "cursor", required = false) String cursor,
-        @RequestParam(value = "limit", required = false) Integer limit
+        @RequestParam(value = "limit", required = false) Integer limit,
+        Principal principal
     ) {
-        return listTracksUseCase.execute(cursor, limit);
+        return listTracksUseCase.execute(cursor, limit, viewerOf(principal));
     }
 
     @GetMapping("/api/v1/tracks/{id}")
-    public GetTrackResult getTrack(@PathVariable("id") UUID id) {
-        return getTrackUseCase.execute(id);
+    public GetTrackResult getTrack(@PathVariable("id") UUID id, Principal principal) {
+        return getTrackUseCase.execute(id, viewerOf(principal));
     }
 
     @GetMapping("/api/v1/tracks/{id}/stream")
     public ResponseEntity<StreamingResponseBody> streamTrack(
         @PathVariable("id") UUID id,
-        @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader
+        @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader,
+        Principal principal
     ) {
-        StreamTrackResult result = streamTrackUsecase.execute(id, rangeHeader);
+        StreamTrackResult result = streamTrackUsecase.execute(id, rangeHeader, viewerOf(principal));
 
         long contentLength = result.rangeEnd() - result.rangeStart() + 1;
 
@@ -114,5 +116,10 @@ public class TrackController {
         }
 
         return response.body(body);
+    }
+
+    // Reading is open to everyone, so there may be nobody logged in: then there is no principal.
+    private static UUID viewerOf(Principal principal) {
+        return principal == null ? null : UUID.fromString(principal.getName());
     }
 }

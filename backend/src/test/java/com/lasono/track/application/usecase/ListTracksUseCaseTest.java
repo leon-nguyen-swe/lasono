@@ -18,6 +18,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import com.lasono.track.application.port.out.TrackSummary;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
+import com.lasono.track.domain.TrackFixtures;
 
 class ListTracksUseCaseTest {
 
@@ -34,7 +36,7 @@ class ListTracksUseCaseTest {
 
     @Test
     void returnsAnEmptyPageWhenThereAreNoTracks() {
-        ListTracksResult result = useCase.execute(null, null);
+        ListTracksResult result = useCase.execute(null, null, null);
 
         assertTrue(result.items().isEmpty());
         assertNull(result.nextCursor());
@@ -46,7 +48,7 @@ class ListTracksUseCaseTest {
         addTrack("newest", 2);
         addTrack("middle", 1);
 
-        ListTracksResult result = useCase.execute(null, null);
+        ListTracksResult result = useCase.execute(null, null, null);
 
         assertEquals(List.of("newest", "middle", "oldest"), titles(result));
     }
@@ -54,9 +56,9 @@ class ListTracksUseCaseTest {
     @Test
     void mapsTheTrackFieldsToTheResult() {
         UUID id = UUID.randomUUID();
-        reader.add(new TrackSummary(id, "My song", "Some description", TrackStatus.PROCESSING, START, null));
+        reader.add(new TrackSummary(id, TrackFixtures.OWNER.getValue(), "My song", "Some description", Visibility.PUBLIC, TrackStatus.PROCESSING, START, null));
 
-        TrackListItemResult item = useCase.execute(null, null).items().get(0);
+        TrackListItemResult item = useCase.execute(null, null, null).items().get(0);
 
         assertEquals(id.toString(), item.id());
         assertEquals("My song", item.title());
@@ -67,9 +69,9 @@ class ListTracksUseCaseTest {
 
     @Test
     void showsTheDurationInSecondsOfAProcessedTrack() {
-        reader.add(new TrackSummary(UUID.randomUUID(), "My song", "", TrackStatus.READY, START, 3500L));
+        reader.add(new TrackSummary(UUID.randomUUID(), TrackFixtures.OWNER.getValue(), "My song", "", Visibility.PUBLIC, TrackStatus.READY, START, 3500L));
 
-        TrackListItemResult item = useCase.execute(null, null).items().get(0);
+        TrackListItemResult item = useCase.execute(null, null, null).items().get(0);
 
         assertEquals(3.5, item.durationSeconds());
     }
@@ -78,7 +80,7 @@ class ListTracksUseCaseTest {
     void hasNoNextCursorWhenEveryTrackFitsInOnePage() {
         addTracks(3);
 
-        ListTracksResult result = useCase.execute(null, 5);
+        ListTracksResult result = useCase.execute(null, 5, null);
 
         assertEquals(3, result.items().size());
         assertNull(result.nextCursor());
@@ -88,7 +90,7 @@ class ListTracksUseCaseTest {
     void hasANextCursorWhenMoreTracksExist() {
         addTracks(5);
 
-        ListTracksResult result = useCase.execute(null, 2);
+        ListTracksResult result = useCase.execute(null, 2, null);
 
         assertEquals(2, result.items().size());
         assertNotNull(result.nextCursor());
@@ -98,8 +100,8 @@ class ListTracksUseCaseTest {
     void hasNoNextCursorWhenTheLastPageIsExactlyFull() {
         addTracks(4);
 
-        ListTracksResult firstPage = useCase.execute(null, 2);
-        ListTracksResult lastPage = useCase.execute(firstPage.nextCursor(), 2);
+        ListTracksResult firstPage = useCase.execute(null, 2, null);
+        ListTracksResult lastPage = useCase.execute(firstPage.nextCursor(), 2, null);
 
         assertNotNull(firstPage.nextCursor());
         assertEquals(2, lastPage.items().size());
@@ -110,7 +112,7 @@ class ListTracksUseCaseTest {
     void asksForOneMoreTrackThanTheLimitToKnowWhetherAnotherPageExists() {
         addTracks(5);
 
-        useCase.execute(null, 2);
+        useCase.execute(null, 2, null);
 
         assertEquals(3, reader.lastRequestedLimit());
     }
@@ -121,13 +123,13 @@ class ListTracksUseCaseTest {
         for (int i = 0; i < 7; i++) {
             addTrack("track " + i, i / 2);
         }
-        List<UUID> expected = reader.findNewestAfter(null, 100).stream().map(TrackSummary::id).toList();
+        List<UUID> expected = reader.findNewestAfter(null, 100, null).stream().map(TrackSummary::id).toList();
 
         List<UUID> visited = new ArrayList<>();
         String cursor = null;
         int pages = 0;
         do {
-            ListTracksResult page = useCase.execute(cursor, 2);
+            ListTracksResult page = useCase.execute(cursor, 2, null);
             page.items().forEach(item -> visited.add(UUID.fromString(item.id())));
             cursor = page.nextCursor();
             pages++;
@@ -141,7 +143,7 @@ class ListTracksUseCaseTest {
     void usesTwentyTracksPerPageByDefault() {
         addTracks(25);
 
-        ListTracksResult result = useCase.execute(null, null);
+        ListTracksResult result = useCase.execute(null, null, null);
 
         assertEquals(20, result.items().size());
         assertNotNull(result.nextCursor());
@@ -151,7 +153,7 @@ class ListTracksUseCaseTest {
     void neverReturnsMoreThanFiftyTracksPerPage() {
         addTracks(60);
 
-        ListTracksResult result = useCase.execute(null, 1000);
+        ListTracksResult result = useCase.execute(null, 1000, null);
 
         assertEquals(50, result.items().size());
         assertNotNull(result.nextCursor());
@@ -160,21 +162,21 @@ class ListTracksUseCaseTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1, -50})
     void rejectsALimitBelowOne(int limit) {
-        assertThrows(InvalidPageRequestException.class, () -> useCase.execute(null, limit));
+        assertThrows(InvalidPageRequestException.class, () -> useCase.execute(null, limit, null));
     }
 
     @Test
     void treatsABlankCursorAsTheFirstPage() {
         addTracks(3);
 
-        ListTracksResult result = useCase.execute("  ", 2);
+        ListTracksResult result = useCase.execute("  ", 2, null);
 
-        assertEquals(titles(useCase.execute(null, 2)), titles(result));
+        assertEquals(titles(useCase.execute(null, 2, null)), titles(result));
     }
 
     @Test
     void rejectsAMalformedCursor() {
-        assertThrows(InvalidPageRequestException.class, () -> useCase.execute("garbage", 2));
+        assertThrows(InvalidPageRequestException.class, () -> useCase.execute("garbage", 2, null));
     }
 
     private void addTracks(int count) {
@@ -184,10 +186,55 @@ class ListTracksUseCaseTest {
     }
 
     private void addTrack(String title, long secondsAfterStart) {
-        reader.add(new TrackSummary(UUID.randomUUID(), title, "", TrackStatus.PROCESSING, START.plusSeconds(secondsAfterStart), null));
+        reader.add(new TrackSummary(UUID.randomUUID(), TrackFixtures.OWNER.getValue(), title, "", Visibility.PUBLIC, TrackStatus.PROCESSING, START.plusSeconds(secondsAfterStart), null));
     }
 
     private static List<String> titles(ListTracksResult result) {
         return result.items().stream().map(TrackListItemResult::title).toList();
+    }
+
+    private static final UUID ALICE = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
+    private static final UUID BOB = UUID.fromString("00000000-0000-0000-0000-0000000000b2");
+
+    private void addTrack(String title, UUID owner, Visibility visibility, int secondsAfterStart) {
+        reader.add(new TrackSummary(UUID.randomUUID(), owner, title, "", visibility, TrackStatus.READY,
+            START.plusSeconds(secondsAfterStart), null));
+    }
+
+    @Test
+    void showsTheVisibilityOfEachTrack() {
+        addTrack("hidden", ALICE, Visibility.PRIVATE, 1);
+        addTrack("shown", ALICE, Visibility.PUBLIC, 0);
+
+        List<TrackListItemResult> items = useCase.execute(null, null, ALICE).items();
+
+        assertEquals(List.of("PRIVATE", "PUBLIC"), items.stream().map(TrackListItemResult::visibility).toList());
+    }
+
+    @Test
+    void asksTheReaderForTheTracksTheViewerMaySee() {
+        useCase.execute(null, null, ALICE);
+
+        assertEquals(ALICE, reader.lastViewerId());
+    }
+
+    @Test
+    void listsOnlyPublicTracksForSomeoneWhoIsNotLoggedIn() {
+        addTrack("alice public", ALICE, Visibility.PUBLIC, 2);
+        addTrack("alice private", ALICE, Visibility.PRIVATE, 1);
+        addTrack("bob private", BOB, Visibility.PRIVATE, 0);
+
+        assertEquals(List.of("alice public"), titles(useCase.execute(null, null, null)));
+    }
+
+    @Test
+    void listsPublicTracksAndTheViewersOwnPrivateTracksButNotOthers() {
+        addTrack("alice public", ALICE, Visibility.PUBLIC, 3);
+        addTrack("alice private", ALICE, Visibility.PRIVATE, 2);
+        addTrack("bob private", BOB, Visibility.PRIVATE, 1);
+        addTrack("bob public", BOB, Visibility.PUBLIC, 0);
+
+        assertEquals(List.of("alice public", "alice private", "bob public"), titles(useCase.execute(null, null, ALICE)));
+        assertEquals(List.of("alice public", "bob private", "bob public"), titles(useCase.execute(null, null, BOB)));
     }
 }

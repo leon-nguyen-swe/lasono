@@ -95,7 +95,7 @@ class TrackExceptionHandlerTest {
 
     @Test
     void givenInvalidPageRequest_listTracks_returns400() throws Exception {
-        when(listTracksUseCase.execute("garbage", null))
+        when(listTracksUseCase.execute("garbage", null, null))
             .thenThrow(new InvalidPageRequestException("Invalid cursor"));
 
         mockMvc.perform(get("/api/v1/tracks").param("cursor", "garbage"))
@@ -107,7 +107,7 @@ class TrackExceptionHandlerTest {
     @Test
     void givenTrackThatIsNotReady_streamTrack_returns409() throws Exception {
         UUID id = UUID.randomUUID();
-        when(streamTrackUseCase.execute(id, null)).thenThrow(new TrackNotReadyException(id, "PROCESSING"));
+        when(streamTrackUseCase.execute(id, null, null)).thenThrow(new TrackNotReadyException(id, "PROCESSING"));
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id))
             .andExpect(status().isConflict())

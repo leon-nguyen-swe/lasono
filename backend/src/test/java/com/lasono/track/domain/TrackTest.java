@@ -2,6 +2,8 @@ package com.lasono.track.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 
@@ -327,5 +329,26 @@ class TrackTest {
         );
 
         assertEquals(Visibility.PRIVATE, track.getVisibility());
+    }
+
+    private static final OwnerId STRANGER = new OwnerId(UUID.fromString("00000000-0000-0000-0000-0000000000b2"));
+
+    @Test
+    void aPublicTrackIsVisibleToEveryone() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        assertTrue(track.isVisibleTo(TrackFixtures.OWNER));
+        assertTrue(track.isVisibleTo(STRANGER));
+        assertTrue(track.isVisibleTo(null), "nobody is logged in");
+    }
+
+    @Test
+    void aPrivateTrackIsVisibleOnlyToItsOwner() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, Visibility.PRIVATE);
+
+        assertTrue(track.isVisibleTo(TrackFixtures.OWNER));
+        assertFalse(track.isVisibleTo(STRANGER));
+        assertFalse(track.isVisibleTo(null), "nobody is logged in");
     }
 }

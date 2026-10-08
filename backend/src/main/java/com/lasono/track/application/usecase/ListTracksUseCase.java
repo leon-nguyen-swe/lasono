@@ -1,6 +1,7 @@
 package com.lasono.track.application.usecase;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -20,13 +21,13 @@ public class ListTracksUseCase {
         this.trackSummaryReader = trackSummaryReader;
     }
 
-    public ListTracksResult execute(String cursor, Integer limit) {
+    public ListTracksResult execute(String cursor, Integer limit, UUID viewerId) {
         int pageSize = pageSize(limit);
         TrackPosition after = cursor == null || cursor.isBlank() ? null : TrackCursor.decode(cursor);
 
         // Asking for one track more than the page tells us whether another page exists,
         // without a separate COUNT query.
-        List<TrackSummary> found = trackSummaryReader.findNewestAfter(after, pageSize + 1);
+        List<TrackSummary> found = trackSummaryReader.findNewestAfter(after, pageSize + 1, viewerId);
 
         boolean hasNextPage = found.size() > pageSize;
         List<TrackSummary> page = hasNextPage ? found.subList(0, pageSize) : found;
@@ -54,6 +55,7 @@ public class ListTracksUseCase {
             summary.id().toString(),
             summary.title(),
             summary.description(),
+            summary.visibility().name(),
             summary.status().name(),
             summary.durationMs() != null ? summary.durationMs() / 1000.0 : null
         );

@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
+import com.lasono.track.domain.OwnerId;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
@@ -18,8 +19,9 @@ public class GetTrackUseCase {
         this.trackRepository = trackRepository;
     }
 
-    public GetTrackResult execute(UUID trackId) {
+    public GetTrackResult execute(UUID trackId, UUID viewerId) {
         Track track = trackRepository.findById(new TrackId(trackId))
+            .filter(found -> found.isVisibleTo(viewerId == null ? null : new OwnerId(viewerId)))
             .orElseThrow(() -> new TrackNotFoundException(trackId));
 
         TrackSnapshot snapshot = track.toSnapshot();
@@ -37,6 +39,7 @@ public class GetTrackUseCase {
             snapshot.trackId().getValue().toString(),
             snapshot.title(),
             snapshot.description(),
+            snapshot.visibility().name(),
             snapshot.trackStatus().toString(),
             mimeType,
             durationSeconds,

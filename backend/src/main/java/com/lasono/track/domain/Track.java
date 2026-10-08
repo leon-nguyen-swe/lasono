@@ -80,6 +80,11 @@ public class Track {
         return this.visibility;
     }
 
+    /** A public track is seen by everyone, a private one only by its owner. {@code viewer} is null when nobody is logged in. */
+    public boolean isVisibleTo(OwnerId viewer) {
+        return this.visibility == Visibility.PUBLIC || this.ownerId.equals(viewer);
+    }
+
     public TrackStatus getStatus() {
         return this.status;
     }

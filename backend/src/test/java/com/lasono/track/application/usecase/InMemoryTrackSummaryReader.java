@@ -8,10 +8,11 @@ import java.util.UUID;
 import com.lasono.track.application.port.out.TrackPosition;
 import com.lasono.track.application.port.out.TrackSummary;
 import com.lasono.track.application.port.out.TrackSummaryReader;
+import com.lasono.track.domain.model.Visibility;
 
 /**
- * In-memory stand-in for the database. It sorts newest first and returns the tracks that come
- * strictly after the given position, the way the real keyset query does. Ids are compared as
+ * In-memory stand-in for the database. It lists the public tracks and the private ones of the viewer, sorts
+ * newest first and returns the tracks that come strictly after the given position, the way the real keyset query does. Ids are compared as
  * unsigned bytes like PostgreSQL does; {@code UUID.compareTo} is signed and would order them
  * differently.
  */
@@ -24,6 +25,7 @@ class InMemoryTrackSummaryReader implements TrackSummaryReader {
 
     private final List<TrackSummary> summaries = new ArrayList<>();
     private int lastRequestedLimit;
+    private UUID lastViewerId;
 
     void add(TrackSummary summary) {
         summaries.add(summary);
@@ -33,10 +35,16 @@ class InMemoryTrackSummaryReader implements TrackSummaryReader {
         return lastRequestedLimit;
     }
 
+    UUID lastViewerId() {
+        return lastViewerId;
+    }
+
     @Override
-    public List<TrackSummary> findNewestAfter(TrackPosition after, int limit) {
+    public List<TrackSummary> findNewestAfter(TrackPosition after, int limit, UUID viewerId) {
         lastRequestedLimit = limit;
+        lastViewerId = viewerId;
         return summaries.stream()
+            .filter(summary -> summary.visibility() == Visibility.PUBLIC || summary.ownerId().equals(viewerId))
             .sorted(NEWEST_FIRST)
             .filter(summary -> after == null || comesAfter(summary, after))
             .limit(limit)
