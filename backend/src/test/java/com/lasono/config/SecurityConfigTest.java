@@ -296,4 +296,27 @@ class SecurityConfigTest {
     void meStillNeedsALoginNextToThePublicProfileRoutes() throws Exception {
         mockMvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
     }
+
+    // A profile is public like the tracks on it ...
+    @Test
+    void aProfileCanBeReadWithoutALogin() throws Exception {
+        String email = UUID.randomUUID() + "@example.com";
+        String userId = JsonPath.read(mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"" + email + "\",\"displayName\":\"Alice\",\"password\":\"correct horse\"}"))
+            .andReturn().getResponse().getContentAsString(), "$.userId");
+
+        mockMvc.perform(get("/api/v1/users/{id}", userId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.displayName").value("Alice"))
+            .andExpect(jsonPath("$.email").doesNotExist());
+        mockMvc.perform(get("/api/v1/users/{id}", UUID.randomUUID())).andExpect(status().isNotFound());
+    }
+
+    // ... but changing it is for its owner, who has to be logged in.
+    @Test
+    void changingTheDisplayNameNeedsALogin() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/me").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"displayName\":\"Mallory\"}"))
+            .andExpect(status().isUnauthorized());
+    }
 }
