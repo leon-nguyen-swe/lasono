@@ -2,6 +2,7 @@ package com.lasono.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -28,8 +29,9 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(requests -> requests
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                // Temporary: open until uploading requires a login.
-                .requestMatchers("/api/v1/tracks/**").permitAll()
+                // Reading is open until tracks can be private. Uploading, and later editing and deleting, need a
+                // login: every other method falls through to the rule at the bottom.
+                .requestMatchers(HttpMethod.GET, "/api/v1/tracks/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Everything else is closed unless a route above opens it.
                 .anyRequest().authenticated())
