@@ -10,8 +10,8 @@
 | Giai đoạn | Nội dung | Trạng thái |
 |-----------|----------|------------|
 | 0 | Khảo sát (mục "Khảo sát" bên dưới) | Xong |
-| 1 | `docs/api-contract.md` | Chưa |
-| 2 | `docs/backend-guide/` + `docs/backend-checklist.md` | Chưa |
+| 1 | `docs/api-contract.md` | Xong |
+| 2 | `docs/backend-guide/` + `docs/backend-checklist.md` | Xong |
 | 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Chưa |
 | 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Chưa |
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Chưa |
