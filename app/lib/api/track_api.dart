@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../models/track.dart';
 import '../models/track_page.dart';
+import 'access_tokens.dart';
 
 /// Backend origin. Override with `--dart-define=API_BASE_URL=...`.
 const defaultApiBaseUrl = String.fromEnvironment(
@@ -18,6 +19,7 @@ const defaultApiBaseUrl = String.fromEnvironment(
 const maxUploadBytes = 50 * 1024 * 1024;
 
 const _fileTooLarge = 'File too large (max 50 MB)';
+const _logInAgain = 'Please log in again';
 
 class TrackApiException implements Exception {
   const TrackApiException(this.message);
@@ -32,6 +34,7 @@ class TrackApi {
   TrackApi({
     String baseUrl = defaultApiBaseUrl,
     http.Client? client,
+    this._auth,
     this._uploadTimeout = const Duration(minutes: 5),
     this._requestTimeout = const Duration(seconds: 30),
   })  : _baseUrl = baseUrl.endsWith('/')
@@ -43,6 +46,7 @@ class TrackApi {
 
   final String _baseUrl;
   final http.Client _client;
+  final AccessTokens? _auth;
   final Duration _uploadTimeout;
   final Duration _requestTimeout;
 
@@ -53,6 +57,7 @@ class TrackApi {
 
     return switch (response.statusCode) {
       200 => Track.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      401 => throw const TrackApiException(_logInAgain),
       404 => throw const TrackApiException('Track not found'),
       400 => throw const TrackApiException('Invalid id'),
       final status => throw TrackApiException('Server error ($status)'),
@@ -70,16 +75,48 @@ class TrackApi {
 
     return switch (response.statusCode) {
       200 => TrackPage.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      401 => throw const TrackApiException(_logInAgain),
       final status => throw TrackApiException('Server error ($status)'),
     };
   }
 
+  Future<http.Response> _get(Uri uri) => _authorized(
+        (token) => _call(
+          () => _client.get(uri, headers: _bearer(token)),
+          _requestTimeout,
+          'Request timed out',
+        ),
+      );
+
+  // The server refuses a token that has run out, also on the routes anyone may
+  // read. A new token is asked for once and the request is sent once more; a
+  // second refusal is the answer. Without a token there is nothing to renew.
+  Future<http.Response> _authorized(
+    Future<http.Response> Function(String? token) send,
+  ) async {
+    final auth = _auth;
+    final token = auth?.accessToken;
+    final response = await send(token);
+    if (response.statusCode != 401 || auth == null || token == null) {
+      return response;
+    }
+    final renewed = await auth.refreshAccessToken();
+    return renewed == null ? response : send(renewed);
+  }
+
+  Map<String, String> _bearer(String? token) =>
+      {'Authorization': ?(token == null ? null : 'Bearer $token')};
+
   // Without a timeout a request the server never answers would wait forever.
-  Future<http.Response> _get(Uri uri) async {
+  Future<http.Response> _call(
+    Future<http.Response> Function() request,
+    Duration timeout,
+    String timeoutMessage,
+  ) async {
     try {
-      return await _client.get(uri).timeout(_requestTimeout);
+      return await request().timeout(timeout);
     } on TimeoutException {
-      throw const TrackApiException('Request timed out');
+      throw TrackApiException(timeoutMessage);
     } on http.ClientException {
       throw const TrackApiException('Cannot reach the server');
     }
@@ -103,8 +140,10 @@ class TrackApi {
       throw const TrackApiException(_fileTooLarge);
     }
 
-    final request =
+    // A request can be sent only once, so a second try builds it again.
+    http.MultipartRequest buildRequest(String? token) =>
         http.MultipartRequest('POST', Uri.parse('$_baseUrl$_prefix/tracks'))
+          ..headers.addAll(_bearer(token))
           ..fields['title'] = trimmedTitle
           ..fields['description'] = description
           ..files.add(
@@ -118,20 +157,20 @@ class TrackApi {
 
     // Without a timeout a request the server never answers (for example a body
     // it rejected early) leaves the form disabled forever.
-    final http.Response response;
-    try {
-      response = await (() async =>
-              http.Response.fromStream(await _client.send(request)))()
-          .timeout(_uploadTimeout);
-    } on TimeoutException {
-      throw const TrackApiException('Upload timed out');
-    } on http.ClientException {
-      throw const TrackApiException('Cannot reach the server');
-    }
+    final response = await _authorized(
+      (token) => _call(
+        () async => http.Response.fromStream(
+          await _client.send(buildRequest(token)),
+        ),
+        _uploadTimeout,
+        'Upload timed out',
+      ),
+    );
 
     return switch (response.statusCode) {
       201 => (jsonDecode(response.body) as Map<String, dynamic>)['trackId']
           as String,
+      401 => throw const TrackApiException(_logInAgain),
       415 => throw const TrackApiException('Unsupported audio format'),
       400 => throw TrackApiException(_problemDetail(response) ?? 'Invalid upload'),
       413 => throw const TrackApiException(_fileTooLarge),
