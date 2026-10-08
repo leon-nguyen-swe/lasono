@@ -496,7 +496,13 @@ class _TrackPageState extends State<TrackPage> {
                 value: _OwnerAction.visibility,
                 child: Text(track.isPrivate ? 'Chuyển sang công khai' : 'Chuyển sang riêng tư'),
               ),
-              const PopupMenuItem(key: Key('deleteAction'), value: _OwnerAction.delete, child: Text('Xoá')),
+              PopupMenuItem(
+                key: const Key('deleteAction'),
+                value: _OwnerAction.delete,
+                // The server refuses to delete a track that is being processed (409), so do not offer it.
+                enabled: track.status != 'PROCESSING',
+                child: Text(track.status == 'PROCESSING' ? 'Xoá (đang xử lý)' : 'Xoá'),
+              ),
             ],
           ),
       ],

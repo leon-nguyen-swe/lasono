@@ -426,7 +426,14 @@ class _TrackCardState extends State<TrackCard> {
                           value: _OwnerAction.visibility,
                           child: Text(_track.isPrivate ? 'Chuyển sang công khai' : 'Chuyển sang riêng tư'),
                         ),
-                      if (widget.onDelete != null) const PopupMenuItem(key: Key('deleteAction'), value: _OwnerAction.delete, child: Text('Xoá')),
+                      // The server refuses to delete a track that is being processed (409), so do not offer it.
+                      if (widget.onDelete != null)
+                        PopupMenuItem(
+                          key: const Key('deleteAction'),
+                          value: _OwnerAction.delete,
+                          enabled: _track.status != 'PROCESSING',
+                          child: Text(_track.status == 'PROCESSING' ? 'Xoá (đang xử lý)' : 'Xoá'),
+                        ),
                     ],
                   ),
               ],

@@ -358,6 +358,23 @@ void main() {
       }
     });
 
+    testWidgets('does not offer to delete a track that is still being processed (the server would refuse)', (tester) async {
+      TestEnv.window(tester);
+      final rig = await _Rig.create();
+      final processing = rig.tracks.firstWhere((t) => t.status == 'PROCESSING');
+      await tester.pumpWidget(rig.card(processing, viewerId: processing.ownerId, withMenu: true));
+
+      await tester.tap(find.byKey(const Key('trackMenu')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('Xoá (đang xử lý)'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('deleteAction')), warnIfMissed: false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(rig.menu, isEmpty, reason: 'nothing was called');
+    });
+
     testWidgets('offers to make a public track private, and a private track public', (tester) async {
       TestEnv.window(tester);
       final rig = await _Rig.create();
