@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../api/profile_api.dart';
 import '../api/track_api.dart';
 import '../auth/session_controller.dart';
 import '../models/track.dart';
 import '../player_service.dart';
 import 'edit_track_dialog.dart';
+import 'profile_screen.dart';
 import 'track_playback.dart';
 
 /// Plays one track chosen from the list. Closing the screen stops the playback,
@@ -17,6 +19,7 @@ class TrackPlayerScreen extends StatefulWidget {
     required this.api,
     required this.player,
     required this.session,
+    this.profileApi,
     this.onChanged,
   });
 
@@ -24,6 +27,9 @@ class TrackPlayerScreen extends StatefulWidget {
   final TrackApi api;
   final PlayerService player;
   final SessionController session;
+
+  /// Needed to link to the profile of the owner; without it there is no link.
+  final ProfileApi? profileApi;
 
   /// Called after the owner changed or deleted the track, so the list can load again.
   final VoidCallback? onChanged;
@@ -52,6 +58,20 @@ class _TrackPlayerScreenState extends State<TrackPlayerScreen> {
     if (updated == null || !mounted) return;
     setState(() => _track = updated);
     widget.onChanged?.call();
+  }
+
+  void _openOwnerProfile(ProfileApi profileApi) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(
+          userId: _track.ownerId,
+          session: widget.session,
+          trackApi: widget.api,
+          profileApi: profileApi,
+          player: widget.player,
+        ),
+      ),
+    );
   }
 
   Future<void> _delete() async {
@@ -117,6 +137,16 @@ class _TrackPlayerScreenState extends State<TrackPlayerScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             if (_track.description.isNotEmpty) Text(_track.description),
+            if (widget.profileApi case final profileApi? when _track.ownerId.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('ownerProfileAction'),
+                  icon: const Icon(Icons.person),
+                  label: const Text('View profile'),
+                  onPressed: () => _openOwnerProfile(profileApi),
+                ),
+              ),
             TrackPlayback(track: _track, api: widget.api, player: widget.player),
           ],
         ),

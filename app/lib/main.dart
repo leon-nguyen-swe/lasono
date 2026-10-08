@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'api/auth_api.dart';
+import 'api/profile_api.dart';
 import 'api/track_api.dart';
 import 'audio_picker.dart';
 import 'auth/session_controller.dart';
@@ -13,7 +14,13 @@ void main() {
   // The track API sends the access token of whoever is logged in, so both
   // are made here and share the session.
   final session = SessionController(AuthApi());
-  runApp(LasonoApp(session: session, api: TrackApi(auth: session)));
+  runApp(
+    LasonoApp(
+      session: session,
+      api: TrackApi(auth: session),
+      profileApi: ProfileApi(auth: session),
+    ),
+  );
 }
 
 class LasonoApp extends StatefulWidget {
@@ -21,12 +28,14 @@ class LasonoApp extends StatefulWidget {
     super.key,
     required this.session,
     this.api,
+    this.profileApi,
     this.pickAudio,
     this.player,
   });
 
   final SessionController session;
   final TrackApi? api;
+  final ProfileApi? profileApi;
   final AudioPicker? pickAudio;
   final PlayerService? player;
 
@@ -67,6 +76,7 @@ class _LasonoAppState extends State<LasonoApp> {
           return TrackListScreen(
             session: widget.session,
             api: widget.api,
+            profileApi: widget.profileApi,
             pickAudio: widget.pickAudio,
             player: widget.player,
           );

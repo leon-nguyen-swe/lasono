@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../api/profile_api.dart';
 import '../api/track_api.dart';
 import '../audio_picker.dart';
 import '../auth/session_controller.dart';
@@ -7,6 +8,7 @@ import '../format_duration.dart';
 import '../models/track.dart';
 import '../player_service.dart';
 import 'auth_screen.dart';
+import 'profile_screen.dart';
 import 'status_badge.dart';
 import 'track_player_screen.dart';
 import 'track_screen.dart';
@@ -18,12 +20,14 @@ class TrackListScreen extends StatefulWidget {
     super.key,
     required this.session,
     this.api,
+    this.profileApi,
     this.pickAudio,
     this.player,
   });
 
   final SessionController session;
   final TrackApi? api;
+  final ProfileApi? profileApi;
   final AudioPicker? pickAudio;
   final PlayerService? player;
 
@@ -36,6 +40,7 @@ class _TrackListScreenState extends State<TrackListScreen> {
   static const _loadMoreDistance = 200.0;
 
   late final TrackApi _api = widget.api ?? TrackApi();
+  late final ProfileApi _profileApi = widget.profileApi ?? ProfileApi();
 
   // One player shared by the player and upload screens, so only one track plays at a time.
   PlayerService? _ownedPlayer;
@@ -125,6 +130,7 @@ class _TrackListScreenState extends State<TrackListScreen> {
           api: _api,
           player: _player,
           session: widget.session,
+          profileApi: _profileApi,
           onChanged: () => _changedInPlayer = true,
         ),
       ),
@@ -132,9 +138,26 @@ class _TrackListScreenState extends State<TrackListScreen> {
     if (mounted && _changedInPlayer) _refresh();
   }
 
+  // The user may have deleted a track on the profile page, so the list starts
+  // again when they come back.
+  Future<void> _openProfile(String userId) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProfileScreen(
+          userId: userId,
+          session: widget.session,
+          trackApi: _api,
+          profileApi: _profileApi,
+          player: _player,
+        ),
+      ),
+    );
+    if (mounted) _refresh();
+  }
+
   Future<void> _openAuth() => Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => AuthScreen(session: widget.session)),
-      );
+    MaterialPageRoute(builder: (_) => AuthScreen(session: widget.session)),
+  );
 
   // The upload form is where new tracks come from, so show the list again from
   // the top when the user comes back. Only a logged-in user can upload, so
@@ -216,8 +239,15 @@ class _TrackListScreenState extends State<TrackListScreen> {
         PopupMenuButton<String>(
           key: const Key('accountMenu'),
           tooltip: 'Account',
-          onSelected: (_) => session.logout(),
+          onSelected: (choice) => choice == 'profile'
+              ? _openProfile(account.userId)
+              : session.logout(),
           itemBuilder: (_) => const [
+            PopupMenuItem<String>(
+              key: Key('profileAction'),
+              value: 'profile',
+              child: Text('My profile'),
+            ),
             PopupMenuItem<String>(
               key: Key('logoutAction'),
               value: 'logout',
@@ -248,7 +278,9 @@ class _TrackListScreenState extends State<TrackListScreen> {
       final error = _error;
       return error == null
           ? const Center(child: CircularProgressIndicator())
-          : Center(child: _ErrorMessage(message: error, onRetry: _retry));
+          : Center(
+              child: _ErrorMessage(message: error, onRetry: _retry),
+            );
     }
     if (_tracks.isEmpty) return const Center(child: Text('No tracks yet'));
 
