@@ -10,6 +10,7 @@ import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
 import 'screens/auth_page.dart';
 import 'screens/home_page.dart';
+import 'screens/profile_page.dart';
 import 'screens/track_page.dart';
 import 'screens/upload_page.dart';
 import 'shell/app_shell.dart';
@@ -120,6 +121,10 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
           GoRoute(
             path: '/tracks/:id',
             builder: (context, state) => TrackPage(key: ValueKey(state.pathParameters['id']), trackId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/users/:id',
+            builder: (context, state) => ProfilePage(key: ValueKey(state.pathParameters['id']), userId: state.pathParameters['id']!),
           ),
           GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
           GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),
