@@ -29,7 +29,7 @@ class TrackRepositoryTest {
     // --- Helpers ---
 
     private Track createTrack(TrackId id, String title) {
-        return new Track(id, title, null);
+        return new Track(id, TrackFixtures.OWNER, title, null);
     }
 
     private Track createTrack(String title) {
@@ -155,4 +155,12 @@ class TrackRepositoryTest {
         assertTrue(result.isEmpty());
     }
 
+    @Test
+    void shouldReturnTheOwnerOfASavedTrack() {
+        OwnerId owner = new OwnerId(UUID.randomUUID());
+        TrackId id = new TrackId(UUID.randomUUID());
+        repository.save(new Track(id, owner, "Owned", null));
+
+        assertEquals(owner, repository.findById(id).orElseThrow().getOwnerId());
+    }
 }

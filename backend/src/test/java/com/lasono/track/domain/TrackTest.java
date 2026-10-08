@@ -23,6 +23,7 @@ class TrackTest {
     void shouldStartInProcessing() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -34,6 +35,7 @@ class TrackTest {
     void shouldCompleteProcessingWhenAudioResourceIsReady() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -73,6 +75,7 @@ class TrackTest {
     void shouldMoveTrackAndAudioResourceToFailedWhenProcessingFails() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -97,6 +100,7 @@ class TrackTest {
     void shouldRejectFailingProcessingWhenTrackIsReady() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -121,6 +125,7 @@ class TrackTest {
     void shouldRejectFailingProcessingWhenTrackIsAlreadyFailed() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -141,6 +146,7 @@ class TrackTest {
     void shouldRejectCompletingProcessingWhenTrackHasFailed() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -165,6 +171,7 @@ class TrackTest {
     void shouldRejectCompletingProcessingWhenTrackIsNotProcessing() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -204,6 +211,7 @@ class TrackTest {
     void shouldRejectCompletingProcessingWhenAudioResourceIsNotProcessing() {
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
             "Test Track",
             null
         );
@@ -240,5 +248,45 @@ class TrackTest {
         );
 
         assertEquals(TrackStatus.PROCESSING, track.getStatus());
+    }
+
+    @Test
+    void shouldKnowItsOwner() {
+        OwnerId owner = new OwnerId(UUID.randomUUID());
+
+        Track track = new Track(new TrackId(UUID.randomUUID()), owner, "Test Track", null);
+
+        assertEquals(owner, track.getOwnerId());
+    }
+
+    // A track nobody owns could be edited by nobody and shown on nobody's profile, so it cannot exist.
+    @Test
+    void shouldNotExistWithoutAnOwner() {
+        assertThrows(NullPointerException.class,
+            () -> new Track(new TrackId(UUID.randomUUID()), null, "Test Track", null));
+    }
+
+    @Test
+    void shouldShowItsOwnerInTheSnapshot() {
+        OwnerId owner = new OwnerId(UUID.randomUUID());
+        Track track = new Track(new TrackId(UUID.randomUUID()), owner, "Test Track", null);
+
+        assertEquals(owner, track.toSnapshot().ownerId());
+    }
+
+    @Test
+    void shouldKeepItsOwnerWhenRebuiltFromStorage() {
+        OwnerId owner = new OwnerId(UUID.randomUUID());
+
+        Track track = Track.reconstitute(
+            new TrackId(UUID.randomUUID()),
+            owner,
+            "Test Track",
+            null,
+            TrackStatus.PROCESSING,
+            new AudioResource(new AudioResourceId(UUID.randomUUID()))
+        );
+
+        assertEquals(owner, track.getOwnerId());
     }
 }

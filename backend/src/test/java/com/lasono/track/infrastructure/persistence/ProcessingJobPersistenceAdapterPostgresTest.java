@@ -21,6 +21,7 @@ import com.lasono.PostgresIntegrationTest;
 import com.lasono.track.application.port.out.FailureOutcome;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.domain.TrackId;
+import com.lasono.track.domain.TrackFixtures;
 
 /**
  * The job queue relies on PostgreSQL features (row locks with SKIP LOCKED, UPDATE ... RETURNING), so
@@ -317,7 +318,8 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
-            "INSERT INTO tracks (id, title, description, status) VALUES (?, 'a song', NULL, 'PROCESSING')", id);
+            "INSERT INTO tracks (id, owner_id, title, description, status) VALUES (?, ?, 'a song', NULL, 'PROCESSING')",
+            id, TrackFixtures.OWNER.getValue());
         return id;
     }
 }

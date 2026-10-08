@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.lasono.track.domain.Track;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
 import com.lasono.track.domain.audio.model.AudioDuration;
@@ -40,7 +41,7 @@ class GetTrackUseCaseTest {
     @Test
     void returnsTrackInfoWhenTrackExists() {
         UUID id = UUID.randomUUID();
-        Track track = new Track(new TrackId(id), "My song", "Some description");
+        Track track = new Track(new TrackId(id), TrackFixtures.OWNER, "My song", "Some description");
         track.uploadCompleted(new OriginalAudio(
             "abc.mp3", AudioFormat.fromMimeType("audio/mpeg"), 1024, "audio/mpeg"
         ));
@@ -67,7 +68,7 @@ class GetTrackUseCaseTest {
     @Test
     void returnsStreamingMimeTypeAndDurationWhenTrackIsReady() {
         UUID id = UUID.randomUUID();
-        Track track = new Track(new TrackId(id), "My song", "Some description");
+        Track track = new Track(new TrackId(id), TrackFixtures.OWNER, "My song", "Some description");
         track.uploadCompleted(new OriginalAudio(
             "original.wav", AudioFormat.fromMimeType("audio/mpeg"), 2048, "audio/wav"
         ));
@@ -89,7 +90,7 @@ class GetTrackUseCaseTest {
     @Test
     void returnsTheWaveformWhenTrackIsReady() {
         UUID id = UUID.randomUUID();
-        Track track = new Track(new TrackId(id), "My song", "Some description");
+        Track track = new Track(new TrackId(id), TrackFixtures.OWNER, "My song", "Some description");
         track.uploadCompleted(new OriginalAudio(
             "original.wav", AudioFormat.fromMimeType("audio/mpeg"), 2048, "audio/wav"
         ));
@@ -109,7 +110,7 @@ class GetTrackUseCaseTest {
     @Test
     void hasNoWaveformWhileTheTrackIsStillProcessing() {
         UUID id = UUID.randomUUID();
-        Track track = new Track(new TrackId(id), "My song", "Some description");
+        Track track = new Track(new TrackId(id), TrackFixtures.OWNER, "My song", "Some description");
         track.uploadCompleted(new OriginalAudio(
             "abc.mp3", AudioFormat.fromMimeType("audio/mpeg"), 1024, "audio/mpeg"
         ));

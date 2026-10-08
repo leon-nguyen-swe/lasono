@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import com.lasono.track.domain.AudioResource;
 import com.lasono.track.domain.AudioResourceId;
+import com.lasono.track.domain.OwnerId;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
@@ -40,6 +41,7 @@ public class TrackPersistenceAdapter implements TrackRepository {
 
         TrackJpaEntity trackEntity = new TrackJpaEntity(
             snapshot.trackId().getValue(),
+            snapshot.ownerId().getValue(),
             snapshot.title(),
             snapshot.description(),
             snapshot.trackStatus(),
@@ -145,6 +147,7 @@ public class TrackPersistenceAdapter implements TrackRepository {
 
         Track domainTrack = Track.reconstitute(
             new TrackId(track.getId()), 
+            new OwnerId(track.getOwnerId()),
             track.getTitle(), 
             track.getDescription(), 
             track.getStatus(), 

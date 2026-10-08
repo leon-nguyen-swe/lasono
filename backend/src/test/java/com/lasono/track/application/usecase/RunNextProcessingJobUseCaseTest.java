@@ -19,6 +19,7 @@ import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
 import com.lasono.track.domain.Track;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.audio.model.OriginalAudio;
@@ -202,7 +203,7 @@ class RunNextProcessingJobUseCaseTest {
     /** A track as the upload leaves it: the original file is stored and the track is PROCESSING. */
     private TrackId anUploadedTrack() {
         StorageKey key = storage.store(new ByteArrayInputStream(ORIGINAL), AudioFormat.WAV);
-        Track track = new Track(new TrackId(UUID.randomUUID()), "My Song", "desc");
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "My Song", "desc");
         track.uploadCompleted(new OriginalAudio(key.value(), AudioFormat.WAV, ORIGINAL.length, "audio/wav"));
         trackRepository.save(track);
         return track.getId();

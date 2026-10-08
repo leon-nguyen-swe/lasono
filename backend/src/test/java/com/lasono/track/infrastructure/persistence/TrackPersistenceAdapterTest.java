@@ -1,6 +1,8 @@
 package com.lasono.track.infrastructure.persistence;
 
+import com.lasono.track.domain.OwnerId;
 import com.lasono.track.domain.Track;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,7 @@ class TrackPersistenceAdapterTest {
         TrackId trackId = new TrackId(UUID.randomUUID());
         Track track = new Track(
                 trackId,
+                TrackFixtures.OWNER,
                 "Test Track",
                 "Test description"
         );
@@ -41,6 +44,7 @@ class TrackPersistenceAdapterTest {
         TrackId trackId = new TrackId(UUID.randomUUID());
         Track track = new Track(
                 trackId,
+                TrackFixtures.OWNER,
                 "Test Track",
                 "Test description"
         );
@@ -62,5 +66,17 @@ class TrackPersistenceAdapterTest {
         Optional<Track> result = adapter.findById(trackId);
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void shouldKeepTheOwnerOfASavedTrack() {
+        TrackId trackId = new TrackId(UUID.randomUUID());
+        OwnerId owner = new OwnerId(UUID.randomUUID());
+        adapter.save(new Track(trackId, owner, "Test Track", "Test description"));
+
+        Optional<Track> result = adapter.findById(trackId);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getOwnerId()).isEqualTo(owner);
     }
 }

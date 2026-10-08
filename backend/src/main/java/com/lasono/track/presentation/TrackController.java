@@ -2,6 +2,7 @@ package com.lasono.track.presentation;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.Principal;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -51,9 +52,12 @@ public class TrackController {
     public ResponseEntity<UploadTrackResult> uploadTrack(
         @RequestParam("title") String title,
         @RequestParam(value = "description", required = false, defaultValue = "") String description,
-        @RequestParam("file") MultipartFile file
+        @RequestParam("file") MultipartFile file,
+        Principal principal
     ) throws IOException {
+        // The name of a logged-in caller is the "sub" of the token: the id of the user.
         UploadTrackCommand command = new UploadTrackCommand(
+            UUID.fromString(principal.getName()),
             title,
             description,
             file.getInputStream(),
