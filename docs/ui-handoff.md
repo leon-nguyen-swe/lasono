@@ -3,7 +3,11 @@
 > Đọc kèm [`UI_BUILD_PLAN.md`](UI_BUILD_PLAN.md) (kế hoạch), [`api-contract.md`](api-contract.md) (hợp đồng API)
 > và [`backend-guide/`](backend-guide/00-how-to-use.md) (hướng dẫn tự code backend Phase 5-7).
 >
-> File này được viết dần theo từng giai đoạn. Mục **Tiến độ** ở dưới luôn phản ánh đúng những gì đã commit.
+> **Đọc nhanh:** muốn chạy app → [Cách chạy](#cách-chạy). Muốn biết file nào ở đâu → [Cấu trúc thư mục](#cấu-trúc-thư-mục).
+> Muốn nối một tính năng khi backend của nó xong → [Nối một tính năng](#nối-một-tính-năng-khi-backend-của-nó-xong).
+> Việc còn lại → [TODO](#todo-còn-lại). Điều UI giả định về backend → [Giả định](#giả-định-ui-đặt-cho-backend).
+>
+> Mục **Tiến độ** ở dưới phản ánh đúng những gì đã commit. Phần "Khảo sát" là ảnh chụp **trước khi** làm lại UI (một số dòng của nó đã cũ, có ghi chú).
 
 ## Tiến độ
 
@@ -17,13 +21,91 @@
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Xong (hạ tầng): `go_router` + route guard + `AppShell` + `PlaybackController`. Màn hình cũ vẫn là `/` cho tới khi Giai đoạn 7 thay từng cái. 667 test xanh |
 | 6 | Component (kèm widget test) | Xong: `TrackCard`, `WaveformView` (marker comment), `CoverArt`, `UserAvatar`, `LikeButton`, `FollowButton`, `CommentComposer`, `CommentList`, `UserTile`, `StatBlock`, `ProfileHeader`, `SkeletonLoader`, `EmptyState`, `ErrorState`, `showConfirmDialog`, `showToast`. 823 test xanh |
 | 7 | Màn hình | Xong: đăng nhập/đăng ký, trang chủ (keyset + skeleton), upload (kéo thả), chi tiết track (waveform lớn, comment, menu chủ sở hữu, tự cập nhật khi PROCESSING), hồ sơ (track/đã thích, đổi tên), người theo dõi/đang theo dõi, bảng tin, tìm kiếm (bỏ dấu + tô đậm chữ khớp). Đã xóa toàn bộ màn hình cũ và test của chúng. 855 test xanh |
-| 8 | Hoàn thiện | Chưa |
-| 9 | Đối chiếu và bàn giao | Chưa |
+| 8 | Hoàn thiện | Xong (phần cần thiết): phím Space play/pause (không bắt khi đang gõ), tiêu đề tab theo bài đang phát, favicon + icon app + màu nền tối khi tải, chuyển trang bằng fade (tắt khi hệ điều hành bật "giảm chuyển động"), thẻ track nâng lên khi rê chuột, trang 404, rà responsive (sửa top bar bị tràn ở 600-900 px, sửa tiêu đề danh sách bị lệch giữa). Chưa làm: công tắc lỗi/độ trễ giả trên `/dev/gallery` (xem TODO) |
+| 9 | Đối chiếu và bàn giao | Xong: `api-contract.md` đối chiếu và sửa (Phần D), tài liệu này, `PROJECT_STATUS.md`, `flutter analyze` sạch, 863 test xanh, `flutter build web` được, chạy với backend thật (mục "Kiểm tra với backend thật") |
+
+## Cách chạy
+
+```bash
+# Backend (cần Docker cho PostgreSQL), xem README.md
+docker compose up -d
+cd backend && export LASONO_JWT_SECRET="$(openssl rand -base64 48)" && ./gradlew bootRun
+
+# App. Trạng thái hiện tại: Phase 1-4 là backend thật, Phase 5-6 là dữ liệu giả
+cd app && flutter pub get
+flutter run -d web-server --web-port 3000 \
+  --dart-define=FAKE_SOCIAL=true --dart-define=FAKE_FEED=true --dart-define=FAKE_SEARCH=true
+```
+
+- Cổng phải là **3000** (CORS của backend). Muốn trỏ tới backend khác: `--dart-define=API_BASE_URL=http://host:8080`.
+- Không có `--dart-define` nào thì app dùng backend thật cho **mọi thứ**: like/comment/follow/feed/search sẽ báo lỗi (route chưa có, backend trả `401`/`404`). Đó là hành vi đúng cho tới khi guide tương ứng xong.
+- Mỗi cờ chỉ làm giả **một** tính năng, xem bảng ở mục "Tầng dữ liệu". Đăng nhập, upload, phát, danh sách, sửa/xoá track và hồ sơ luôn dùng backend thật.
+- Thế giới giả có 8 user và 30 track phát được (xem "Thế giới giả"). Trang design system: `http://localhost:3000/dev/gallery` (chỉ debug).
+- Kiểm tra: `flutter analyze && flutter test`, rồi `flutter build web`. Test trên trình duyệt thật: xem cuối mục "Component".
+
+## Cấu trúc thư mục
+
+```
+app/lib/
+├── main.dart             LasonoApp: dựng session, repositories, player, theme, router
+├── app_router.dart       go_router: route, route guard (redirectFor), trang chuyển fade, 404
+├── api/                  Phase 1-4 giữ nguyên: AuthApi, TrackApi, ProfileApi, AccessTokens (refresh 1 lần), cookie web
+├── auth/                 SessionController (đăng nhập, refresh single-flight, khôi phục phiên)
+├── core/theme/           token màu (dark + light), font, spacing, radius, motion, breakpoint, ThemeController
+├── core/text/            định dạng tiếng Việt: thời gian tương đối, 1:23, 1,2K, bỏ dấu, tô sáng chữ khớp
+├── data/                 TẦNG DỮ LIỆU: interface repository, http/ (thật), fake/ (giả), cờ, UserDirectory
+├── models/               Track, TrackPage, Comment, LikeState/FollowState/FollowEdge/CursorPage, SearchResults
+├── playback/             PlaybackController: hàng đợi + player (just_audio), PlaybackScope
+├── shell/                AppShell, TopBar, PlayerBar, app_context.dart (SessionScope + context.repos/playback/openTrack...)
+├── widgets/              component dùng chung: TrackCard, WaveformView, LikeButton, FollowButton, Comment*, PagedListView, ...
+├── screens/              mỗi route một file: home, track, profile, people, feed, search, upload, auth + track_actions.dart
+└── dev/gallery_screen.dart   trang design system
+app/test/                 phản chiếu lib/; support/test_harness.dart (TestEnv) dựng cả app với dữ liệu giả
+```
+
+Quy ước: màn hình lấy mọi thứ qua `context.repos` / `context.playback` / `context.viewerId` (`shell/app_context.dart`),
+**không bao giờ** tự gọi HTTP. Danh sách dài dùng `PagedController` + `PagedListView` (keyset, chống câu trả lời cũ về muộn).
+Điều hướng đi qua `context.openTrack`, `context.openUser`, `context.askToLogin` (quay lại đúng chỗ sau khi đăng nhập).
+
+## Màn hình và dữ liệu của chúng
+
+| Route | Trang | Phần **thật** (backend Phase 1-4) | Phần **giả** (cờ) |
+|-------|-------|-----------------------------------|--------------------|
+| `/` | Trang chủ | `GET /tracks` (keyset), tên tác giả | số like (`FAKE_LIKES`) |
+| `/tracks/:id` | Chi tiết track | `GET /tracks/{id}`, `stream-url` + Range, `PATCH`, `DELETE`, tự hỏi lại khi `PROCESSING` | like, **comment** (`FAKE_COMMENTS`) |
+| `/users/:id` | Hồ sơ | `GET /users/{id}`, `GET /users/{id}/tracks`, `PATCH /users/me` (đổi tên) | số theo dõi, nút follow (`FAKE_FOLLOWS`), tab "Đã thích" (`FAKE_FEED`) |
+| `/users/:id/followers`, `/following` | Danh sách người | tên user | toàn bộ danh sách (`FAKE_FOLLOWS`) |
+| `/feed` (cần đăng nhập) | Bảng tin | | `FAKE_FEED` |
+| `/search?q=` | Tìm kiếm | | `FAKE_SEARCH` |
+| `/upload` (cần đăng nhập) | Tải lên | `POST /tracks` (multipart), chuyển tới trang track | |
+| `/login`, `/register` | Đăng nhập, đăng ký | `auth/*` | |
+| `/dev/gallery` | Design system | | dữ liệu giả có sẵn |
+
+## Kiểm tra với backend thật (Giai đoạn 9, 2026-10-08)
+
+Chạy backend Phase 1-4 thật (PostgreSQL trong Docker, `./gradlew bootRun`), app là bản `flutter build web` phục vụ ở cổng 3000, điều khiển Chrome thật:
+
+| Việc | Kết quả |
+|------|---------|
+| Danh sách track thật, keyset, tên tác giả, waveform, độ dài | Đúng |
+| Đăng nhập trên trang mới → về trang chủ → danh sách tải lại và hiện **track riêng tư** của mình (nhãn "Riêng tư", menu ⋮) | Đúng |
+| Bấm phát track thật: nghe được, thanh tiến độ và waveform chạy, player bar hiện (đã chạy `stream-url` + chữ ký) | Đúng |
+| Tải lại trang: vẫn đăng nhập (cookie refresh), danh sách giữ nguyên | Đúng |
+| `Range: bytes=0-99` → `206` + `Content-Range`; track private → `404` với khách, `200` với chủ; `PATCH`, `DELETE` (`204`, sau đó `404`); refresh không cookie → `401` | Đúng (curl) |
+| Với cờ giả: tìm "son tung" ra "Sơn Tùng", bảng tin hiện bài của người đang theo dõi | Đúng |
+| Không có cờ giả: trang track hiện lỗi ở phần bình luận ("Phiên đăng nhập đã hết hạn..." vì backend trả `401` cho route chưa có) | Đúng như thiết kế, nên luôn chạy với cờ cho tới khi backend xong |
+
+Hai lỗi chỉ thấy khi chạy trình duyệt thật (test không bắt được vì font test khác font thật), đã sửa và có test: tiêu đề danh sách bị lệch vào giữa; top bar bị đẩy ra khỏi màn hình ở 600-900 px.
+Chưa kiểm tra bằng tay trong lần này: kéo thả file upload (cần hộp thoại hệ điều hành), đổi tên hồ sơ, sửa/xoá track bằng nút (đã có test widget và đã thử bằng curl).
 
 ## Khảo sát (Giai đoạn 0)
 
 Khảo sát dựa trên code ở `main` ngày 2026-10-08 (commit `8f542a3`), baseline: `flutter analyze` sạch,
 232 test Flutter pass.
+
+> **Đây là ảnh chụp trước khi làm lại.** Các màn hình cũ (`TrackListScreen`, `TrackScreen`, `TrackPlayerScreen`, `ProfileScreen`,
+> `AuthScreen`, `EditTrackDialog`, `StatusBadge`...) đã bị xoá và thay bằng `lib/screens/*_page.dart`; `LasonoApp` không còn nhận `TrackApi`/`ProfileApi`.
+> Các lớp `*Api`, `AccessTokens`, `SessionController` và cách phát private track (mục 2) vẫn đúng.
 
 ### 1. App Flutter hiện có (`app/lib`, khoảng 2650 dòng)
 
@@ -218,7 +300,7 @@ Không cờ nào bật thì **không** có lớp định tuyến: dùng thẳng 
 
 `FakeBehavior` (mặc định trễ ngẫu nhiên 200-600 ms, có seed nên lặp lại được) dùng chung cho mọi repository giả:
 `repositories.fakeBehavior!.failing = true` làm **mọi** lời gọi giả lỗi mạng (để xem trạng thái lỗi/thử lại), `failNext(n)` làm hỏng n lời gọi kế tiếp.
-(Công tắc hiển thị trên `/dev/gallery` được làm ở Giai đoạn 8.)
+(Chưa có công tắc hiển thị trên `/dev/gallery`: xem TODO.)
 
 ### Nối một tính năng khi backend của nó xong
 
@@ -236,7 +318,7 @@ Không cờ nào bật thì **không** có lớp định tuyến: dùng thẳng 
 
 ### `UserDirectory`
 
-Danh sách track/comment/follower chỉ có **id** user. `UserDirectory.profiles(ids)` xin tên cho cả trang **bằng một request**, không xin lại id đã biết hoặc đang chờ, nhớ kết quả, và là `ChangeNotifier` để widget vẽ lại khi tên đến. Dùng trong `TrackCard`, `CommentList`, `UserTile` (Giai đoạn 6-7).
+Danh sách track/comment/follower chỉ có **id** user. `UserDirectory.profiles(ids)` xin tên cho cả trang **bằng một request**, không xin lại id đã biết hoặc đang chờ, nhớ kết quả, và là `ChangeNotifier` để widget vẽ lại khi tên đến. Dùng trong `TrackCard`, `CommentList`, `UserTile`, trang track và hồ sơ.
 
 ### Giả định UI đặt cho backend (ghi lại để Giai đoạn 9 đối chiếu)
 
@@ -244,6 +326,12 @@ Danh sách track/comment/follower chỉ có **id** user. `UserDirectory.profiles
 - Track private của người khác trả `404` cho like/comment (không `403`).
 - `PUT/DELETE` like và follow trả trạng thái mới (`liked`/`following` + số đếm) để UI đồng bộ số mà không phải tải lại.
 - Comment `positionMs` được UI kẹp trong `[0, durationMs]` trước khi gửi; server vẫn kiểm lại.
+- `GET /users/{id}` và `GET /users?ids=` đọc Bearer nếu có (tuỳ chọn auth) vì `isFollowedByMe` theo người xem; app có đường lui không token khi gặp `401`.
+- `GET /users?ids=` nhận tới 50 id; chưa có route thì app gọi từng `GET /users/{id}`.
+- `GET /tracks/{id}/comments`: `order=recent&limit=20` cho danh sách, `order=position&limit=100` cho marker trên waveform.
+- Search: `limit` ≤ 50 mỗi loại, không có cursor; user trong kết quả không cần `followingCount`.
+- `PUT` được CORS cho phép (like, follow).
+- Bảng đầy đủ field app đọc và giá trị khi thiếu: `api-contract.md` Phần D.
 
 ## App shell (Giai đoạn 5)
 
@@ -253,21 +341,23 @@ App dùng **URL dạng đường dẫn** (`usePathUrlStrategy`): `/dev/gallery`,
 
 | Route | Trang | Ghi chú |
 |-------|-------|---------|
-| `/` | **Màn hình danh sách cũ** (`TrackListScreen`) | Ngoài shell, giữ nguyên hành vi Phase 1-4 cho tới Giai đoạn 7.2 |
-| `/upload` | Form upload cũ | Cần đăng nhập |
-| `/login`, `/register` | `AuthScreen` (có `?from=` để quay lại) | `/register` mở sẵn tab "Create account" |
+| `/` | Trang chủ | |
+| `/tracks/:id`, `/users/:id`, `/users/:id/followers`, `/users/:id/following` | Track, hồ sơ, danh sách người | Profile theo `userId`, **không có handle** (xem khảo sát) |
+| `/upload` | Tải lên | Cần đăng nhập |
+| `/feed` | Bảng tin | Cần đăng nhập |
+| `/search?q=` | Tìm kiếm | Từ khoá nằm trong địa chỉ nên link được và nút Back chạy đúng |
+| `/login`, `/register` | Đăng nhập, đăng ký (`?from=` để quay lại) | Ngoài shell, bố cục hai cột |
 | `/splash` | Logo + spinner | Trong lúc tìm phiên đăng nhập (cookie refresh); sau đó về đúng chỗ cũ |
-| `/feed`, `/search` | **Trong shell**, đang là trang "đang xây dựng" | Giai đoạn 7.7, 7.8 làm thật. `/feed` cần đăng nhập |
-| `/dev/gallery` | Trang design system **trong shell** (có nút thử player bar với track giả) | Chỉ debug (release chuyển về `/`) |
+| `/dev/gallery` | Trang design system trong shell | Chỉ debug (release chuyển về `/`) |
 | mọi địa chỉ khác | Trang 404 thân thiện | Nút "Về trang chủ" |
+
+Các trang trong shell chuyển bằng fade 200 ms (`_fade` trong `app_router.dart`), không fade nếu hệ điều hành bật "giảm chuyển động".
 
 Route guard là hàm thuần `redirectFor(status, location, debug)` (test bảng đầy đủ trong `test/app_router_test.dart`):
 - đang tìm phiên → `/splash?from=<nơi đang đứng>`; có câu trả lời → quay lại `from`;
 - chưa đăng nhập mà vào `/upload` hoặc `/feed` → `/login?from=...`; đăng nhập xong **tự quay lại** trang đó;
 - đã đăng nhập mà vào `/login`/`/register` → về `from` hoặc `/`;
 - `from` chỉ nhận địa chỉ **trong app** (`/…`); `https://evil` hay `//evil` bị bỏ (chống open redirect).
-
-Các route sẽ được thêm ở Giai đoạn 7: `/tracks/:id`, `/users/:id` (+ `/followers`, `/following`). Profile theo `userId`, **không có handle** (xem khảo sát).
 
 ### Shell (`lib/shell/`)
 
@@ -301,10 +391,10 @@ Nằm **trên** router, bọc `PlayerService` (vẫn là `just_audio`; logic Ran
 
 `CoverArt` (ảnh bìa hoặc gradient sinh ổn định từ id, FNV-1a nên giống nhau trên mọi nền tảng) và `UserAvatar` (chữ cái đầu `ST`, `ĐV`... + màu theo id, mọi màu đều ≥ 4.5:1 với chữ trắng).
 
-### Còn lại của shell
+### Phím tắt và tiêu đề tab
 
-- Nút like trong player bar: Giai đoạn 6 (`LikeButton`).
-- Phím Space để play/pause, tiêu đề tab theo bài đang phát: Giai đoạn 8.
+- **Space** play/pause. Không bắt phím khi đang gõ trong ô nhập (focus nằm trong `EditableText`) và khi đang có nút được focus thì nút đó nhận Space trước. Có test và mutation check (bỏ điều kiện thì test gõ khoảng trắng đỏ).
+- Tiêu đề tab: `LaSono`, hoặc `<tên bài> · LaSono` khi có bài trong hàng đợi (widget `Title` trong `AppShell`).
 
 ## Component (Giai đoạn 6)
 
@@ -336,3 +426,17 @@ Chạy test trên trình duyệt (CI chỉ chạy VM):
 CHROME_EXECUTABLE=/đường/dẫn/tới/chrome flutter test --platform chrome test/widgets/cover_art_test.dart
 ```
 Hai test ảnh lỗi (`Image.network`) mô phỏng lỗi theo cách của VM nên bị bỏ qua trên web (`skip: kIsWeb`).
+
+## TODO còn lại
+
+| # | Việc | Ghi chú |
+|---|------|---------|
+| 1 | **Backend Phase 5-6** (like, follow, comment, feed, search, `GET /users?ids=`, `createdAt` và các số đếm) | Việc của Leon, theo `backend-guide/`. Làm xong từng guide thì bỏ cờ tương ứng (mục "Nối một tính năng") |
+| 2 | Công tắc "giả lập lỗi mạng / độ trễ" trên `/dev/gallery` | Hiện chỉ đặt được bằng code: `repositories.fakeBehavior!.failing = true` |
+| 3 | Tiến độ upload theo phần trăm | Gói `http` không báo tiến độ gửi; thanh hiện là vòng chạy không xác định. Muốn phần trăm cần `XMLHttpRequest`/`dio` trên web |
+| 4 | Ảnh bìa và avatar thật | Phần C của hợp đồng (optional). Model đã đọc `coverUrl`/`avatarUrl`; chưa có UI chọn ảnh |
+| 5 | Comment > 100 trên một track chỉ hiện 100 marker đầu | Giới hạn đã ghi ở hợp đồng B3 |
+| 6 | Search không phân trang | Quyết định có chủ ý của hợp đồng B5 |
+| 7 | Quản lý track mới có: sửa tiêu đề/mô tả, đổi riêng tư/công khai, xoá có xác nhận (trên thẻ và trang track) | Không có xoá hàng loạt |
+| 8 | Chưa có CI chạy `flutter build web` và test trên Chrome | CI hiện chỉ chạy VM |
+| 9 | Kiểm tra tay trên trình duyệt thật: kéo thả upload, đổi tên hồ sơ | Xem mục "Kiểm tra với backend thật" |
