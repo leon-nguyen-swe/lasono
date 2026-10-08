@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lasono_app/core/theme/theme.dart';
@@ -11,6 +12,37 @@ void main() {
       expect(stableHash(''), 0x811c9dc5);
       expect(stableHash('a'), 0xe40c292c);
       expect(stableHash('foobar'), 0xbf9cf968);
+    });
+
+    test('is the same as the textbook algorithm done with big integers, also for the ids of the fake world', () {
+      BigInt reference(String text) {
+        var h = BigInt.from(0x811c9dc5);
+        final prime = BigInt.from(0x01000193);
+        final mask = BigInt.parse('ffffffff', radix: 16);
+        for (final unit in text.codeUnits) {
+          h = ((h ^ BigInt.from(unit)) * prime) & mask;
+        }
+        return h;
+      }
+
+      final samples = [
+        '',
+        'a',
+        'Sơn Tùng',
+        '😀',
+        for (var n = 1; n <= 30; n++) 'f4e00000-0000-4000-9000-${n.toString().padLeft(12, '0')}',
+        for (var n = 1; n <= 8; n++) 'f4e00000-0000-4000-8000-${n.toString().padLeft(12, '0')}',
+        '0c1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b',
+      ];
+      for (final text in samples) {
+        expect(BigInt.from(stableHash(text)), reference(text), reason: '"$text"');
+      }
+    });
+
+    test('gives different colours to ids that differ only in the last characters, like the ids of the fake world', () {
+      // In a browser, a hash that lost its low bits gave all of these the same colour.
+      final colours = {for (var n = 1; n <= 8; n++) stableHash('f4e00000-0000-4000-8000-${n.toString().padLeft(12, '0')}') % 8};
+      expect(colours.length, 8);
     });
 
     test('stays within 32 bits and differs for different texts', () {
@@ -65,7 +97,7 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('coverGradient')), findsOneWidget);
-    });
+    }, skip: kIsWeb); // the browser's test environment loads images in its own way (the failure is simulated for the VM)
 
     testWidgets('is decoration: a screen reader skips it', (tester) async {
       final handle = tester.ensureSemantics();
