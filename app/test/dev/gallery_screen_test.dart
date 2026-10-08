@@ -24,7 +24,7 @@ Future<void> _settleTheme(WidgetTester tester) async {
 
 void main() {
   testWidgets('shows the tokens and the components in the dark theme without errors', (tester) async {
-    tester.view.physicalSize = const Size(1280, 2400);
+    tester.view.physicalSize = const Size(1280, 9000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -35,6 +35,10 @@ void main() {
     expect(find.text('Components'), findsOneWidget);
     // Vietnamese sample text is on the page.
     expect(find.textContaining('Nắng ấm xa dần'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    // The made-up network answers after 200-600 ms; let it finish so no timer is left over.
+    await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);
   });
 
