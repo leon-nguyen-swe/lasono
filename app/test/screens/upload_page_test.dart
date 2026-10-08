@@ -31,6 +31,16 @@ class _Backend {
       if (pending != null) return pending.future;
       return answer();
     }
+    if (request.method == 'GET' && request.url.path == '/api/v1/tracks/new-track-1') {
+      return _json({
+        'id': 'new-track-1',
+        'title': 'Bài của tôi',
+        'description': '',
+        'status': 'PROCESSING',
+        'ownerId': 'u-1',
+        'visibility': 'PUBLIC',
+      });
+    }
     return _json({'items': [], 'nextCursor': null});
   });
 }
@@ -198,6 +208,8 @@ void main() {
       expect(sent, contains('PUBLIC'));
       expect(sent, contains('my_song.mp3'));
       expect(find.byKey(const Key('uploadTitle')), findsNothing, reason: 'the user is taken to the new track');
+      expect(find.byKey(const Key('trackProcessing')), findsOneWidget, reason: 'which the server is still processing');
+      expect(find.text('Bài của tôi'), findsWidgets);
     });
 
     testWidgets('the private switch sends PRIVATE', (tester) async {
