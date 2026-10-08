@@ -12,9 +12,9 @@
 | 0 | Khảo sát (mục "Khảo sát" bên dưới) | Xong |
 | 1 | `docs/api-contract.md` | Xong |
 | 2 | `docs/backend-guide/` + `docs/backend-checklist.md` | Xong |
-| 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Xong: token màu (dark mặc định + light, WCAG AA có test), font Be Vietnam Pro nhúng, spacing/radius/elevation/motion/breakpoint, 2 theme, `ThemeController`. Xem trang tại `http://localhost:3000/#/dev/gallery` (chỉ debug) |
+| 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Xong: token màu (dark mặc định + light, WCAG AA có test), font Be Vietnam Pro nhúng, spacing/radius/elevation/motion/breakpoint, 2 theme, `ThemeController`. Xem trang tại `http://localhost:3000/dev/gallery` (chỉ debug) |
 | 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Xong: 5 interface, `Http*` theo hợp đồng, `Fake*` + dữ liệu giả (8 user, 30 track, phát được), cờ theo từng tính năng, `UserDirectory`. 543 test xanh |
-| 5 | App shell (top bar, player bar, hàng đợi, router) | Chưa |
+| 5 | App shell (top bar, player bar, hàng đợi, router) | Xong (hạ tầng): `go_router` + route guard + `AppShell` + `PlaybackController`. Màn hình cũ vẫn là `/` cho tới khi Giai đoạn 7 thay từng cái. 667 test xanh |
 | 6 | Component | Chưa |
 | 7 | Màn hình | Chưa |
 | 8 | Hoàn thiện | Chưa |
@@ -244,3 +244,64 @@ Danh sách track/comment/follower chỉ có **id** user. `UserDirectory.profiles
 - Track private của người khác trả `404` cho like/comment (không `403`).
 - `PUT/DELETE` like và follow trả trạng thái mới (`liked`/`following` + số đếm) để UI đồng bộ số mà không phải tải lại.
 - Comment `positionMs` được UI kẹp trong `[0, durationMs]` trước khi gửi; server vẫn kiểm lại.
+
+## App shell (Giai đoạn 5)
+
+### Router (`go_router`) và route guard
+
+App dùng **URL dạng đường dẫn** (`usePathUrlStrategy`): `/dev/gallery`, không có `#`. Server phải trả `index.html` cho mọi địa chỉ (`flutter run` đã làm; bản triển khai: `try_files {path} /index.html`, xem guide 07).
+
+| Route | Trang | Ghi chú |
+|-------|-------|---------|
+| `/` | **Màn hình danh sách cũ** (`TrackListScreen`) | Ngoài shell, giữ nguyên hành vi Phase 1-4 cho tới Giai đoạn 7.2 |
+| `/upload` | Form upload cũ | Cần đăng nhập |
+| `/login`, `/register` | `AuthScreen` (có `?from=` để quay lại) | `/register` mở sẵn tab "Create account" |
+| `/splash` | Logo + spinner | Trong lúc tìm phiên đăng nhập (cookie refresh); sau đó về đúng chỗ cũ |
+| `/feed`, `/search` | **Trong shell**, đang là trang "đang xây dựng" | Giai đoạn 7.7, 7.8 làm thật. `/feed` cần đăng nhập |
+| `/dev/gallery` | Trang design system **trong shell** (có nút thử player bar với track giả) | Chỉ debug (release chuyển về `/`) |
+| mọi địa chỉ khác | Trang 404 thân thiện | Nút "Về trang chủ" |
+
+Route guard là hàm thuần `redirectFor(status, location, debug)` (test bảng đầy đủ trong `test/app_router_test.dart`):
+- đang tìm phiên → `/splash?from=<nơi đang đứng>`; có câu trả lời → quay lại `from`;
+- chưa đăng nhập mà vào `/upload` hoặc `/feed` → `/login?from=...`; đăng nhập xong **tự quay lại** trang đó;
+- đã đăng nhập mà vào `/login`/`/register` → về `from` hoặc `/`;
+- `from` chỉ nhận địa chỉ **trong app** (`/…`); `https://evil` hay `//evil` bị bỏ (chống open redirect).
+
+Các route sẽ được thêm ở Giai đoạn 7: `/tracks/:id`, `/users/:id` (+ `/followers`, `/following`). Profile theo `userId`, **không có handle** (xem khảo sát).
+
+### Shell (`lib/shell/`)
+
+`ShellRoute` giữ **một** `AppShell` sống suốt lúc trang bên trong đổi, nên nhạc không ngắt khi chuyển trang (có test: phát ở gallery rồi bấm Feed, `stopCalls == 0` và track không được load lại).
+
+- **`TopBar`**: logo chữ + 5 thanh sóng (không dùng logo/màu của dịch vụ nào khác), mục Trang chủ / Bảng tin (đánh dấu trang hiện tại), ô tìm kiếm lớn ở giữa (gõ xong dừng 400 ms hoặc Enter mới tìm; cần ≥ 2 ký tự; ô tự điền khi mở bằng link `/search?q=`), nút Tải lên, avatar + menu (Trang cá nhân, đổi giao diện sáng/tối, Đăng xuất) hoặc nút Đăng nhập / Tạo tài khoản. Trong lúc chưa biết đã đăng nhập hay chưa là một vòng tròn xám (không nhảy bố cục).
+- **`PlayerBar`**: cố định ở đáy, chỉ hiện khi có gì đang phát. Bìa, tên bài + tác giả (bấm để mở), prev / play-pause / next, thanh tiến độ seek được (kéo hoặc bấm), thời gian (chữ số cùng độ rộng, không giật), âm lượng + tắt tiếng. Có trạng thái đang tải (spinner) và lỗi (thông báo + nút thử lại).
+- **`PageContainer`**: căn giữa, rộng tối đa 1200, lề 16/24/32 theo cỡ màn hình. Mọi trang trong shell dùng nó.
+- Điều hướng đi qua `onGo(location)`: các widget không biết router (dễ test).
+
+| Màn hình | Top bar | Player bar |
+|----------|---------|------------|
+| expanded (≥ 1024) | đủ: logo chữ, 2 mục, ô tìm kiếm, Tải lên, tài khoản | đủ, có âm lượng |
+| medium (600-1024) | như trên | không có âm lượng |
+| compact (< 600) | logo (là nút Home), icon Bảng tin / Tìm kiếm / Tải lên, tài khoản; ô tìm kiếm thành icon | **thanh mini**: bìa, tên, next, play-pause, vạch tiến độ mảnh ở trên (bấm để mở bài) |
+
+Đã kiểm tra không tràn ở 320 px (top bar và player bar, tên bài rất dài).
+
+### `PlaybackController` (`lib/playback/`)
+
+Nằm **trên** router, bọc `PlayerService` (vẫn là `just_audio`; logic Range/seek của Phase 1-4 không viết lại).
+- **Hàng đợi**: `playQueue(tracks, startIndex, sourceId)`: bấm play trong danh sách nào thì danh sách đó thành hàng đợi. `extendQueue(sourceId, more)` thêm trang kế tiếp của cùng danh sách. Track chưa `READY` nằm trong hàng đợi nhưng bị **bỏ qua** khi next/prev.
+- **Next / previous**: previous khi đã phát > 3 s thì phát lại từ đầu, ngược lại lùi một bài. Hết bài tự sang bài kế; hết hàng đợi thì dừng ở bài cuối, về 0:00 (sửa lỗi cũ: `just_audio` giữ `playing = true` sau khi hết, nên seek sau đó không có tiếng).
+- Địa chỉ phát được xin **ngay trước khi load từng bài** (không xin cả hàng đợi), giữ đúng cách Phase 4 phát track private bằng địa chỉ có chữ ký.
+- Bấm bài khác khi bài trước còn đang tải: bài bấm sau thắng, bài trước không bao giờ được phát (test + mutation check).
+- `playing` được cập nhật ngay khi bấm (lạc quan), luồng sự kiện của player chỉ xác nhận: nút không phản hồi chậm một nhịp.
+- Vị trí và độ dài là `ValueNotifier` riêng: tick vị trí mỗi 200 ms chỉ vẽ lại thanh tiến độ, không vẽ lại cả bar.
+- Đăng xuất **dừng** nhạc và xoá hàng đợi (bài đang phát có thể là bài private của user đó).
+
+### Thành phần đã làm ở giai đoạn này (kéo sớm từ Giai đoạn 6)
+
+`CoverArt` (ảnh bìa hoặc gradient sinh ổn định từ id, FNV-1a nên giống nhau trên mọi nền tảng) và `UserAvatar` (chữ cái đầu `ST`, `ĐV`... + màu theo id, mọi màu đều ≥ 4.5:1 với chữ trắng).
+
+### Còn lại của shell
+
+- Nút like trong player bar: Giai đoạn 6 (`LikeButton`).
+- Phím Space để play/pause, tiêu đề tab theo bài đang phát: Giai đoạn 8.
