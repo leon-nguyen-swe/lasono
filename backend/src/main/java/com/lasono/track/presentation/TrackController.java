@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.security.Principal;
 import java.util.UUID;
 
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,12 +19,15 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.http.HttpHeaders;
 
+import com.lasono.track.application.usecase.GetStreamUrlUseCase;
 import com.lasono.track.application.usecase.GetTrackResult;
 import com.lasono.track.application.usecase.GetTrackUseCase;
 import com.lasono.track.application.usecase.ListTracksResult;
 import com.lasono.track.application.usecase.ListTracksUseCase;
+import com.lasono.track.application.usecase.StreamSignature;
 import com.lasono.track.application.usecase.StreamTrackResult;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
+import com.lasono.track.application.usecase.StreamUrlResult;
 import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
@@ -35,17 +39,20 @@ public class TrackController {
     private final GetTrackUseCase getTrackUseCase;
     private final StreamTrackUseCase streamTrackUsecase;
     private final ListTracksUseCase listTracksUseCase;
+    private final GetStreamUrlUseCase getStreamUrlUseCase;
 
     public TrackController(
         UploadTrackUseCase uploadTrackUseCase,
         GetTrackUseCase getTrackUseCase,
         StreamTrackUseCase streamTrackUsecase,
-        ListTracksUseCase listTracksUseCase
+        ListTracksUseCase listTracksUseCase,
+        GetStreamUrlUseCase getStreamUrlUseCase
     ) {
         this.uploadTrackUseCase = uploadTrackUseCase;
         this.getTrackUseCase = getTrackUseCase;
         this.streamTrackUsecase = streamTrackUsecase;
         this.listTracksUseCase = listTracksUseCase;
+        this.getStreamUrlUseCase = getStreamUrlUseCase;
     }
 
     @PostMapping("/api/v1/tracks")
@@ -86,13 +93,28 @@ public class TrackController {
         return getTrackUseCase.execute(id, viewerOf(principal));
     }
 
+    // An address the browser's audio player can use: it cannot send a login header, so the permission is signed
+    // into the address. The address is a key, so nothing along the way may keep a copy of this answer.
+    @GetMapping("/api/v1/tracks/{id}/stream-url")
+    public ResponseEntity<StreamUrlResult> streamUrl(@PathVariable("id") UUID id, Principal principal) {
+        StreamUrlResult result = getStreamUrlUseCase.execute(id, viewerOf(principal));
+
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result);
+    }
+
     @GetMapping("/api/v1/tracks/{id}/stream")
     public ResponseEntity<StreamingResponseBody> streamTrack(
         @PathVariable("id") UUID id,
         @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader,
+        @RequestParam(value = "expires", required = false) Long expires,
+        @RequestParam(value = "signature", required = false) String signature,
         Principal principal
     ) {
-        StreamTrackResult result = streamTrackUsecase.execute(id, rangeHeader, viewerOf(principal));
+        // Half a signature proves nothing, so it counts as none.
+        StreamSignature streamSignature =
+            expires != null && signature != null ? new StreamSignature(expires, signature) : null;
+        StreamTrackResult result =
+            streamTrackUsecase.execute(id, rangeHeader, viewerOf(principal), streamSignature);
 
         long contentLength = result.rangeEnd() - result.rangeStart() + 1;
 

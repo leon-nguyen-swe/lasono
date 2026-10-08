@@ -30,6 +30,7 @@ import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.presentation.TrackController;
 import com.lasono.track.presentation.TrackExceptionHandler;
+import com.lasono.track.application.usecase.GetStreamUrlUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class CorsConfigTest {
@@ -50,12 +51,16 @@ class CorsConfigTest {
     @Mock
     private ListTracksUseCase listTracksUseCase;
 
+    @Mock
+    private GetStreamUrlUseCase getStreamUrlUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
-            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
+            new TrackController(
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .addFilters(new CorsConfig().corsFilter(List.of(FLUTTER_ORIGIN, FLUTTER_ORIGIN_IP)))
@@ -102,7 +107,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedOrigin_streamResponse_exposesRangeHeaders() throws Exception {
         UUID id = UUID.randomUUID();
-        when(streamTrackUseCase.execute(id, null, null)).thenThrow(new TrackNotFoundException(id));
+        when(streamTrackUseCase.execute(id, null, null, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(header().string(

@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.ZoneOffset;
+import java.time.Instant;
+import java.time.Clock;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -27,6 +30,7 @@ import com.lasono.track.domain.model.Visibility;
 
 class StreamTrackUseCaseTest {
 
+    private static final Instant NOW = Instant.parse("2026-10-08T10:00:00Z");
     private static final byte[] ORIGINAL = "original wav".getBytes(StandardCharsets.UTF_8);
     private static final byte[] MP3 = "0123456789".getBytes(StandardCharsets.UTF_8);
 
@@ -38,14 +42,15 @@ class StreamTrackUseCaseTest {
     void setUp() {
         trackRepository = new InMemoryTrackRepository();
         storage = new InMemoryAudioStorage();
-        useCase = new StreamTrackUseCase(trackRepository, storage);
+        useCase = new StreamTrackUseCase(
+            trackRepository, storage, new FakeStreamUrlSigner(), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
     void execute_shouldStreamTheConvertedMp3OfAReadyTrack() throws Exception {
         UUID id = aReadyTrack();
 
-        StreamTrackResult result = useCase.execute(id, null, null);
+        StreamTrackResult result = useCase.execute(id, null, null, null);
 
         assertEquals("audio/mpeg", result.mimeType());
         assertEquals(MP3.length, result.fileSize());
@@ -56,7 +61,7 @@ class StreamTrackUseCaseTest {
     void execute_shouldStreamOnlyTheRequestedRange() throws Exception {
         UUID id = aReadyTrack();
 
-        StreamTrackResult result = useCase.execute(id, "bytes=2-5", null);
+        StreamTrackResult result = useCase.execute(id, "bytes=2-5", null, null);
 
         assertTrue(result.partial());
         assertArrayEquals("2345".getBytes(StandardCharsets.UTF_8), result.stream().readAllBytes());
@@ -66,7 +71,7 @@ class StreamTrackUseCaseTest {
     void execute_shouldRefuseATrackThatIsStillProcessing() {
         UUID id = anUploadedTrack();
 
-        assertThrows(TrackNotReadyException.class, () -> useCase.execute(id, null, null));
+        assertThrows(TrackNotReadyException.class, () -> useCase.execute(id, null, null, null));
     }
 
     @Test
@@ -77,14 +82,14 @@ class StreamTrackUseCaseTest {
         track.processingFailed();
         trackRepository.save(track);
 
-        assertThrows(TrackNotReadyException.class, () -> useCase.execute(id, null, null));
+        assertThrows(TrackNotReadyException.class, () -> useCase.execute(id, null, null, null));
     }
 
     @Test
     void execute_shouldThrowWhenTheTrackDoesNotExist() {
         UUID missing = UUID.randomUUID();
 
-        assertThrows(TrackNotFoundException.class, () -> useCase.execute(missing, null, null));
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(missing, null, null, null));
     }
 
     private UUID anUploadedTrack() {
@@ -122,8 +127,8 @@ class StreamTrackUseCaseTest {
     void execute_shouldHideAPrivateTrackFromAStrangerAndFromSomeoneNotLoggedIn() {
         UUID id = aReadyTrack(Visibility.PRIVATE);
 
-        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, STRANGER));
-        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, null));
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, STRANGER, null));
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, null, null));
     }
 
     // "Not ready" (409) would tell a stranger that the private track exists, so "not found" must come first.
@@ -131,14 +136,14 @@ class StreamTrackUseCaseTest {
     void execute_shouldAnswerNotFoundNotNotReadyForAPrivateTrackOfSomeoneElse() {
         UUID id = anUploadedTrack(Visibility.PRIVATE);
 
-        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, STRANGER));
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, STRANGER, null));
     }
 
     @Test
     void execute_shouldStreamAPrivateTrackToItsOwner() throws Exception {
         UUID id = aReadyTrack(Visibility.PRIVATE);
 
-        StreamTrackResult result = useCase.execute(id, null, TrackFixtures.OWNER.getValue());
+        StreamTrackResult result = useCase.execute(id, null, TrackFixtures.OWNER.getValue(), null);
 
         assertArrayEquals(MP3, result.stream().readAllBytes());
     }
@@ -147,6 +152,80 @@ class StreamTrackUseCaseTest {
     void execute_shouldStreamAPublicTrackToSomeoneNotLoggedIn() throws Exception {
         UUID id = aReadyTrack(Visibility.PUBLIC);
 
-        assertArrayEquals(MP3, useCase.execute(id, null, null).stream().readAllBytes());
+        assertArrayEquals(MP3, useCase.execute(id, null, null, null).stream().readAllBytes());
+    }
+
+    // --- permission carried by the address (D4): the audio player cannot send a login header ---
+
+    private static StreamSignature signedFor(UUID trackId, long expiresAt) {
+        return new StreamSignature(expiresAt, new FakeStreamUrlSigner().sign(trackId, expiresAt));
+    }
+
+    private static final long IN_THE_FUTURE = NOW.getEpochSecond() + 3600;
+
+    @Test
+    void execute_shouldStreamAPrivateTrackToAStrangerWhoHoldsAValidSignature() throws Exception {
+        UUID id = aReadyTrack(Visibility.PRIVATE);
+
+        StreamTrackResult result = useCase.execute(id, null, null, signedFor(id, IN_THE_FUTURE));
+
+        assertArrayEquals(MP3, result.stream().readAllBytes());
+    }
+
+    @Test
+    void execute_shouldRefuseASignatureMadeForAnotherTrack() {
+        UUID id = aReadyTrack(Visibility.PRIVATE);
+        UUID other = UUID.randomUUID();
+
+        assertThrows(TrackNotFoundException.class,
+            () -> useCase.execute(id, null, null, signedFor(other, IN_THE_FUTURE)));
+    }
+
+    @Test
+    void execute_shouldRefuseATamperedOrForgedSignature() {
+        UUID id = aReadyTrack(Visibility.PRIVATE);
+
+        assertThrows(TrackNotFoundException.class,
+            () -> useCase.execute(id, null, null, new StreamSignature(IN_THE_FUTURE, "forged")));
+        // A valid signature for an earlier moment, with the expiry changed to a later one.
+        StreamSignature stretched = new StreamSignature(IN_THE_FUTURE + 100, signedFor(id, IN_THE_FUTURE).value());
+        assertThrows(TrackNotFoundException.class, () -> useCase.execute(id, null, null, stretched));
+    }
+
+    // Right at the expiry is already too late, so a signature never works one moment longer than it says.
+    @Test
+    void execute_shouldRefuseASignatureThatHasExpired() {
+        UUID id = aReadyTrack(Visibility.PRIVATE);
+
+        assertThrows(TrackNotFoundException.class,
+            () -> useCase.execute(id, null, null, signedFor(id, NOW.getEpochSecond())));
+        assertThrows(TrackNotFoundException.class,
+            () -> useCase.execute(id, null, null, signedFor(id, NOW.getEpochSecond() - 60)));
+    }
+
+    @Test
+    void execute_shouldAcceptASignatureUntilTheLastSecondBeforeItExpires() throws Exception {
+        UUID id = aReadyTrack(Visibility.PRIVATE);
+
+        StreamTrackResult result = useCase.execute(id, null, null, signedFor(id, NOW.getEpochSecond() + 1));
+
+        assertArrayEquals(MP3, result.stream().readAllBytes());
+    }
+
+    @Test
+    void execute_shouldStillSayNotReadyToAHolderOfAValidSignature() {
+        UUID id = anUploadedTrack(Visibility.PRIVATE);
+
+        assertThrows(TrackNotReadyException.class,
+            () -> useCase.execute(id, null, null, signedFor(id, IN_THE_FUTURE)));
+    }
+
+    @Test
+    void execute_shouldNotNeedASignatureForAPublicTrackAndIgnoreABadOne() throws Exception {
+        UUID id = aReadyTrack(Visibility.PUBLIC);
+
+        StreamTrackResult result = useCase.execute(id, null, null, new StreamSignature(1L, "forged"));
+
+        assertArrayEquals(MP3, result.stream().readAllBytes());
     }
 }
