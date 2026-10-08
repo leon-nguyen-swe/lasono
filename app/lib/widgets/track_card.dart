@@ -329,7 +329,7 @@ class _TrackCardState extends State<TrackCard> {
                   progress: fraction,
                   durationMs: _track.durationMs,
                   onSeek: _seek,
-                  height: 56,
+                  height: 72,
                 );
               },
             ),

@@ -439,7 +439,7 @@ class _TrackPageState extends State<TrackPage> {
             progress: fraction,
             durationMs: track.durationMs,
             onSeek: _seekFraction,
-            height: 96,
+            height: 128,
             markers: markers,
             onMarkerTap: (marker) => _playAndSeek(marker.positionMs),
           );
