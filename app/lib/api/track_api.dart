@@ -111,6 +111,26 @@ class TrackApi {
     }
   }
 
+  /// The tracks of one user, newest first, one page at a time. The owner also
+  /// gets the private ones when logged in.
+  Future<TrackPage> listUserTracks(
+    String userId, {
+    String? cursor,
+    int? limit,
+  }) async {
+    final query = {'cursor': ?cursor, 'limit': ?limit?.toString()};
+    final uri = Uri.parse(
+      '$_baseUrl$_prefix/users/${Uri.encodeComponent(userId)}/tracks',
+    ).replace(queryParameters: query.isEmpty ? null : query);
+    final response = await _get(uri);
+
+    return switch (response.statusCode) {
+      200 => TrackPage.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      401 => throw const TrackApiException(_logInAgain),
+      final status => throw TrackApiException('Server error ($status)'),
+    };
+  }
+
   /// Asks for an address the audio player can open. The player cannot send the
   /// login header, so the server signs the permission into the address.
   Future<Uri> fetchStreamUrl(String id) async {
