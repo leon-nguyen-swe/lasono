@@ -51,4 +51,25 @@ class UserTest {
     void shouldRejectMissingPasswordHash(String hash) {
         assertThrows(UserInvalidException.class, () -> new User(ID, EMAIL, NAME, hash));
     }
+
+    @Test
+    void shouldChangeItsDisplayNameAndKeepEverythingElse() {
+        User user = new User(ID, EMAIL, NAME, HASH);
+
+        user.changeDisplayName(new DisplayName("Alice B."));
+
+        assertEquals(new DisplayName("Alice B."), user.getDisplayName());
+        assertEquals(ID, user.getId());
+        assertEquals(EMAIL, user.getEmail());
+        assertEquals(HASH, user.getPasswordHash());
+    }
+
+    @Test
+    void shouldKeepItsDisplayNameWhenTheNewOneIsMissing() {
+        User user = new User(ID, EMAIL, NAME, HASH);
+
+        assertThrows(NullPointerException.class, () -> user.changeDisplayName(null));
+
+        assertEquals(NAME, user.getDisplayName());
+    }
 }

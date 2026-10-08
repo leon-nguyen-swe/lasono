@@ -5,7 +5,7 @@ import java.util.Optional;
 public interface UserRepository {
 
     /**
-     * Saves a new user.
+     * Saves a user. A user with the same id is replaced, so this also stores a change.
      *
      * @throws com.lasono.identity.domain.exception.EmailAlreadyRegisteredException if another user
      *         already has the same email

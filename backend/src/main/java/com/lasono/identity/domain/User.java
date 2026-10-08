@@ -8,7 +8,7 @@ public class User {
 
     private final UserId id;
     private final Email email;
-    private final DisplayName displayName;
+    private DisplayName displayName;
     private final String passwordHash;
 
     // Takes the hash of the password, never the password itself.
@@ -20,6 +20,10 @@ public class User {
         this.email = Objects.requireNonNull(email);
         this.displayName = Objects.requireNonNull(displayName);
         this.passwordHash = passwordHash;
+    }
+
+    public void changeDisplayName(DisplayName newDisplayName) {
+        this.displayName = Objects.requireNonNull(newDisplayName);
     }
 
     public UserId getId() {

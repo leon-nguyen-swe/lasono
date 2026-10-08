@@ -7,7 +7,8 @@ import java.util.Optional;
 import com.lasono.identity.domain.exception.EmailAlreadyRegisteredException;
 
 /**
- * Keeps users by email, like the unique constraint of the real table. {@link #size} is only for tests.
+ * Keeps users by email, like the unique constraint of the real table. Saving a user whose id is already
+ * there replaces it, as the real table does. {@link #size} is only for tests.
  */
 public class InMemoryUserRepository implements UserRepository {
 
@@ -15,7 +16,8 @@ public class InMemoryUserRepository implements UserRepository {
 
     @Override
     public User save(User user) {
-        if (store.containsKey(user.getEmail())) {
+        User sameEmail = store.get(user.getEmail());
+        if (sameEmail != null && !sameEmail.getId().equals(user.getId())) {
             throw new EmailAlreadyRegisteredException(user.getEmail());
         }
         store.put(user.getEmail(), user);
