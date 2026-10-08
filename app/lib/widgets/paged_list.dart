@@ -235,7 +235,8 @@ class _PagedListViewState<T> extends State<PagedListView<T>> {
               PageContainer.sideMargin(context.screenSize),
               last ? 0 : widget.itemGap,
             ),
-            child: child,
+            // Full width: a short child (a heading) would otherwise shrink and be centred by the Align.
+            child: SizedBox(width: double.infinity, child: child),
           ),
         ),
       );
