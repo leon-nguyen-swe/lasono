@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lasono.identity.application.usecase.AuthSession;
 import com.lasono.identity.application.usecase.LoginCommand;
 import com.lasono.identity.application.usecase.LoginResult;
 import com.lasono.identity.application.usecase.LoginUseCase;
@@ -27,10 +28,10 @@ public class AuthController {
 
     @PostMapping("/api/v1/auth/login")
     public ResponseEntity<LoginResult> login(@RequestBody LoginCommand command) {
-        LoginResult result = loginUseCase.execute(command);
+        AuthSession session = loginUseCase.execute(command);
 
         // RFC 6749: a response that carries a token must not be stored by browsers or proxies.
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(session.access());
     }
 
     @PostMapping("/api/v1/auth/register")

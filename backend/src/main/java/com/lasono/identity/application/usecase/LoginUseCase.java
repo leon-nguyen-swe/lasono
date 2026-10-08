@@ -1,14 +1,20 @@
 package com.lasono.identity.application.usecase;
 
+import java.time.Clock;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.lasono.identity.application.port.out.AccessTokenIssuer;
 import com.lasono.identity.application.port.out.IssuedAccessToken;
 import com.lasono.identity.application.port.out.PasswordHasher;
+import com.lasono.identity.application.port.out.RefreshTokenCodec;
 import com.lasono.identity.domain.Email;
+import com.lasono.identity.domain.RefreshToken;
+import com.lasono.identity.domain.RefreshTokenRepository;
 import com.lasono.identity.domain.User;
 import com.lasono.identity.domain.UserRepository;
 import com.lasono.identity.domain.exception.EmailInvalidException;
@@ -21,21 +27,33 @@ public class LoginUseCase {
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final AccessTokenIssuer accessTokenIssuer;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenCodec refreshTokenCodec;
+    private final Clock clock;
+    private final Duration refreshTokenTtl;
     private final String unknownUserHash;
 
     public LoginUseCase(
         UserRepository userRepository,
         PasswordHasher passwordHasher,
-        AccessTokenIssuer accessTokenIssuer
+        AccessTokenIssuer accessTokenIssuer,
+        RefreshTokenRepository refreshTokenRepository,
+        RefreshTokenCodec refreshTokenCodec,
+        Clock clock,
+        @Value("${lasono.jwt.refresh-token-ttl:30d}") Duration refreshTokenTtl
     ) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.accessTokenIssuer = accessTokenIssuer;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenCodec = refreshTokenCodec;
+        this.clock = clock;
+        this.refreshTokenTtl = refreshTokenTtl;
         // The hash of a password nobody knows, made once. It is what an unknown email is compared against.
         this.unknownUserHash = passwordHasher.hash(UUID.randomUUID().toString());
     }
 
-    public LoginResult execute(LoginCommand command) {
+    public AuthSession execute(LoginCommand command) {
         Optional<User> user = findUser(command.email());
 
         // Always compare exactly one password, even for an unknown email. Comparing is slow on purpose, so
@@ -48,7 +66,17 @@ public class LoginUseCase {
         }
 
         IssuedAccessToken token = accessTokenIssuer.issue(user.get().getId());
-        return new LoginResult(token.value(), TOKEN_TYPE, token.expiresInSeconds());
+
+        // Every login starts its own family, so the sessions of one user can be ended one by one.
+        String rawRefreshToken = refreshTokenCodec.generate();
+        refreshTokenRepository.save(RefreshToken.issueNewFamily(
+            user.get().getId(),
+            refreshTokenCodec.hash(rawRefreshToken),
+            clock.instant(),
+            refreshTokenTtl
+        ));
+
+        return new AuthSession(new LoginResult(token.value(), TOKEN_TYPE, token.expiresInSeconds()), rawRefreshToken);
     }
 
     // An email that is not even valid is just another email nobody has registered.

@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.lasono.identity.application.usecase.AuthSession;
 import com.lasono.identity.application.usecase.InvalidCredentialsException;
 import com.lasono.identity.application.usecase.LoginCommand;
 import com.lasono.identity.application.usecase.LoginResult;
@@ -147,9 +148,13 @@ class AuthControllerTest {
         assertNull(captor.getValue().password());
     }
 
+    private static AuthSession aSession() {
+        return new AuthSession(new LoginResult("a.jwt.token", "Bearer", 900), "a-refresh-token");
+    }
+
     @Test
     void login_returns200WithTheAccessToken() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY)
             .andExpect(status().isOk())
@@ -161,7 +166,7 @@ class AuthControllerTest {
     // RFC 6749: a response that carries a token must not be stored by browsers or proxies.
     @Test
     void login_tellsEveryCacheNotToKeepTheToken() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY)
             .andExpect(header().string("Cache-Control", "no-store"));
@@ -169,7 +174,7 @@ class AuthControllerTest {
 
     @Test
     void login_passesTheRequestFieldsToTheUseCase() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY);
 
