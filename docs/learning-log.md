@@ -67,3 +67,49 @@ Chưa thấy trên máy thật; test mô phỏng bằng tay lộ ra: `complete` 
 **Takeaway**
 
 **Open question**
+
+
+## 2026-10-08: Thu hồi refresh token bị hoàn tác vì exception (`noRollbackFor`)
+
+**Context**
+Refresh token được xoay vòng và chia theo "family". Nếu một token đã dùng rồi mà bị đưa ra lần nữa (dấu hiệu bị đánh cắp), use case thu hồi cả family rồi ném `InvalidRefreshTokenException` để controller trả `401`. Cả hàm nằm trong một `@Transactional`.
+
+**Symptom**
+Người gọi nhận đúng `401`, nhưng trong DB các token của family vẫn chưa bị thu hồi, nên token mới mà kẻ trộm vừa nhận vẫn dùng được. Test "dùng lại token cũ thì cả family bị thu hồi" chạy trên PostgreSQL thật sẽ đỏ nếu bỏ `noRollbackFor`.
+
+**How it works (step by step)**
+1. Spring bọc method có `@Transactional` bằng một proxy: mở transaction trước khi gọi, commit hoặc rollback sau khi method kết thúc.
+2. `revokeFamily` chạy `UPDATE` trong cùng transaction đó. Thay đổi này chỉ tồn tại trong transaction, chưa ai khác thấy.
+3. Method ném `InvalidRefreshTokenException`. Mặc định proxy rollback với mọi `RuntimeException`, nên `UPDATE` ở bước 2 bị hủy.
+4. Exception vẫn lan ra controller và thành `401`, nên nhìn từ ngoài mọi thứ đều "đúng".
+5. Với `noRollbackFor = InvalidRefreshTokenException.class`, proxy commit dù có exception này, nên việc thu hồi được giữ lại và người gọi vẫn thấy `401`.
+6. Đánh đổi: mọi thay đổi khác đã làm trước khi ném exception cũng được commit. Ở đây chỉ có việc thu hồi, nên an toàn.
+
+**Fix**
+`@Transactional(noRollbackFor = InvalidRefreshTokenException.class)` trên `RefreshSessionUseCase.execute`. Một mutation (bỏ `noRollbackFor`) làm test trên PostgreSQL thật đỏ, nên test này thật sự bảo vệ chỗ đó.
+
+**Takeaway**
+
+**Open question**
+
+
+## 2026-10-08: Token hết hạn làm hỏng cả route công khai
+
+**Context**
+`GET /api/v1/tracks` là route công khai (`permitAll`). Khi đã đăng nhập, app gửi kèm `Authorization: Bearer <token>` (để người dùng thấy cả track riêng tư của mình). Access token sống 15 phút.
+
+**Symptom**
+Sau 15 phút, danh sách track trả `401` dù ai cũng được xem. Một lần đăng nhập gửi kèm token cũ cũng bị `401`, trong khi `/auth/login` không cần token.
+
+**How it works (step by step)**
+1. Bộ lọc xác thực bearer của Spring Security chạy **trước** bước kiểm tra quyền (`permitAll` nằm ở bước sau).
+2. Nếu request không có header `Authorization`, bộ lọc bỏ qua, request là "ẩn danh", và `permitAll` cho qua.
+3. Nếu có header, bộ lọc xác thực token ngay. Token sai hoặc hết hạn thì bộ lọc trả `401` luôn và không bao giờ tới bước `permitAll`.
+4. Vì vậy "route công khai" chỉ có nghĩa là không cần token, không có nghĩa là một token hỏng được bỏ qua.
+
+**Fix**
+Backend: với `/api/v1/auth/**` bearer resolver trả `null`, tức là bỏ qua header (đăng nhập với token cũ vẫn chạy). App: khi gặp `401` thì làm mới token một lần rồi gửi lại một lần; riêng đọc hồ sơ công khai thì không gửi token.
+
+**Takeaway**
+
+**Open question**

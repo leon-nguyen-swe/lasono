@@ -215,3 +215,7 @@ The app also stops waiting after 30 seconds for `Load` ("Request timed out") and
 - `docs/lasono-phase1-flutter-plan.md`: the Phase 1 plan and the decisions behind it.
 - `docs/phase1-e2e.md`: end-to-end verification results.
 - `docs/core-audio-system-plan.md`: the backend design.
+- `docs/phase-3-audio-processing.md`: the audio processing pipeline, its decisions and its end-to-end check.
+- `docs/phase-4-identity.md`: accounts, owners, private tracks and profiles, with the decisions, the pitfalls and the known limits.
+- `docs/adr/0001-token-strategy.md`: why the login uses a short access token and a rotating refresh cookie.
+- `docs/learning-log.md`: concepts and hard bugs met along the way.
