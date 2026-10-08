@@ -71,14 +71,24 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 
 ## Using the app
 
-1. **Browse**: the app opens on the list of tracks, newest first. Scroll down and the next page loads by itself. If a page fails to load, press **Retry**.
-2. **Play**: tap a track to open its player and press the play button. When a track finishes it rewinds to 0:00; press play again to replay it. Going back to the list stops the playback and keeps your place in the list.
-3. **Seek**: drag or click the slider.
-4. **Account**: press **Log in** in the top bar. On the same screen, **Create a new account** asks for an email, a name and a password (at least 8 characters). You are logged in right after you register. Your name replaces the button; open it and choose **Log out** to leave. A reload of the page keeps you logged in: the app gets a new access token from the refresh cookie when it opens. The access token itself is only kept in memory.
-5. **Upload**: press the upload icon in the top bar (it asks you to log in first), type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it. The list also reloads when you log in or out.
-6. **Private tracks**: the upload form has a **Private** switch. A private track shows only for you (in the list, on your profile, and when you play it); everyone else gets "not found". In the player, the owner of a track sees **Edit** (title, description, Private) and **Delete**. A track that is still processing cannot be deleted yet.
-7. **Profile**: open your name and choose **My profile**, or press **View profile** in the player of a track. A profile shows the name and the tracks of that user, 20 at a time (**Load more**). On your own profile you can change your name. The email is never shown.
-8. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
+The app has a dark theme by default (a light one is in the account menu). Until the backend of Phase 5-6 is built, start it with the
+switches from [`docs/ui-handoff.md`](docs/ui-handoff.md) to get made-up likes, follows, comments, feed and search:
+
+```bash
+flutter run -d web-server --web-port 3000 \
+  --dart-define=FAKE_SOCIAL=true --dart-define=FAKE_FEED=true --dart-define=FAKE_SEARCH=true
+```
+
+Without a switch the app talks to the real backend for everything, and a feature the backend does not have yet shows an error.
+
+1. **Browse**: the home page lists tracks newest first; the next page loads when you scroll down. If a page fails to load, press **Thử lại** (Retry).
+2. **Play**: press the round play button on a track, or press the waveform to jump to that place and play. A bar at the bottom keeps playing while you move between pages (previous, next, seek, volume). **Space** plays or pauses.
+3. **Track page**: a big waveform, the description, comments (pinned to a moment of the track, with a text box that asks for a login), and for the owner a menu to edit, make private or public, or delete. A track that is still processing refreshes by itself until it is ready.
+4. **Account**: **Đăng nhập** (log in) and **Tạo tài khoản** (create account) are in the top bar; errors appear under the field they belong to. A reload keeps you logged in (the app gets a new access token from the refresh cookie; the token itself is only kept in memory).
+5. **Upload**: the upload button asks you to log in first, then drag an `.mp3` or `.wav` (max 50 MB) onto the page or pick one, set a title and **Private** if you want, and press upload. You are taken to the track page.
+6. **Private tracks**: a private track shows only for you, with a "Riêng tư" label; everyone else gets "not found".
+7. **Profile**: open a name to see that user's tracks (and likes, followers, following). On your own profile you can change your name. The email is never shown.
+8. **Feed** and **Search** are in the top bar. Search ignores accents (`son tung` finds `Sơn Tùng`).
 
 ## Configuration
 
