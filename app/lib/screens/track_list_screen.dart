@@ -46,6 +46,9 @@ class _TrackListScreenState extends State<TrackListScreen> {
   final _tracks = <Track>[];
   final _knownIds = <String>{};
 
+  // Set by the player screen when the owner changed or deleted the track.
+  bool _changedInPlayer = false;
+
   // Who the list was loaded for: what a user may see differs from one account to another.
   String? _userId;
 
@@ -111,13 +114,22 @@ class _TrackListScreenState extends State<TrackListScreen> {
     _loadNextPage();
   }
 
-  void _openPlayer(Track track) {
-    Navigator.of(context).push<void>(
+  // The owner can change or delete the track in the player, so when that
+  // happened the list starts again from the top.
+  Future<void> _openPlayer(Track track) async {
+    _changedInPlayer = false;
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) =>
-            TrackPlayerScreen(track: track, api: _api, player: _player),
+        builder: (_) => TrackPlayerScreen(
+          track: track,
+          api: _api,
+          player: _player,
+          session: widget.session,
+          onChanged: () => _changedInPlayer = true,
+        ),
       ),
     );
+    if (mounted && _changedInPlayer) _refresh();
   }
 
   Future<void> _openAuth() => Navigator.of(context).push<void>(
