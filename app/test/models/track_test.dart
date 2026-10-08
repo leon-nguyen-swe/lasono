@@ -22,6 +22,31 @@ void main() {
       expect(track.durationSeconds, 12.5);
     });
 
+    test('maps the owner and the visibility', () {
+      final track = Track.fromJson({
+        'id': 'abc',
+        'ownerId': 'u-1',
+        'title': 'Mine',
+        'description': '',
+        'visibility': 'PRIVATE',
+        'status': 'READY',
+      });
+
+      expect(track.ownerId, 'u-1');
+      expect(track.visibility, 'PRIVATE');
+    });
+
+    test('takes a track without these fields as public', () {
+      final track = Track.fromJson({
+        'id': 'abc',
+        'title': 'Old',
+        'description': '',
+        'status': 'READY',
+      });
+
+      expect(track.visibility, 'PUBLIC');
+    });
+
     test('accepts null durationSeconds and mimeType', () {
       final track = Track.fromJson({
         'id': 'abc',
