@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'api/track_api.dart';
+import 'api/auth_api.dart';
 import 'audio_picker.dart';
+import 'auth/session_controller.dart';
 import 'player_service.dart';
 import 'screens/track_list_screen.dart';
 
@@ -10,8 +12,15 @@ void main() {
 }
 
 class LasonoApp extends StatelessWidget {
-  const LasonoApp({super.key, this.api, this.pickAudio, this.player});
+  const LasonoApp({
+    super.key,
+    this.api,
+    this.pickAudio,
+    this.player,
+    this.session,
+  });
 
+  final SessionController? session;
   final TrackApi? api;
   final AudioPicker? pickAudio;
   final PlayerService? player;
@@ -24,7 +33,12 @@ class LasonoApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: TrackListScreen(api: api, pickAudio: pickAudio, player: player),
+      home: TrackListScreen(
+        session: session ?? SessionController(AuthApi()),
+        api: api,
+        pickAudio: pickAudio,
+        player: player,
+      ),
     );
   }
 }
