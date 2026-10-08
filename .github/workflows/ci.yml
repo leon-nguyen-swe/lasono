@@ -53,12 +53,17 @@ jobs:
         run: ./gradlew test
 
       # The tests tagged "ffmpeg" run the real ffmpeg and ffprobe programs, and so does the
-      # end-to-end processing test among the Postgres tests, so ffmpeg is installed before both.
-      # A stuck package download once held this step for 19 minutes until the whole job hit its limit.
-      # A normal install takes well under a minute, so fail fast and let a re-run try again.
+      # end-to-end processing test among the Postgres tests.
+      # On ubuntu-latest, ffmpeg is already available; only install if a future image removes it.
       - name: Install ffmpeg
-        timeout-minutes: 5
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        timeout-minutes: 15
+        run: |
+          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
+            echo "ffmpeg and ffprobe are already installed."
+          else
+            sudo apt-get update -o Acquire::Retries=3
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
 
       - name: Run Postgres tests
         run: ./gradlew postgresTest
