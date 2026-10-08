@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -113,11 +114,29 @@ class SecurityConfigTest {
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"));
     }
 
-    // Closed unless a route opens it: changing or deleting a track will get its own rules later.
+    // Changing or deleting a track needs a login. Who may do it is decided later, by the use case.
     @Test
-    void anyOtherWayOfChangingATrackNeedsALogin() throws Exception {
+    void changingOrDeletingATrackNeedsALogin() throws Exception {
         mockMvc.perform(delete("/api/v1/tracks/{id}", UUID.randomUUID()))
             .andExpect(status().isUnauthorized());
+        mockMvc.perform(patch("/api/v1/tracks/{id}", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"x\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    // 404 and not 401 shows the request got past security and reached the use case.
+    @Test
+    void changingOrDeletingATrackWithAValidTokenReachesTheUseCase() throws Exception {
+        String token = sign(jwtEncoder, Instant.now(), Instant.now().plus(10, ChronoUnit.MINUTES));
+
+        mockMvc.perform(delete("/api/v1/tracks/{id}", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            .andExpect(status().isNotFound());
+        mockMvc.perform(patch("/api/v1/tracks/{id}", UUID.randomUUID())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"x\"}"))
+            .andExpect(status().isNotFound());
     }
 
     // Security runs before CorsFilter, so without cors() the browser's preflight would be refused.

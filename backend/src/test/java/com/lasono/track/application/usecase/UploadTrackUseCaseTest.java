@@ -203,6 +203,15 @@ public class UploadTrackUseCaseTest {
             public Optional<Track> findById(TrackId id) {
                 return Optional.empty();
             }
+
+            @Override
+            public Optional<Track> findByIdForUpdate(TrackId id) {
+                return Optional.empty();
+            }
+
+            @Override
+            public void delete(TrackId id) {
+            }
         };
         UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, failingRepository, jobQueue);
         UploadTrackCommand command = anUpload();

@@ -31,6 +31,8 @@ import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.presentation.TrackController;
 import com.lasono.track.presentation.TrackExceptionHandler;
 import com.lasono.track.application.usecase.GetStreamUrlUseCase;
+import com.lasono.track.application.usecase.DeleteTrackUseCase;
+import com.lasono.track.application.usecase.UpdateTrackUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class CorsConfigTest {
@@ -54,13 +56,20 @@ class CorsConfigTest {
     @Mock
     private GetStreamUrlUseCase getStreamUrlUseCase;
 
+    @Mock
+    private UpdateTrackUseCase updateTrackUseCase;
+
+    @Mock
+    private DeleteTrackUseCase deleteTrackUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
             new TrackController(
-                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase,
+                updateTrackUseCase, deleteTrackUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .addFilters(new CorsConfig().corsFilter(List.of(FLUTTER_ORIGIN, FLUTTER_ORIGIN_IP)))
@@ -174,5 +183,27 @@ class CorsConfigTest {
                 .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
             .andExpect(status().isForbidden())
             .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+    }
+
+    // Without these two methods in the list, the browser refuses to send an edit or a delete from the app.
+    @Test
+    void givenAllowedOrigin_preflight_allowsPatchAndDelete() throws Exception {
+        for (String method : new String[] {"PATCH", "DELETE"}) {
+            mockMvc.perform(options("/api/v1/tracks/{id}", UUID.randomUUID())
+                    .header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN)
+                    .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, method)
+                    .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, containsString(method)));
+        }
+    }
+
+    @Test
+    void givenUnknownOrigin_preflight_forPatchIsRejected() throws Exception {
+        mockMvc.perform(options("/api/v1/tracks/{id}", UUID.randomUUID())
+                .header(HttpHeaders.ORIGIN, UNKNOWN_ORIGIN)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "PATCH"))
+            .andExpect(status().isForbidden());
     }
 }

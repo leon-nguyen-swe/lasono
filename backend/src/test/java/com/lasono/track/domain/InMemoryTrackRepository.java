@@ -23,6 +23,17 @@ public class InMemoryTrackRepository implements TrackRepository {
         return Optional.ofNullable(store.get(id)).map(InMemoryTrackRepository::toTrack);
     }
 
+    /** There is nothing to lock in memory: a test that needs the lock to wait runs against PostgreSQL. */
+    @Override
+    public Optional<Track> findByIdForUpdate(TrackId id) {
+        return findById(id);
+    }
+
+    @Override
+    public void delete(TrackId id) {
+        store.remove(id);
+    }
+
     private static Track toTrack(TrackSnapshot snapshot) {
         AudioResource audioResource = AudioResource.reconstitute(
             snapshot.audioResourceId(),

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,9 @@ class TrackPersistenceAdapterTest {
 
     @Autowired
     private TrackPersistenceAdapter adapter;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Test
     void shouldSaveTrack() {
@@ -90,5 +94,53 @@ class TrackPersistenceAdapterTest {
 
         assertThat(adapter.findById(privateId).orElseThrow().getVisibility()).isEqualTo(Visibility.PRIVATE);
         assertThat(adapter.findById(publicId).orElseThrow().getVisibility()).isEqualTo(Visibility.PUBLIC);
+    }
+
+    @Test
+    void shouldSaveTheChangesOfAnEditedTrack() {
+        TrackId trackId = new TrackId(UUID.randomUUID());
+        adapter.save(new Track(trackId, TrackFixtures.OWNER, "Old title", "old"));
+        Track track = adapter.findById(trackId).orElseThrow();
+
+        track.rename("New title");
+        track.changeDescription("new");
+        track.changeVisibility(Visibility.PRIVATE);
+        adapter.save(track);
+
+        Track reloaded = adapter.findById(trackId).orElseThrow();
+        assertThat(reloaded.getTitle()).isEqualTo("New title");
+        assertThat(reloaded.getDescription()).isEqualTo("new");
+        assertThat(reloaded.getVisibility()).isEqualTo(Visibility.PRIVATE);
+        assertThat(reloaded.getOwnerId()).isEqualTo(TrackFixtures.OWNER);
+    }
+
+    @Test
+    void shouldFindATrackForUpdate() {
+        TrackId trackId = new TrackId(UUID.randomUUID());
+        adapter.save(new Track(trackId, TrackFixtures.OWNER, "Mine", null));
+
+        // The lock lasts until the transaction ends, so there has to be one.
+        transactionTemplate.executeWithoutResult(status -> {
+            assertThat(adapter.findByIdForUpdate(trackId)).isPresent();
+            assertThat(adapter.findByIdForUpdate(new TrackId(UUID.randomUUID()))).isEmpty();
+        });
+    }
+
+    @Test
+    void shouldDeleteATrackTogetherWithItsAudioResource() {
+        TrackId trackId = new TrackId(UUID.randomUUID());
+        adapter.save(new Track(trackId, TrackFixtures.OWNER, "Doomed", null));
+        TrackId survivor = new TrackId(UUID.randomUUID());
+        adapter.save(new Track(survivor, TrackFixtures.OWNER, "Survivor", null));
+
+        adapter.delete(trackId);
+
+        assertThat(adapter.findById(trackId)).isEmpty();
+        assertThat(adapter.findById(survivor)).isPresent();
+    }
+
+    @Test
+    void shouldAcceptDeletingATrackThatIsNotThere() {
+        adapter.delete(new TrackId(UUID.randomUUID()));
     }
 }

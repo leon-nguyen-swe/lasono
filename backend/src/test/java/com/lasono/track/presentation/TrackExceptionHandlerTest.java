@@ -2,7 +2,9 @@ package com.lasono.track.presentation;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -30,6 +33,10 @@ import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
 import com.lasono.track.domain.exception.TrackVisibilityInvalidException;
 import com.lasono.track.application.usecase.GetStreamUrlUseCase;
+import com.lasono.track.application.usecase.DeleteTrackUseCase;
+import com.lasono.track.application.usecase.UpdateTrackUseCase;
+import com.lasono.track.application.usecase.TrackNotOwnedException;
+import com.lasono.track.application.usecase.TrackStillProcessingException;
 
 @ExtendWith(MockitoExtension.class)
 class TrackExceptionHandlerTest {
@@ -49,13 +56,20 @@ class TrackExceptionHandlerTest {
     @Mock
     private GetStreamUrlUseCase getStreamUrlUseCase;
 
+    @Mock
+    private UpdateTrackUseCase updateTrackUseCase;
+
+    @Mock
+    private DeleteTrackUseCase deleteTrackUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
             new TrackController(
-                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase,
+                updateTrackUseCase, deleteTrackUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .build();
@@ -96,6 +110,47 @@ class TrackExceptionHandlerTest {
                 .param("visibility", "secret").principal(aCaller()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.detail").value("Visibility must be PUBLIC or PRIVATE"));
+    }
+
+    @Test
+    void givenSomeoneElsesTrack_updateTrack_returns403() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(updateTrackUseCase.execute(any())).thenThrow(new TrackNotOwnedException(id));
+
+        mockMvc.perform(patch("/api/v1/tracks/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON).content("{}").principal(aCaller()))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.detail").value("Only the owner can change or delete track " + id));
+    }
+
+    @Test
+    void givenSomeoneElsesTrack_deleteTrack_returns403() throws Exception {
+        UUID id = UUID.randomUUID();
+        org.mockito.Mockito.doThrow(new TrackNotOwnedException(id)).when(deleteTrackUseCase).execute(any(), any());
+
+        mockMvc.perform(delete("/api/v1/tracks/{id}", id).principal(aCaller()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void givenTrackThatIsStillProcessing_deleteTrack_returns409() throws Exception {
+        UUID id = UUID.randomUUID();
+        org.mockito.Mockito.doThrow(new TrackStillProcessingException(id)).when(deleteTrackUseCase).execute(any(), any());
+
+        mockMvc.perform(delete("/api/v1/tracks/{id}", id).principal(aCaller()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.status").value(409));
+    }
+
+    @Test
+    void givenInvalidTitle_updateTrack_returns400() throws Exception {
+        when(updateTrackUseCase.execute(any())).thenThrow(new TrackTitleInvalidException("Track title must not be blank"));
+
+        mockMvc.perform(patch("/api/v1/tracks/{id}", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\" \"}").principal(aCaller()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.detail").value("Track title must not be blank"));
     }
 
     @Test

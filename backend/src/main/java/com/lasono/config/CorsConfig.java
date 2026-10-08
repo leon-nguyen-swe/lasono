@@ -21,7 +21,7 @@ public class CorsConfig {
     ) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
-        configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         // The refresh token lives in a cookie. A browser sends and stores cookies on a request to another
         // origin only if the server allows it, and then the allowed origins above must be listed, not "*".

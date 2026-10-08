@@ -50,6 +50,11 @@ class InMemoryProcessingJobQueue implements ProcessingJobQueue {
     }
 
     @Override
+    public void discardJobsOf(TrackId trackId) {
+        jobs.removeIf(job -> job.trackId.equals(trackId));
+    }
+
+    @Override
     public Optional<ProcessingJob> claimNext(Duration lease) {
         return jobs.stream()
             .filter(job -> job.status == Status.PENDING || (isExpired(job) && job.attempts < MAX_ATTEMPTS))

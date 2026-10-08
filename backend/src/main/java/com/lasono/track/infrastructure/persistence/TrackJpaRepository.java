@@ -2,13 +2,22 @@ package com.lasono.track.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import jakarta.persistence.LockModeType;
+
 public interface TrackJpaRepository extends JpaRepository<TrackJpaEntity, UUID> {
+
+    // SELECT ... FOR UPDATE: the row stays locked until the surrounding transaction ends, so a second request
+    // for the same track waits here. It needs a transaction around it.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<TrackJpaEntity> findWithLockById(UUID id);
 
     // Only what the viewer may see: public tracks and the viewer's own. This is in the query and not applied
     // afterwards, so a page is always full and the keyset position of its last track stays correct.
