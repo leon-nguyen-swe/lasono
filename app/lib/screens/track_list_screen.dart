@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../api/track_api.dart';
 import '../audio_picker.dart';
+import '../auth/session_controller.dart';
 import '../format_duration.dart';
 import '../models/track.dart';
 import '../player_service.dart';
+import 'auth_screen.dart';
 import 'status_badge.dart';
 import 'track_player_screen.dart';
 import 'track_screen.dart';
@@ -12,8 +14,15 @@ import 'track_screen.dart';
 /// The newest-first list of tracks. It loads one page at a time and asks for the
 /// next page when the user scrolls near the end.
 class TrackListScreen extends StatefulWidget {
-  const TrackListScreen({super.key, this.api, this.pickAudio, this.player});
+  const TrackListScreen({
+    super.key,
+    required this.session,
+    this.api,
+    this.pickAudio,
+    this.player,
+  });
 
+  final SessionController session;
   final TrackApi? api;
   final AudioPicker? pickAudio;
   final PlayerService? player;
@@ -37,6 +46,9 @@ class _TrackListScreenState extends State<TrackListScreen> {
   final _tracks = <Track>[];
   final _knownIds = <String>{};
 
+  // Who the list was loaded for: what a user may see differs from one account to another.
+  String? _userId;
+
   String? _nextCursor;
   bool _firstPageLoaded = false;
   bool _loading = false;
@@ -47,15 +59,32 @@ class _TrackListScreenState extends State<TrackListScreen> {
   @override
   void initState() {
     super.initState();
+    _userId = widget.session.account?.userId;
+    widget.session.addListener(_onSessionChanged);
     _scroll.addListener(_loadMoreIfNearEnd);
     _loadNextPage();
   }
 
   @override
   void dispose() {
+    widget.session.removeListener(_onSessionChanged);
     _scroll.dispose();
     _ownedPlayer?.dispose();
     super.dispose();
+  }
+
+  // A login or a logout changes which tracks the user may see (the private
+  // ones of the owner), so the list starts again. A new access token for the
+  // same user changes nothing on screen.
+  void _onSessionChanged() {
+    if (!mounted) return;
+    final userId = widget.session.account?.userId;
+    if (userId == _userId) {
+      setState(() {});
+      return;
+    }
+    _userId = userId;
+    _refresh();
   }
 
   void _loadMoreIfNearEnd() {
@@ -91,9 +120,18 @@ class _TrackListScreenState extends State<TrackListScreen> {
     );
   }
 
+  Future<void> _openAuth() => Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => AuthScreen(session: widget.session)),
+      );
+
   // The upload form is where new tracks come from, so show the list again from
-  // the top when the user comes back.
+  // the top when the user comes back. Only a logged-in user can upload, so
+  // someone who is not is asked to log in first.
   Future<void> _openUpload() async {
+    if (widget.session.status != SessionStatus.signedIn) {
+      await _openAuth();
+      if (!mounted || widget.session.status != SessionStatus.signedIn) return;
+    }
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => Scaffold(
@@ -151,10 +189,46 @@ class _TrackListScreenState extends State<TrackListScreen> {
             tooltip: 'Upload',
             onPressed: _openUpload,
           ),
+          ..._accountActions(),
         ],
       ),
       body: _body(),
     );
+  }
+
+  List<Widget> _accountActions() {
+    final session = widget.session;
+    final account = session.account;
+    if (session.status == SessionStatus.signedIn && account != null) {
+      return [
+        PopupMenuButton<String>(
+          key: const Key('accountMenu'),
+          tooltip: 'Account',
+          onSelected: (_) => session.logout(),
+          itemBuilder: (_) => const [
+            PopupMenuItem<String>(
+              key: Key('logoutAction'),
+              value: 'logout',
+              child: Text('Log out'),
+            ),
+          ],
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(child: Text(account.displayName)),
+          ),
+        ),
+      ];
+    }
+    if (session.status == SessionStatus.signedOut) {
+      return [
+        TextButton(
+          key: const Key('loginAction'),
+          onPressed: _openAuth,
+          child: const Text('Log in'),
+        ),
+      ];
+    }
+    return const [];
   }
 
   Widget _body() {

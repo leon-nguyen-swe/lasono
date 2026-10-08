@@ -74,8 +74,9 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 1. **Browse**: the app opens on the list of tracks, newest first. Scroll down and the next page loads by itself. If a page fails to load, press **Retry**.
 2. **Play**: tap a track to open its player and press the play button. When a track finishes it rewinds to 0:00; press play again to replay it. Going back to the list stops the playback and keeps your place in the list.
 3. **Seek**: drag or click the slider.
-4. **Upload**: press the upload icon in the top bar, type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it.
-5. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
+4. **Account**: press **Log in** in the top bar. On the same screen, **Create a new account** asks for an email, a name and a password (at least 8 characters). You are logged in right after you register. Your name replaces the button; open it and choose **Log out** to leave. A reload of the page keeps you logged in: the app gets a new access token from the refresh cookie when it opens. The access token itself is only kept in memory.
+5. **Upload**: press the upload icon in the top bar (it asks you to log in first), type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it. The list also reloads when you log in or out.
+6. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
 
 ## Configuration
 
@@ -198,7 +199,7 @@ Get `<WSL-IP>` inside WSL with `hostname -I`. Both calls should return `404`; a 
    ```bash
    flutter run -d web-server --web-port 3000 --dart-define=API_BASE_URL=http://$(hostname -I | awk '{print $1}'):8080
    ```
-   The WSL address changes when WSL restarts, so rerun the command then.
+   The WSL address changes when WSL restarts, so rerun the command then. With this address the app (`localhost:3000`) and the API are different sites, and the refresh cookie is `SameSite=Strict` and `Secure`, so the browser does not send it: you can log in, but a reload of the page logs you out.
 3. **Mirrored networking (permanent).** Create `%UserProfile%\.wslconfig` with the lines below, then run `wsl --shutdown`. This is Microsoft's documented option for Windows 11 22H2+ and makes `localhost` work in both directions without `wslrelay`. It was not tested in this repository.
    ```ini
    [wsl2]

@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:lasono_app/api/track_api.dart';
+import 'package:lasono_app/auth/session_controller.dart';
 import 'package:lasono_app/player_service.dart';
 import 'package:lasono_app/screens/track_list_screen.dart';
 import 'package:lasono_app/screens/waveform_view.dart';
 
+import '../fake_auth_server.dart';
 import '../fake_player_service.dart';
 
 Map<String, dynamic> _item(int i) => {
@@ -66,10 +68,20 @@ class _Server {
   );
 }
 
-Future<void> _pump(WidgetTester tester, _Server server, {PlayerService? player}) =>
-    tester.pumpWidget(
-      MaterialApp(home: TrackListScreen(api: server.api, player: player)),
-    );
+/// Shows the list. The user is logged in unless a test passes another session.
+Future<void> _pump(
+  WidgetTester tester,
+  _Server server, {
+  PlayerService? player,
+  SessionController? session,
+}) async {
+  final signedIn = session ?? await FakeAuthServer().signedInSession();
+  await tester.pumpWidget(
+    MaterialApp(
+      home: TrackListScreen(session: signedIn, api: server.api, player: player),
+    ),
+  );
+}
 
 Future<void> _scrollTo(WidgetTester tester, Finder finder) =>
     tester.dragUntilVisible(finder, find.byType(ListView), const Offset(0, -300));
