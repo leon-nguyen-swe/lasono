@@ -124,6 +124,25 @@ class CorsConfigTest {
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN));
     }
 
+    // Without this header the browser throws away the response cookie of /auth/refresh and does not send
+    // the cookie back, even though the server did its part.
+    @Test
+    void givenAllowedOrigin_get_allowsCredentials() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+    }
+
+    @Test
+    void givenAllowedOrigin_preflight_allowsCredentials() throws Exception {
+        mockMvc.perform(options("/api/v1/tracks")
+                .header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST"))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+    }
+
     @Test
     void givenUnknownOrigin_get_isRejectedWithoutAllowOriginHeader() throws Exception {
         UUID id = UUID.randomUUID();
