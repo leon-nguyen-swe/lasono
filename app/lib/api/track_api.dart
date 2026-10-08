@@ -140,6 +140,65 @@ class TrackApi {
     };
   }
 
+  /// Changes a track of the logged-in user. A field left null stays as it is;
+  /// an empty [description] clears it.
+  Future<Track> updateTrack(
+    String id, {
+    String? title,
+    String? description,
+    String? visibility,
+  }) async {
+    final body = jsonEncode({
+      'title': ?title,
+      'description': ?description,
+      'visibility': ?visibility,
+    });
+    final response = await _authorized(
+      (token) => _call(
+        () => _client.patch(
+          _trackUri(id),
+          headers: {'Content-Type': 'application/json', ..._bearer(token)},
+          body: body,
+        ),
+        _requestTimeout,
+        'Request timed out',
+      ),
+    );
+
+    return switch (response.statusCode) {
+      200 => Track.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      400 => throw TrackApiException(_problemDetail(response) ?? 'Invalid change'),
+      final status => throw _changeFailure(status),
+    };
+  }
+
+  /// Deletes a track of the logged-in user.
+  Future<void> deleteTrack(String id) async {
+    final response = await _authorized(
+      (token) => _call(
+        () => _client.delete(_trackUri(id), headers: _bearer(token)),
+        _requestTimeout,
+        'Request timed out',
+      ),
+    );
+
+    if (response.statusCode != 204) throw _changeFailure(response.statusCode);
+  }
+
+  Uri _trackUri(String id) =>
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}');
+
+  // The answers a change or a delete has in common.
+  TrackApiException _changeFailure(int status) => switch (status) {
+        401 => const TrackApiException(_logInAgain),
+        403 => const TrackApiException('Only the owner can change this track'),
+        404 => const TrackApiException('Track not found'),
+        409 => const TrackApiException(
+            'This track is still being processed. Try again in a moment.',
+          ),
+        _ => TrackApiException('Server error ($status)'),
+      };
+
   /// Uploads an audio file and returns the new track id.
   Future<String> uploadTrack({
     required String title,
