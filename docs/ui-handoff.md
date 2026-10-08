@@ -15,7 +15,7 @@
 | 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Xong: token màu (dark mặc định + light, WCAG AA có test), font Be Vietnam Pro nhúng, spacing/radius/elevation/motion/breakpoint, 2 theme, `ThemeController`. Xem trang tại `http://localhost:3000/dev/gallery` (chỉ debug) |
 | 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Xong: 5 interface, `Http*` theo hợp đồng, `Fake*` + dữ liệu giả (8 user, 30 track, phát được), cờ theo từng tính năng, `UserDirectory`. 543 test xanh |
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Xong (hạ tầng): `go_router` + route guard + `AppShell` + `PlaybackController`. Màn hình cũ vẫn là `/` cho tới khi Giai đoạn 7 thay từng cái. 667 test xanh |
-| 6 | Component | Chưa |
+| 6 | Component (kèm widget test) | Xong: `TrackCard`, `WaveformView` (marker comment), `CoverArt`, `UserAvatar`, `LikeButton`, `FollowButton`, `CommentComposer`, `CommentList`, `UserTile`, `StatBlock`, `ProfileHeader`, `SkeletonLoader`, `EmptyState`, `ErrorState`, `showConfirmDialog`, `showToast`. 823 test xanh |
 | 7 | Màn hình | Chưa |
 | 8 | Hoàn thiện | Chưa |
 | 9 | Đối chiếu và bàn giao | Chưa |
@@ -305,3 +305,34 @@ Nằm **trên** router, bọc `PlayerService` (vẫn là `just_audio`; logic Ran
 
 - Nút like trong player bar: Giai đoạn 6 (`LikeButton`).
 - Phím Space để play/pause, tiêu đề tab theo bài đang phát: Giai đoạn 8.
+
+## Component (Giai đoạn 6)
+
+Xem tất cả ở `http://localhost:3000/dev/gallery` (mục "App components", dùng thế giới dữ liệu giả). Mọi component đều có widget test, kể cả bố cục ở 320 px.
+
+| Component | Việc nó làm | Quyết định đáng nhớ |
+|-----------|-------------|---------------------|
+| `TrackCard` | bìa vuông, tác giả, tiêu đề, nút play tròn lớn, waveform ngay trong card (bấm để seek **và phát**), like, số comment, "x ngày trước", menu owner, nhãn Riêng tư, trạng thái PROCESSING/FAILED | Không biết hàng đợi: bấm play gọi `onPlay` để **trang** biến danh sách thành hàng đợi. Phone: waveform xuống dưới, nhóm bên phải xuống dòng khi hết chỗ |
+| `WaveformView` | cột đã phát đổi màu; rê chuột hiện thời gian + vạch; click seek; avatar comment dưới waveform tại `positionMs`; nội dung nổi lên khi rê vào avatar **hoặc khi phát tới ±1,5 s** | Các comment gần nhau < 22 px gộp thành một avatar kèm "+n". Cần `durationMs`, không có thì không vẽ marker |
+| `WaveformCache` | danh sách track **không** mang waveform (200 số × 20 track), nên mỗi card tự đọc waveform của mình **một lần** | gộp request đang bay, không nhớ lỗi, không hỏi track chưa READY |
+| `LikeButton`, `FollowButton` | cập nhật ngay (lạc quan), server xác nhận số chính xác; lỗi → quay lại + thông báo tiếng Việt; **bấm lần hai khi lần một chưa xong bị bỏ qua**; chưa đăng nhập → `onNeedLogin`, không gửi request | `unauthorized` khi đang gửi → quay lại + mời đăng nhập lại; mutation check: bỏ chặn bấm đôi / bỏ rollback đều làm test đỏ |
+| `CommentComposer` | "Bình luận tại 1:23": thời điểm lấy theo vị trí đang phát **lúc bắt đầu gõ**, bấm chip để chỉnh (`m:ss`, kiểm tra ≤ độ dài), tối đa 500 ký tự đếm theo ký tự người thấy (emoji = 1) | khớp quy tắc server (guide 04) để lỗi hiếm khi tới server |
+| `CommentList` | tên tác giả (xin **một request** cho cả trang qua `UserDirectory`), "tại 1:23" bấm để nhảy tới, "3 giờ trước", xoá (tác giả hoặc chủ track) có hộp xác nhận | |
+| `ProfileHeader` | banner gradient theo id, avatar đè nửa mép banner, tên, 3 số liệu (người theo dõi, đang theo dõi, bài hát), nút hành động | `StatBlock` bấm được để mở danh sách |
+| `SkeletonLoader` | khối shimmer thay chỗ nội dung đang tải | tôn trọng "giảm chuyển động" của hệ điều hành (đứng yên) |
+| `EmptyState`, `ErrorState` | trạng thái trống có gợi ý hành động; lỗi có nút "Thử lại"; `ErrorState.from(error)` chọn thông báo theo loại lỗi | `errorMessageFor` giữ nguyên lý do server nói với lỗi `invalid` (cho biết cần sửa gì) |
+| `showConfirmDialog`, `showToast` | hộp xác nhận (nút xoá màu lỗi), thông báo ngắn | `showToastOn(messenger, ...)` cho nút đã bị gỡ khỏi màn hình trong lúc request chạy |
+
+### Định dạng (tiếng Việt, `lib/core/text/`)
+
+`relativeTime` ("vừa xong", "5 phút trước", "3 ngày trước", "2 tuần trước", "1 năm trước"; thời điểm ở tương lai do lệch đồng hồ cũng là "vừa xong"), `formatPosition` (`1:23`), `parsePosition`, `formatCount` (`1,2K`), `foldAccents` (bỏ dấu, dùng cho search giả và tô sáng).
+
+### Lỗi thật tìm được nhờ chạy trình duyệt thật
+
+**Hàm băm màu bị sai trên web** (test VM xanh!): trong trình duyệt, `int` của Dart chỉ chính xác tới 2^53, nên phép nhân của FNV-1a (`hash * 0x01000193`) mất bit thấp và mọi avatar cùng một màu. Test chạy trên Chrome (RED), sửa bằng phép nhân tách hai nửa 16 bit (không số nào vượt 2^41), thêm test đối chiếu với thuật toán chuẩn dùng `BigInt` và test "id chỉ khác ký tự cuối ra màu khác nhau".
+
+Chạy test trên trình duyệt (CI chỉ chạy VM):
+```bash
+CHROME_EXECUTABLE=/đường/dẫn/tới/chrome flutter test --platform chrome test/widgets/cover_art_test.dart
+```
+Hai test ảnh lỗi (`Image.network`) mô phỏng lỗi theo cách của VM nên bị bỏ qua trên web (`skip: kIsWeb`).
