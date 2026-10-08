@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.OwnerId;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
@@ -40,6 +41,7 @@ public class UploadTrackUseCase {
         // Validates the title before any file is written.
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
+            new OwnerId(command.ownerId()),
             command.title(),
             command.description()
         );

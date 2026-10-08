@@ -10,6 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import com.lasono.track.application.port.out.AudioStorage;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
+import com.lasono.track.domain.OwnerId;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.InMemoryTrackRepository;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
@@ -256,7 +259,7 @@ public class UploadTrackUseCaseTest {
 
     private static UploadTrackCommand anUpload(String title, long fileSize, String mimeType) {
         return new UploadTrackCommand(
-                title, "desc",
+                TrackFixtures.OWNER.getValue(), title, "desc",
                 new ByteArrayInputStream("data".getBytes()),
                 fileSize, mimeType
         );
@@ -293,5 +296,25 @@ public class UploadTrackUseCaseTest {
             deleted.add(key);
         }
     }
-}
 
+    @Test
+    void execute_shouldMakeTheCallerTheOwnerOfTheTrack() {
+        UUID caller = UUID.randomUUID();
+
+        UploadTrackResult result = useCase.execute(new UploadTrackCommand(
+            caller, "My Song", "desc", new ByteArrayInputStream("data".getBytes()), 4L, "audio/mpeg"));
+
+        TrackId trackId = new TrackId(UUID.fromString(result.trackId()));
+        assertEquals(new OwnerId(caller), trackRepository.findById(trackId).orElseThrow().getOwnerId());
+    }
+
+    @Test
+    void execute_shouldRefuseAnUploadWithoutAnOwnerAndStoreNothing() {
+        UploadTrackCommand noOwner = new UploadTrackCommand(
+            null, "My Song", "desc", new ByteArrayInputStream("data".getBytes()), 4L, "audio/mpeg");
+
+        assertThrows(NullPointerException.class, () -> useCase.execute(noOwner));
+
+        assertTrue(jobQueue.enqueued.isEmpty());
+    }
+}

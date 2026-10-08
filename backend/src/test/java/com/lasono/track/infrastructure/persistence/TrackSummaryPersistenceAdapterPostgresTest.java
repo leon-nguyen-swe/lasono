@@ -17,6 +17,7 @@ import com.lasono.PostgresIntegrationTest;
 import com.lasono.track.application.port.out.TrackPosition;
 import com.lasono.track.application.port.out.TrackSummary;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.TrackFixtures;
 
 /**
  * The keyset query must give the same answers on a real PostgreSQL as the rules the use case
@@ -188,8 +189,8 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
 
     private void insert(UUID id, String title, String description, Instant createdAt) {
         jdbcTemplate.update(
-            "INSERT INTO tracks (id, title, description, status, created_at) VALUES (?, ?, ?, 'PROCESSING', ?)",
-            id, title, description, OffsetDateTime.ofInstant(createdAt, ZoneOffset.UTC));
+            "INSERT INTO tracks (id, owner_id, title, description, status, created_at) VALUES (?, ?, ?, ?, 'PROCESSING', ?)",
+            id, TrackFixtures.OWNER.getValue(), title, description, OffsetDateTime.ofInstant(createdAt, ZoneOffset.UTC));
     }
 
     private static UUID id(String value) {

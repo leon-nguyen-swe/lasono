@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.lasono.PostgresIntegrationTest;
 import com.lasono.track.domain.Track;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 
 /**
@@ -49,7 +50,7 @@ class TrackCreatedAtPostgresTest extends PostgresIntegrationTest {
         TrackId trackId = new TrackId(UUID.randomUUID());
         Instant before = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-        adapter.save(new Track(trackId, "Test Track", "Test description"));
+        adapter.save(new Track(trackId, TrackFixtures.OWNER, "Test Track", "Test description"));
 
         Instant after = Instant.now();
         assertThat(createdAt(trackId)).isBetween(before, after);
@@ -58,7 +59,7 @@ class TrackCreatedAtPostgresTest extends PostgresIntegrationTest {
     @Test
     void savingTheSameTrackAgainKeepsTheOriginalCreationTime() throws InterruptedException {
         TrackId trackId = new TrackId(UUID.randomUUID());
-        Track track = new Track(trackId, "Test Track", "Test description");
+        Track track = new Track(trackId, TrackFixtures.OWNER, "Test Track", "Test description");
         adapter.save(track);
         Instant first = createdAt(trackId);
 

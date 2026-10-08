@@ -32,6 +32,6 @@ public class InMemoryTrackRepository implements TrackRepository {
             snapshot.audioDuration(),
             snapshot.waveform());
         return Track.reconstitute(
-            snapshot.trackId(), snapshot.title(), snapshot.description(), snapshot.trackStatus(), audioResource);
+            snapshot.trackId(), snapshot.ownerId(), snapshot.title(), snapshot.description(), snapshot.trackStatus(), audioResource);
     }
 }

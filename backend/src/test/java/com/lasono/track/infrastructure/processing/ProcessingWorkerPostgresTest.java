@@ -29,6 +29,7 @@ import com.lasono.track.application.usecase.TrackListItemResult;
 import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
 import com.lasono.track.domain.TrackSnapshot;
@@ -68,7 +69,7 @@ class ProcessingWorkerPostgresTest extends PostgresIntegrationTest {
     void anUploadedTrackBecomesReadyByItselfWithItsDurationWaveformAndMp3() throws Exception {
         byte[] wav = threeSecondTone();
         UploadTrackResult uploaded = uploadTrack.execute(
-            new UploadTrackCommand("My Song", "desc", new ByteArrayInputStream(wav), wav.length, "audio/wav"));
+            new UploadTrackCommand(TrackFixtures.OWNER.getValue(), "My Song", "desc", new ByteArrayInputStream(wav), wav.length, "audio/wav"));
         TrackId id = new TrackId(UUID.fromString(uploaded.trackId()));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->

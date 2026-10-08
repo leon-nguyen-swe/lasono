@@ -22,6 +22,7 @@ import com.lasono.PostgresIntegrationTest;
 import com.lasono.track.application.port.out.FailureOutcome;
 import com.lasono.track.application.port.out.ProcessingJob;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
+import com.lasono.track.domain.TrackFixtures;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.infrastructure.persistence.ProcessingJobPersistenceAdapter;
 
@@ -65,9 +66,18 @@ class UploadTrackUseCasePostgresTest extends PostgresIntegrationTest {
         assertThat(jobs.get(0)).containsEntry("status", "PENDING");
     }
 
+    @Test
+    void anUploadedTrackIsStoredWithTheIdOfItsOwner() {
+        UploadTrackResult result = useCase.execute(anUpload());
+
+        UUID owner = jdbcTemplate.queryForObject(
+            "SELECT owner_id FROM tracks WHERE id = ?", UUID.class, UUID.fromString(result.trackId()));
+        assertThat(owner).isEqualTo(TrackFixtures.OWNER.getValue());
+    }
+
     private static UploadTrackCommand anUpload() {
         return new UploadTrackCommand(
-            "My Song", "desc", new ByteArrayInputStream("data".getBytes()), 4L, "audio/mpeg");
+            TrackFixtures.OWNER.getValue(), "My Song", "desc", new ByteArrayInputStream("data".getBytes()), 4L, "audio/mpeg");
     }
 
     private int count(String table) {

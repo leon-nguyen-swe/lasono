@@ -9,6 +9,7 @@ import com.lasono.track.domain.model.TrackStatus;
 
 public record TrackSnapshot(
     TrackId trackId,
+    OwnerId ownerId,
     String title,
     String description,
     TrackStatus trackStatus,

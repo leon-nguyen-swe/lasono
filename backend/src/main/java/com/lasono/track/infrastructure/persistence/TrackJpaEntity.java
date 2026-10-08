@@ -26,6 +26,11 @@ public class TrackJpaEntity {
     @Id
     private UUID id;
 
+    // The id of a user. No foreign key: the track module does not reference the tables of identity.
+    // updatable = false because a track never changes hands.
+    @Column(name = "owner_id", nullable = false, updatable = false)
+    private UUID ownerId;
+
     @Column(name = "title", nullable = false)
     private String title;
 

@@ -14,22 +14,32 @@ import com.lasono.track.domain.model.TrackStatus;
 public class Track {
 
     private final TrackId id;
+    private final OwnerId ownerId;
     private TrackStatus status;
     private String title;
     private String description;
     private final AudioResource audioResource;
 
-    public Track(TrackId id, String title, String description) {
+    public Track(TrackId id, OwnerId ownerId, String title, String description) {
         validateTitle(title);
         this.id = Objects.requireNonNull(id);
+        this.ownerId = Objects.requireNonNull(ownerId);
         this.title = title;
         this.description = description;
         this.audioResource = new AudioResource(new AudioResourceId(UUID.randomUUID()));
         this.status = TrackStatus.PROCESSING;
     }
 
-    private Track(TrackId id, String title, String description, TrackStatus status, AudioResource audioResource) {
+    private Track(
+        TrackId id,
+        OwnerId ownerId,
+        String title,
+        String description,
+        TrackStatus status,
+        AudioResource audioResource
+    ) {
         this.id = Objects.requireNonNull(id);
+        this.ownerId = Objects.requireNonNull(ownerId);
         this.title = title;
         this.description = description;
         this.status = Objects.requireNonNull(status);
@@ -38,16 +48,21 @@ public class Track {
 
     public static Track reconstitute(
         TrackId id,
+        OwnerId ownerId,
         String title,
         String description,
         TrackStatus status,
         AudioResource audioResource
     ) {
-        return new Track(id, title, description, status, audioResource);
+        return new Track(id, ownerId, title, description, status, audioResource);
     }
 
     public TrackId getId() {
         return this.id;
+    }
+
+    public OwnerId getOwnerId() {
+        return this.ownerId;
     }
 
     public TrackStatus getStatus() {
@@ -65,6 +80,7 @@ public class Track {
     public TrackSnapshot toSnapshot() {
         return new TrackSnapshot(
             this.id,
+            this.getOwnerId(),
             this.title,
             this.description,
             this.status,

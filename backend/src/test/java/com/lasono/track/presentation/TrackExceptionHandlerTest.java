@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.security.Principal;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ class TrackExceptionHandlerTest {
         when(uploadTrackUseCase.execute(any()))
             .thenThrow(new AudioFormatInvalidException("Unsupported MIME type: application/octet-stream"));
 
-        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "My Song"))
+        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "My Song").principal(aCaller()))
             .andExpect(status().isUnsupportedMediaType())
             .andExpect(jsonPath("$.status").value(415))
             .andExpect(jsonPath("$.detail").value("Unsupported MIME type: application/octet-stream"));
@@ -74,7 +75,7 @@ class TrackExceptionHandlerTest {
         when(uploadTrackUseCase.execute(any()))
             .thenThrow(new TrackTitleInvalidException("Track title must not be blank"));
 
-        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "   "))
+        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "   ").principal(aCaller()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Track title must not be blank"));
@@ -107,9 +108,14 @@ class TrackExceptionHandlerTest {
         when(uploadTrackUseCase.execute(any()))
             .thenThrow(new OriginalAudioInvalidException("File size must be greater than 0"));
 
-        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "My Song"))
+        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "My Song").principal(aCaller()))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("File size must be greater than 0"));
+    }
+
+    // Upload needs a signed-in caller; the id is only read, so any UUID will do for these tests.
+    private static Principal aCaller() {
+        return UUID.fromString("5b0c2d4e-1111-4222-8333-944455566677")::toString;
     }
 }

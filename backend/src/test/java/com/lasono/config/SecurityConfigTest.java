@@ -2,7 +2,9 @@ package com.lasono.config;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -22,6 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -66,11 +69,55 @@ class SecurityConfigTest {
             .andExpect(status().isCreated());
     }
 
-    // Temporary: the track endpoints stay open until the upload requires a login.
+    // Reading stays open until tracks can be private (a later step); only changing something needs a login.
     @Test
     void theTrackListIsStillOpen() throws Exception {
         mockMvc.perform(get("/api/v1/tracks"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    void aSingleTrackIsStillReadableWithoutALogin() throws Exception {
+        mockMvc.perform(get("/api/v1/tracks/{id}", UUID.randomUUID()))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void uploadingATrackNeedsALogin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "song.mp3", "audio/mpeg", "audio-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/tracks").file(file).param("title", "My Song"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    // 400 (title missing) and not 401 shows the request got past security and reached the controller.
+    @Test
+    void uploadingATrackWithAValidTokenReachesTheController() throws Exception {
+        String token = sign(jwtEncoder, Instant.now(), Instant.now().plus(10, ChronoUnit.MINUTES));
+        MockMultipartFile file = new MockMultipartFile("file", "song.mp3", "audio/mpeg", "audio-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/tracks").file(file).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+            .andExpect(status().isBadRequest());
+    }
+
+    // The app sends the token in a header, so the browser first asks with an OPTIONS request that carries no
+    // token at all. It must be answered even though the route itself now needs a login.
+    @Test
+    void aPreflightForAnUploadIsAnsweredWithoutAToken() throws Exception {
+        mockMvc.perform(options("/api/v1/tracks")
+                .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization"))
+            .andExpect(status().isOk())
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"));
+    }
+
+    // Closed unless a route opens it: changing or deleting a track will get its own rules later.
+    @Test
+    void anyOtherWayOfChangingATrackNeedsALogin() throws Exception {
+        mockMvc.perform(delete("/api/v1/tracks/{id}", UUID.randomUUID()))
+            .andExpect(status().isUnauthorized());
     }
 
     // Security runs before CorsFilter, so without cors() the browser's preflight would be refused.

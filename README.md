@@ -99,11 +99,12 @@ Any Spring property can be overridden on the command line, for example:
 ## API
 
 Track endpoints are under `/api/v1/tracks` and account endpoints under `/api/v1/auth` and `/api/v1/users`.
-For now the track endpoints can be called without logging in; that changes when tracks get an owner.
+Uploading a track needs a login (header `Authorization: Bearer <accessToken>`), and the track belongs to the user in the token.
+Reading tracks (list, details, stream) still works without logging in for now.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/tracks` | Multipart form: `title`, optional `description`, `file`. Returns `201 {trackId, title, status}` with `status` `PROCESSING`; a background worker then converts the audio to MP3 and the track becomes `READY` (or `FAILED`). Errors: `415` unsupported audio type, `400` blank title or empty file, `413` file too large |
+| `POST` | `/api/v1/tracks` | Needs a login. Multipart form: `title`, optional `description`, `file`. Returns `201 {trackId, title, status}` with `status` `PROCESSING`; a background worker then converts the audio to MP3 and the track becomes `READY` (or `FAILED`). Errors: `401` without a valid token, `415` unsupported audio type, `400` blank title or empty file, `413` file too large |
 | `GET` | `/api/v1/tracks?limit=20&cursor=...` | Lists tracks newest first, one page at a time (keyset pagination). Returns `{items: [{id, title, description, status, durationSeconds}], nextCursor}` (`durationSeconds` is `null` until the track is `READY`); `nextCursor` is `null` on the last page, otherwise send it back as `cursor` to get the next page. `limit` defaults to 20 and is capped at 50. `400` for a malformed cursor or a `limit` below 1 |
 | `GET` | `/api/v1/tracks/{id}` | Returns `{id, title, description, status, mimeType, durationSeconds, waveform}`; `waveform` is 200 peaks between 0 and 1, and `durationSeconds` and `waveform` are `null` until the track is `READY`. `404` if unknown, `400` if the id is not a UUID |
 | `GET` | `/api/v1/tracks/{id}/stream` | Bytes of the converted MP3. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid, `409` if the track is not `READY` (still processing, or processing failed) |

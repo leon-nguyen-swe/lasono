@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -18,11 +19,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.io.ByteArrayInputStream;
 import java.util.List;
+import java.security.Principal;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
@@ -41,11 +44,14 @@ import com.lasono.track.application.usecase.StreamTrackResult;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
 import com.lasono.track.application.usecase.TrackListItemResult;
 import com.lasono.track.application.usecase.TrackNotFoundException;
+import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
+
+    private static final UUID USER_ID = UUID.fromString("5b0c2d4e-1111-4222-8333-944455566677");
 
     @Mock
     private UploadTrackUseCase uploadTrackUseCase;
@@ -184,7 +190,8 @@ class TrackControllerTest {
         mockMvc.perform(multipart("/api/v1/tracks")
                 .file(file)
                 .param("title", "My Song")
-                .param("description", "A great song"))
+                .param("description", "A great song")
+                .principal(signedInAs(USER_ID)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.trackId").value(trackId.toString()))
             .andExpect(jsonPath("$.title").value("My Song"))
@@ -205,8 +212,33 @@ class TrackControllerTest {
         // description is optional — omitting it should still succeed
         mockMvc.perform(multipart("/api/v1/tracks")
                 .file(file)
-                .param("title", "My Song"))
+                .param("title", "My Song")
+                .principal(signedInAs(USER_ID)))
             .andExpect(status().isCreated());
+    }
+
+    // The owner comes from the login, never from a field the caller could fill in with someone else's id.
+    @Test
+    void givenSignedInCaller_uploadTrack_passesTheCallerIdAsOwner() throws Exception {
+        when(uploadTrackUseCase.execute(any())).thenReturn(
+            new UploadTrackResult(UUID.randomUUID().toString(), "My Song", "PROCESSING")
+        );
+        MockMultipartFile file = new MockMultipartFile("file", "song.mp3", "audio/mpeg", "audio-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/tracks")
+                .file(file)
+                .param("title", "My Song")
+                .param("ownerId", UUID.randomUUID().toString())
+                .principal(signedInAs(USER_ID)))
+            .andExpect(status().isCreated());
+
+        ArgumentCaptor<UploadTrackCommand> captor = ArgumentCaptor.forClass(UploadTrackCommand.class);
+        verify(uploadTrackUseCase).execute(captor.capture());
+        assertEquals(USER_ID, captor.getValue().ownerId());
+    }
+
+    private static Principal signedInAs(UUID userId) {
+        return userId::toString;
     }
 
     @Test
