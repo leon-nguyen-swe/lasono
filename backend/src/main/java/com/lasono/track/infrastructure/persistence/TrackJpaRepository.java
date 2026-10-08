@@ -27,6 +27,27 @@ public interface TrackJpaRepository extends JpaRepository<TrackJpaEntity, UUID> 
         nativeQuery = true)
     List<TrackJpaEntity> findNewest(@Param("viewer") UUID viewer, @Param("limit") int limit);
 
+    // The same rule for one owner's tracks: "owner_id = :viewer" can only hold when the viewer is the owner, so
+    // the private tracks of an owner show up for that owner alone.
+    @Query(
+        value = "SELECT * FROM tracks WHERE owner_id = :owner AND (visibility = 'PUBLIC' OR owner_id = :viewer) "
+            + "ORDER BY created_at DESC, id DESC LIMIT :limit",
+        nativeQuery = true)
+    List<TrackJpaEntity> findNewestOfOwner(
+        @Param("owner") UUID owner, @Param("viewer") UUID viewer, @Param("limit") int limit);
+
+    @Query(
+        value = "SELECT * FROM tracks WHERE owner_id = :owner AND (visibility = 'PUBLIC' OR owner_id = :viewer) "
+            + "AND (created_at, id) < (:createdAt, :id) "
+            + "ORDER BY created_at DESC, id DESC LIMIT :limit",
+        nativeQuery = true)
+    List<TrackJpaEntity> findNewestOfOwnerAfter(
+        @Param("owner") UUID owner,
+        @Param("viewer") UUID viewer,
+        @Param("createdAt") Instant createdAt,
+        @Param("id") UUID id,
+        @Param("limit") int limit);
+
     // Keyset pagination: compare the (created_at, id) pair, so the index
     // idx_tracks_created_at_id can be used and tracks created at the same time are not skipped.
     @Query(

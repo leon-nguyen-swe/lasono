@@ -28,13 +28,30 @@ public class TrackSummaryPersistenceAdapter implements TrackSummaryReader {
     }
 
     @Override
+    public List<TrackSummary> findNewestOfOwnerAfter(UUID ownerId, TrackPosition after, int limit, UUID viewerId) {
+        UUID viewer = viewerOrNobody(viewerId);
+        List<TrackJpaEntity> tracks = after == null
+            ? trackJpaRepository.findNewestOfOwner(ownerId, viewer, limit)
+            : trackJpaRepository.findNewestOfOwnerAfter(ownerId, viewer, after.createdAt(), after.id(), limit);
+        return withDurations(tracks);
+    }
+
+    @Override
     public List<TrackSummary> findNewestAfter(TrackPosition after, int limit, UUID viewerId) {
-        // Nobody logged in is "a viewer who owns nothing". A real value keeps the query simple: a null parameter
-        // has no type for PostgreSQL to compare with. No user has the all-zero id.
-        UUID viewer = viewerId == null ? NOBODY : viewerId;
+        UUID viewer = viewerOrNobody(viewerId);
         List<TrackJpaEntity> tracks = after == null
             ? trackJpaRepository.findNewest(viewer, limit)
             : trackJpaRepository.findNewestAfter(after.createdAt(), after.id(), viewer, limit);
+        return withDurations(tracks);
+    }
+
+    // Nobody logged in is "a viewer who owns nothing". A real value keeps the query simple: a null parameter
+    // has no type for PostgreSQL to compare with. No user has the all-zero id.
+    private static UUID viewerOrNobody(UUID viewerId) {
+        return viewerId == null ? NOBODY : viewerId;
+    }
+
+    private List<TrackSummary> withDurations(List<TrackJpaEntity> tracks) {
         if (tracks.isEmpty()) {
             return List.of();
         }

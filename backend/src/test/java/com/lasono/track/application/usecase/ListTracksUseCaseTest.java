@@ -237,4 +237,63 @@ class ListTracksUseCaseTest {
         assertEquals(List.of("alice public", "alice private", "bob public"), titles(useCase.execute(null, null, ALICE)));
         assertEquals(List.of("alice public", "bob private", "bob public"), titles(useCase.execute(null, null, BOB)));
     }
+
+    // --- the tracks of one owner (a profile page) ---
+
+    @Test
+    void showsWhoOwnsEachTrack() {
+        addTrack("alice song", ALICE, Visibility.PUBLIC, 0);
+
+        assertEquals(ALICE.toString(), useCase.execute(null, null, null).items().get(0).ownerId());
+    }
+
+    @Test
+    void listsOnlyTheTracksOfTheGivenOwner() {
+        addTrack("alice 1", ALICE, Visibility.PUBLIC, 2);
+        addTrack("bob 1", BOB, Visibility.PUBLIC, 1);
+        addTrack("alice 2", ALICE, Visibility.PUBLIC, 0);
+
+        assertEquals(List.of("alice 1", "alice 2"), titles(useCase.executeForOwner(ALICE, null, null, null)));
+        assertEquals(ALICE, reader.lastOwnerId());
+    }
+
+    @Test
+    void showsThePrivateTracksOfAnOwnerOnlyToThatOwner() {
+        addTrack("alice public", ALICE, Visibility.PUBLIC, 1);
+        addTrack("alice private", ALICE, Visibility.PRIVATE, 0);
+
+        assertEquals(List.of("alice public"), titles(useCase.executeForOwner(ALICE, null, null, null)));
+        assertEquals(List.of("alice public"), titles(useCase.executeForOwner(ALICE, null, null, BOB)));
+        assertEquals(List.of("alice public", "alice private"), titles(useCase.executeForOwner(ALICE, null, null, ALICE)));
+    }
+
+    @Test
+    void anOwnerWithoutTracksGivesAnEmptyPage() {
+        ListTracksResult result = useCase.executeForOwner(UUID.randomUUID(), null, null, null);
+
+        assertTrue(result.items().isEmpty());
+        assertNull(result.nextCursor());
+    }
+
+    @Test
+    void pagesThroughTheTracksOfOneOwnerWithTheSameRulesAsTheList() {
+        for (int i = 0; i < 5; i++) {
+            addTrack("alice " + i, ALICE, Visibility.PUBLIC, 10 - 2 * i);
+            addTrack("bob " + i, BOB, Visibility.PUBLIC, 9 - 2 * i);
+        }
+
+        ListTracksResult first = useCase.executeForOwner(ALICE, null, 2, null);
+        ListTracksResult second = useCase.executeForOwner(ALICE, first.nextCursor(), 2, null);
+        ListTracksResult third = useCase.executeForOwner(ALICE, second.nextCursor(), 2, null);
+
+        assertEquals(List.of("alice 0", "alice 1"), titles(first));
+        assertEquals(List.of("alice 2", "alice 3"), titles(second));
+        assertEquals(List.of("alice 4"), titles(third));
+        assertNull(third.nextCursor());
+    }
+
+    @Test
+    void refusesALimitBelowOneForTheTracksOfAnOwnerToo() {
+        assertThrows(InvalidPageRequestException.class, () -> useCase.executeForOwner(ALICE, null, 0, null));
+    }
 }

@@ -60,6 +60,7 @@ import com.lasono.track.application.usecase.UpdateTrackCommand;
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
 
+    private static final String OWNER_ID = "00000000-0000-0000-0000-0000000000a1";
     private static final UUID USER_ID = UUID.fromString("5b0c2d4e-1111-4222-8333-944455566677");
 
     @Mock
@@ -104,7 +105,7 @@ class TrackControllerTest {
     void givenExistingTrack_getTrack_returns200WithTrackInfo() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, null)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", "audio/mpeg", null, null)
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "PROCESSING", "audio/mpeg", null, null)
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -117,7 +118,7 @@ class TrackControllerTest {
     void givenReadyTrack_getTrack_returnsDurationAndWaveform() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, null)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -150,7 +151,7 @@ class TrackControllerTest {
     void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
         UUID id = UUID.randomUUID();
         when(listTracksUseCase.execute(null, null, null)).thenReturn(new ListTracksResult(
-            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", null)),
+            List.of(new TrackListItemResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "PROCESSING", null)),
             "next-cursor"
         ));
 
@@ -458,7 +459,7 @@ class TrackControllerTest {
     void givenSignedInCaller_getTrack_passesTheCallerIdAsViewer() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, USER_ID)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).principal(signedInAs(USER_ID)))
             .andExpect(status().isOk())
@@ -553,7 +554,7 @@ class TrackControllerTest {
     void givenJsonWithSomeFields_updateTrack_passesTheCallerAndOnlyThoseFieldsAndReturnsTheTrack() throws Exception {
         UUID id = UUID.randomUUID();
         when(updateTrackUseCase.execute(any())).thenReturn(
-            new GetTrackResult(id.toString(), "New title", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+            new GetTrackResult(id.toString(), OWNER_ID, "New title", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
 
         mockMvc.perform(patch("/api/v1/tracks/{id}", id)
                 .contentType(MediaType.APPLICATION_JSON)

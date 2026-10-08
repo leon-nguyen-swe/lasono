@@ -2,6 +2,7 @@ package com.lasono.track.application.usecase;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiFunction;
 
 import org.springframework.stereotype.Component;
 
@@ -22,12 +23,22 @@ public class ListTracksUseCase {
     }
 
     public ListTracksResult execute(String cursor, Integer limit, UUID viewerId) {
+        return page(cursor, limit, (after, fetchSize) -> trackSummaryReader.findNewestAfter(after, fetchSize, viewerId));
+    }
+
+    /** The tracks of one owner, newest first. The owner sees their private tracks too; nobody else does. */
+    public ListTracksResult executeForOwner(UUID ownerId, String cursor, Integer limit, UUID viewerId) {
+        return page(cursor, limit,
+            (after, fetchSize) -> trackSummaryReader.findNewestOfOwnerAfter(ownerId, after, fetchSize, viewerId));
+    }
+
+    private ListTracksResult page(String cursor, Integer limit, BiFunction<TrackPosition, Integer, List<TrackSummary>> fetch) {
         int pageSize = pageSize(limit);
         TrackPosition after = cursor == null || cursor.isBlank() ? null : TrackCursor.decode(cursor);
 
         // Asking for one track more than the page tells us whether another page exists,
         // without a separate COUNT query.
-        List<TrackSummary> found = trackSummaryReader.findNewestAfter(after, pageSize + 1, viewerId);
+        List<TrackSummary> found = fetch.apply(after, pageSize + 1);
 
         boolean hasNextPage = found.size() > pageSize;
         List<TrackSummary> page = hasNextPage ? found.subList(0, pageSize) : found;
@@ -53,6 +64,7 @@ public class ListTracksUseCase {
     private static TrackListItemResult toItem(TrackSummary summary) {
         return new TrackListItemResult(
             summary.id().toString(),
+            summary.ownerId().toString(),
             summary.title(),
             summary.description(),
             summary.visibility().name(),

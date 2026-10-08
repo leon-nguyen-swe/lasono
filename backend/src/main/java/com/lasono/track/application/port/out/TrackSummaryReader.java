@@ -13,4 +13,11 @@ public interface TrackSummaryReader {
      * and the position of the last track still leads to the next one.
      */
     List<TrackSummary> findNewestAfter(TrackPosition after, int limit, UUID viewerId);
+
+    /**
+     * Like {@link #findNewestAfter}, for the tracks of one owner only. Everyone sees the public ones; the private
+     * ones are seen only when {@code viewerId} is the owner. An owner without tracks, or one that does not exist,
+     * simply gives an empty list.
+     */
+    List<TrackSummary> findNewestOfOwnerAfter(UUID ownerId, TrackPosition after, int limit, UUID viewerId);
 }
