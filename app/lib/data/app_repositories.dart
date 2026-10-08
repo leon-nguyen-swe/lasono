@@ -20,6 +20,7 @@ import 'social_repository.dart';
 import 'track_repository.dart';
 import 'user_directory.dart';
 import 'user_repository.dart';
+import 'waveform_cache.dart';
 
 /// Everything a screen may ask for, behind interfaces: a screen never makes an HTTP call itself, and does not
 /// know whether the answer is real or made up.
@@ -33,7 +34,8 @@ class AppRepositories {
     this.flags = const FakeFlags(),
     this.fakeWorld,
     this.fakeBehavior,
-  }) : directory = UserDirectory(users);
+  })  : directory = UserDirectory(users),
+        waveforms = WaveformCache(tracks);
 
   final TrackRepository tracks;
   final UserRepository users;
@@ -43,6 +45,9 @@ class AppRepositories {
 
   /// The names of users, shared by every screen.
   final UserDirectory directory;
+
+  /// The waveforms of the tracks shown in lists, which carry none themselves.
+  final WaveformCache waveforms;
 
   /// Which parts are made up (see [FakeFlags]).
   final FakeFlags flags;
