@@ -9,7 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -51,6 +53,9 @@ import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.application.usecase.GetStreamUrlUseCase;
 import com.lasono.track.application.usecase.StreamSignature;
 import com.lasono.track.application.usecase.StreamUrlResult;
+import com.lasono.track.application.usecase.DeleteTrackUseCase;
+import com.lasono.track.application.usecase.UpdateTrackUseCase;
+import com.lasono.track.application.usecase.UpdateTrackCommand;
 
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
@@ -72,13 +77,20 @@ class TrackControllerTest {
     @Mock
     private GetStreamUrlUseCase getStreamUrlUseCase;
 
+    @Mock
+    private UpdateTrackUseCase updateTrackUseCase;
+
+    @Mock
+    private DeleteTrackUseCase deleteTrackUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
             new TrackController(
-                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase,
+                updateTrackUseCase, deleteTrackUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .build();
@@ -533,5 +545,55 @@ class TrackControllerTest {
             .andExpect(status().isBadRequest());
 
         verifyNoInteractions(streamTrackUseCase);
+    }
+
+    // --- PATCH and DELETE: the caller comes from the token, the rules live in the use cases ---
+
+    @Test
+    void givenJsonWithSomeFields_updateTrack_passesTheCallerAndOnlyThoseFieldsAndReturnsTheTrack() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(updateTrackUseCase.execute(any())).thenReturn(
+            new GetTrackResult(id.toString(), "New title", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+
+        mockMvc.perform(patch("/api/v1/tracks/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"New title\",\"visibility\":\"PRIVATE\"}")
+                .principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.title").value("New title"))
+            .andExpect(jsonPath("$.visibility").value("PRIVATE"));
+
+        ArgumentCaptor<UpdateTrackCommand> captor = ArgumentCaptor.forClass(UpdateTrackCommand.class);
+        verify(updateTrackUseCase).execute(captor.capture());
+        assertEquals(new UpdateTrackCommand(id, USER_ID, "New title", null, "PRIVATE"), captor.getValue());
+    }
+
+    @Test
+    void givenMalformedJson_updateTrack_returns400AndSkipsTheUseCase() throws Exception {
+        mockMvc.perform(patch("/api/v1/tracks/{id}", UUID.randomUUID())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{not json")
+                .principal(signedInAs(USER_ID)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(updateTrackUseCase);
+    }
+
+    @Test
+    void givenSignedInOwner_deleteTrack_returns204AndPassesTheCaller() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/v1/tracks/{id}", id).principal(signedInAs(USER_ID)))
+            .andExpect(status().isNoContent());
+
+        verify(deleteTrackUseCase).execute(id, USER_ID);
+    }
+
+    @Test
+    void givenATrackIdThatIsNotAUuid_deleteTrack_returns400() throws Exception {
+        mockMvc.perform(delete("/api/v1/tracks/{id}", "not-a-uuid").principal(signedInAs(USER_ID)))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(deleteTrackUseCase);
     }
 }

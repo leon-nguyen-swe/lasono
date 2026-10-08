@@ -9,9 +9,12 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.http.HttpHeaders;
 
+import com.lasono.track.application.usecase.DeleteTrackUseCase;
 import com.lasono.track.application.usecase.GetStreamUrlUseCase;
 import com.lasono.track.application.usecase.GetTrackResult;
 import com.lasono.track.application.usecase.GetTrackUseCase;
@@ -28,6 +32,8 @@ import com.lasono.track.application.usecase.StreamSignature;
 import com.lasono.track.application.usecase.StreamTrackResult;
 import com.lasono.track.application.usecase.StreamTrackUseCase;
 import com.lasono.track.application.usecase.StreamUrlResult;
+import com.lasono.track.application.usecase.UpdateTrackCommand;
+import com.lasono.track.application.usecase.UpdateTrackUseCase;
 import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
@@ -40,19 +46,25 @@ public class TrackController {
     private final StreamTrackUseCase streamTrackUsecase;
     private final ListTracksUseCase listTracksUseCase;
     private final GetStreamUrlUseCase getStreamUrlUseCase;
+    private final UpdateTrackUseCase updateTrackUseCase;
+    private final DeleteTrackUseCase deleteTrackUseCase;
 
     public TrackController(
         UploadTrackUseCase uploadTrackUseCase,
         GetTrackUseCase getTrackUseCase,
         StreamTrackUseCase streamTrackUsecase,
         ListTracksUseCase listTracksUseCase,
-        GetStreamUrlUseCase getStreamUrlUseCase
+        GetStreamUrlUseCase getStreamUrlUseCase,
+        UpdateTrackUseCase updateTrackUseCase,
+        DeleteTrackUseCase deleteTrackUseCase
     ) {
         this.uploadTrackUseCase = uploadTrackUseCase;
         this.getTrackUseCase = getTrackUseCase;
         this.streamTrackUsecase = streamTrackUsecase;
         this.listTracksUseCase = listTracksUseCase;
         this.getStreamUrlUseCase = getStreamUrlUseCase;
+        this.updateTrackUseCase = updateTrackUseCase;
+        this.deleteTrackUseCase = deleteTrackUseCase;
     }
 
     @PostMapping("/api/v1/tracks")
@@ -77,6 +89,29 @@ public class TrackController {
         UploadTrackResult result = uploadTrackUseCase.execute(command);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    // The caller is the user in the token, never a field of the body. Who may change what is decided in the use case.
+    @PatchMapping("/api/v1/tracks/{id}")
+    public GetTrackResult updateTrack(
+        @PathVariable("id") UUID id,
+        @RequestBody UpdateTrackRequest request,
+        Principal principal
+    ) {
+        return updateTrackUseCase.execute(new UpdateTrackCommand(
+            id,
+            UUID.fromString(principal.getName()),
+            request.title(),
+            request.description(),
+            request.visibility()
+        ));
+    }
+
+    @DeleteMapping("/api/v1/tracks/{id}")
+    public ResponseEntity<Void> deleteTrack(@PathVariable("id") UUID id, Principal principal) {
+        deleteTrackUseCase.execute(id, UUID.fromString(principal.getName()));
+
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/v1/tracks")

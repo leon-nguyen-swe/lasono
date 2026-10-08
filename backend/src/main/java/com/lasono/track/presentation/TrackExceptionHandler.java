@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.lasono.track.application.usecase.InvalidPageRequestException;
 import com.lasono.track.application.usecase.InvalidRangeException;
 import com.lasono.track.application.usecase.TrackNotFoundException;
+import com.lasono.track.application.usecase.TrackNotOwnedException;
 import com.lasono.track.application.usecase.TrackNotReadyException;
+import com.lasono.track.application.usecase.TrackStillProcessingException;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
@@ -38,6 +40,17 @@ public class TrackExceptionHandler {
     @ExceptionHandler(TrackVisibilityInvalidException.class)
     public ProblemDetail handleInvalidVisibility(TrackVisibilityInvalidException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    // The caller can see the track but it is not theirs. (A track they cannot see is a 404, see TrackNotFound.)
+    @ExceptionHandler(TrackNotOwnedException.class)
+    public ProblemDetail handleTrackNotOwned(TrackNotOwnedException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(TrackStillProcessingException.class)
+    public ProblemDetail handleTrackStillProcessing(TrackStillProcessingException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(TrackNotFoundException.class)
