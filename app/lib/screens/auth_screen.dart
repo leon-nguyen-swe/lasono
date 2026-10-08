@@ -6,9 +6,20 @@ import '../auth/session_controller.dart';
 /// One screen for both logging in and creating an account. It closes itself
 /// when the session is signed in.
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, required this.session});
+  const AuthScreen({
+    super.key,
+    required this.session,
+    this.onSignedIn,
+    this.initialRegistering = false,
+  });
 
   final SessionController session;
+
+  /// What to do once signed in. Without it the screen closes itself (it was pushed on top of another one).
+  final VoidCallback? onSignedIn;
+
+  /// Opens on "Create account" instead of "Log in".
+  final bool initialRegistering;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -19,7 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
 
-  bool _registering = false;
+  late bool _registering = widget.initialRegistering;
   bool _busy = false;
   String? _error;
 
@@ -64,7 +75,14 @@ class _AuthScreenState extends State<AuthScreen> {
       } else {
         await widget.session.login(email: email, password: password);
       }
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        final done = widget.onSignedIn;
+        if (done != null) {
+          done();
+        } else {
+          Navigator.of(context).pop();
+        }
+      }
     } on AuthApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
