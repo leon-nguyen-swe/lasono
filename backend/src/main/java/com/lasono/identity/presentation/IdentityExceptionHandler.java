@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.lasono.identity.application.usecase.InvalidCredentialsException;
+import com.lasono.identity.application.usecase.InvalidRefreshTokenException;
 import com.lasono.identity.application.usecase.PasswordInvalidException;
 import com.lasono.identity.application.usecase.UserNotFoundException;
 import com.lasono.identity.domain.exception.DisplayNameInvalidException;
@@ -22,6 +23,12 @@ public class IdentityExceptionHandler {
 
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    // One answer whether the refresh token is unknown, expired, revoked or a reuse, so a caller learns nothing.
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
