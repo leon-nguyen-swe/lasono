@@ -7,6 +7,7 @@ import com.lasono.track.domain.TrackSnapshot;
 
 public record GetTrackResult(
     String id,
+    String ownerId,
     String title,
     String description,
     String visibility,
@@ -30,6 +31,7 @@ public record GetTrackResult(
 
         return new GetTrackResult(
             snapshot.trackId().getValue().toString(),
+            snapshot.ownerId().getValue().toString(),
             snapshot.title(),
             snapshot.description(),
             snapshot.visibility().name(),

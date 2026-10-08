@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.lasono.identity.application.usecase.InvalidCredentialsException;
 import com.lasono.identity.application.usecase.InvalidRefreshTokenException;
 import com.lasono.identity.application.usecase.PasswordInvalidException;
+import com.lasono.identity.application.usecase.ProfileNotFoundException;
 import com.lasono.identity.application.usecase.UserNotFoundException;
 import com.lasono.identity.domain.exception.DisplayNameInvalidException;
 import com.lasono.identity.domain.exception.EmailAlreadyRegisteredException;
@@ -30,6 +31,12 @@ public class IdentityExceptionHandler {
     @ExceptionHandler(InvalidRefreshTokenException.class)
     public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    // Nobody has the id someone asked a profile for. (A token for an account that is gone is a 401, below.)
+    @ExceptionHandler(ProfileNotFoundException.class)
+    public ProblemDetail handleProfileNotFound(ProfileNotFoundException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     // A valid token for an account that is gone: the token no longer proves anything, so ask to log in again.

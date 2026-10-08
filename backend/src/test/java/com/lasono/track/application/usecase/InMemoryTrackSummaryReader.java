@@ -26,6 +26,7 @@ class InMemoryTrackSummaryReader implements TrackSummaryReader {
     private final List<TrackSummary> summaries = new ArrayList<>();
     private int lastRequestedLimit;
     private UUID lastViewerId;
+    private UUID lastOwnerId;
 
     void add(TrackSummary summary) {
         summaries.add(summary);
@@ -37,6 +38,24 @@ class InMemoryTrackSummaryReader implements TrackSummaryReader {
 
     UUID lastViewerId() {
         return lastViewerId;
+    }
+
+    UUID lastOwnerId() {
+        return lastOwnerId;
+    }
+
+    @Override
+    public List<TrackSummary> findNewestOfOwnerAfter(UUID ownerId, TrackPosition after, int limit, UUID viewerId) {
+        lastOwnerId = ownerId;
+        lastRequestedLimit = limit;
+        lastViewerId = viewerId;
+        return summaries.stream()
+            .filter(summary -> summary.ownerId().equals(ownerId))
+            .filter(summary -> summary.visibility() == Visibility.PUBLIC || summary.ownerId().equals(viewerId))
+            .sorted(NEWEST_FIRST)
+            .filter(summary -> after == null || comesAfter(summary, after))
+            .limit(limit)
+            .toList();
     }
 
     @Override

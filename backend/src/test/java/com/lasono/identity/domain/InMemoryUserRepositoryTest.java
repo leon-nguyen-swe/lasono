@@ -73,4 +73,17 @@ class InMemoryUserRepositoryTest {
     private static User aUser(String email, String name) {
         return new User(new UserId(UUID.randomUUID()), new Email(email), new DisplayName(name), "$2a$10$hash");
     }
+
+    @Test
+    void savingAUserAgainReplacesItInsteadOfCountingAsATakenEmail() {
+        User alice = new User(new UserId(UUID.randomUUID()), new Email("alice@example.com"),
+            new DisplayName("Alice"), "hash");
+        repository.save(alice);
+
+        alice.changeDisplayName(new DisplayName("Alice B."));
+        repository.save(alice);
+
+        assertEquals(1, repository.size());
+        assertEquals("Alice B.", repository.findById(alice.getId()).orElseThrow().getDisplayName().getValue());
+    }
 }

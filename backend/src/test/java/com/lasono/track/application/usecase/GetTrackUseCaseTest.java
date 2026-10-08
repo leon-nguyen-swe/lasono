@@ -163,4 +163,13 @@ class GetTrackUseCaseTest {
         assertEquals("PUBLIC", useCase.execute(id, null).visibility());
         assertEquals("PUBLIC", useCase.execute(id, STRANGER).visibility());
     }
+
+    @Test
+    void showsWhoOwnsTheTrack() {
+        UUID id = UUID.randomUUID();
+        when(trackRepository.findById(new TrackId(id))).thenReturn(
+            Optional.of(new Track(new TrackId(id), TrackFixtures.OWNER, "My song", null)));
+
+        assertEquals(TrackFixtures.OWNER.getValue().toString(), useCase.execute(id, null).ownerId());
+    }
 }

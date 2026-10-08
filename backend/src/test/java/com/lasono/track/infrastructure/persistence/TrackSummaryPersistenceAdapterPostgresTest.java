@@ -261,4 +261,44 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
         assertThat(titles(first)).containsExactly("alice public 0", "alice public 1", "alice public 2", "alice public 3");
         assertThat(titles(second)).containsExactly("alice public 4", "alice public 5");
     }
+
+    @Test
+    void ownerQueryListsOnlyTheTracksOfThatOwnerNewestFirst() {
+        insertFor(ALICE, Visibility.PUBLIC, "alice old", START);
+        insertFor(BOB, Visibility.PUBLIC, "bob", START.plusSeconds(1));
+        insertFor(ALICE, Visibility.PUBLIC, "alice new", START.plusSeconds(2));
+
+        assertThat(titles(adapter.findNewestOfOwnerAfter(ALICE, null, 10, null)))
+            .containsExactly("alice new", "alice old");
+        assertThat(titles(adapter.findNewestOfOwnerAfter(UUID.randomUUID(), null, 10, null))).isEmpty();
+    }
+
+    // "Private" must never leak through a profile: only the owner's own login shows the owner's private tracks.
+    @Test
+    void ownerQueryShowsPrivateTracksOnlyToTheOwner() {
+        insertFor(ALICE, Visibility.PUBLIC, "alice public", START.plusSeconds(2));
+        insertFor(ALICE, Visibility.PRIVATE, "alice private", START.plusSeconds(1));
+        insertFor(BOB, Visibility.PRIVATE, "bob private", START);
+
+        assertThat(titles(adapter.findNewestOfOwnerAfter(ALICE, null, 10, null))).containsExactly("alice public");
+        assertThat(titles(adapter.findNewestOfOwnerAfter(ALICE, null, 10, BOB))).containsExactly("alice public");
+        assertThat(titles(adapter.findNewestOfOwnerAfter(ALICE, null, 10, ALICE)))
+            .containsExactly("alice public", "alice private");
+    }
+
+    @Test
+    void ownerQueryPagesAreFullWhenOtherPeoplesTracksSitBetween() {
+        for (int i = 0; i < 6; i++) {
+            insertFor(BOB, Visibility.PUBLIC, "bob " + i, START.plusSeconds(20 - 2 * i));
+            insertFor(ALICE, Visibility.PUBLIC, "alice " + i, START.plusSeconds(19 - 2 * i));
+        }
+
+        List<TrackSummary> first = adapter.findNewestOfOwnerAfter(ALICE, null, 4, null);
+        TrackSummary last = first.get(first.size() - 1);
+        List<TrackSummary> second =
+            adapter.findNewestOfOwnerAfter(ALICE, new TrackPosition(last.createdAt(), last.id()), 4, null);
+
+        assertThat(titles(first)).containsExactly("alice 0", "alice 1", "alice 2", "alice 3");
+        assertThat(titles(second)).containsExactly("alice 4", "alice 5");
+    }
 }

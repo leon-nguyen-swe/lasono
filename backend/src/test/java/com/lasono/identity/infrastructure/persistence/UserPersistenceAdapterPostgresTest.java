@@ -167,4 +167,38 @@ class UserPersistenceAdapterPostgresTest extends PostgresIntegrationTest {
     private static User aUser(String email, String displayName) {
         return new User(new UserId(UUID.randomUUID()), new Email(email), new DisplayName(displayName), "$2a$10$hash");
     }
+
+    // A rename saves the same user again. It must change the name and nothing else: not the email, not the
+    // password hash and above all not the day the account was made.
+    @Test
+    void savingARenamedUserChangesOnlyTheDisplayName() {
+        User alice = aUser("alice@example.com", "Alice");
+        adapter.save(alice);
+        OffsetDateTime createdBefore = jdbcTemplate.queryForObject("SELECT created_at FROM users", OffsetDateTime.class);
+
+        alice.changeDisplayName(new DisplayName("Alice B."));
+        adapter.save(alice);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM users", Integer.class)).isEqualTo(1);
+        Map<String, Object> row = jdbcTemplate.queryForMap("SELECT id, email, display_name, password_hash FROM users");
+        assertThat(row.get("display_name")).isEqualTo("Alice B.");
+        assertThat(row.get("email")).isEqualTo("alice@example.com");
+        assertThat(row.get("password_hash")).isEqualTo("$2a$10$hash");
+        assertThat(jdbcTemplate.queryForObject("SELECT created_at FROM users", OffsetDateTime.class))
+            .isEqualTo(createdBefore);
+        assertThat(adapter.findById(alice.getId()).orElseThrow().getDisplayName().getValue()).isEqualTo("Alice B.");
+    }
+
+    @Test
+    void renamingOneUserDoesNotTouchAnother() {
+        User alice = aUser("alice@example.com", "Alice");
+        User bob = aUser("bob@example.com", "Bob");
+        adapter.save(alice);
+        adapter.save(bob);
+
+        alice.changeDisplayName(new DisplayName("Alice B."));
+        adapter.save(alice);
+
+        assertThat(adapter.findById(bob.getId()).orElseThrow().getDisplayName().getValue()).isEqualTo("Bob");
+    }
 }

@@ -60,6 +60,7 @@ import com.lasono.track.application.usecase.UpdateTrackCommand;
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
 
+    private static final String OWNER_ID = "00000000-0000-0000-0000-0000000000a1";
     private static final UUID USER_ID = UUID.fromString("5b0c2d4e-1111-4222-8333-944455566677");
 
     @Mock
@@ -104,7 +105,7 @@ class TrackControllerTest {
     void givenExistingTrack_getTrack_returns200WithTrackInfo() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, null)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", "audio/mpeg", null, null)
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "PROCESSING", "audio/mpeg", null, null)
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -117,7 +118,7 @@ class TrackControllerTest {
     void givenReadyTrack_getTrack_returnsDurationAndWaveform() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, null)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -150,7 +151,7 @@ class TrackControllerTest {
     void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
         UUID id = UUID.randomUUID();
         when(listTracksUseCase.execute(null, null, null)).thenReturn(new ListTracksResult(
-            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", null)),
+            List.of(new TrackListItemResult(id.toString(), OWNER_ID, "My song", "desc", "PUBLIC", "PROCESSING", null)),
             "next-cursor"
         ));
 
@@ -458,7 +459,7 @@ class TrackControllerTest {
     void givenSignedInCaller_getTrack_passesTheCallerIdAsViewer() throws Exception {
         UUID id = UUID.randomUUID();
         when(getTrackUseCase.execute(id, USER_ID)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+            new GetTrackResult(id.toString(), OWNER_ID, "My song", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).principal(signedInAs(USER_ID)))
             .andExpect(status().isOk())
@@ -553,7 +554,7 @@ class TrackControllerTest {
     void givenJsonWithSomeFields_updateTrack_passesTheCallerAndOnlyThoseFieldsAndReturnsTheTrack() throws Exception {
         UUID id = UUID.randomUUID();
         when(updateTrackUseCase.execute(any())).thenReturn(
-            new GetTrackResult(id.toString(), "New title", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+            new GetTrackResult(id.toString(), OWNER_ID, "New title", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
 
         mockMvc.perform(patch("/api/v1/tracks/{id}", id)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -595,5 +596,44 @@ class TrackControllerTest {
             .andExpect(status().isBadRequest());
 
         verifyNoInteractions(deleteTrackUseCase);
+    }
+
+    // --- the tracks of one user (a profile page) ---
+
+    @Test
+    void givenAUserId_listUserTracks_returnsTheirTracksWithTheOwner() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID track = UUID.randomUUID();
+        when(listTracksUseCase.executeForOwner(owner, null, null, null)).thenReturn(new ListTracksResult(
+            List.of(new TrackListItemResult(track.toString(), owner.toString(), "Song", "", "PUBLIC", "READY", 3.5)),
+            "next-cursor"));
+
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(track.toString()))
+            .andExpect(jsonPath("$.items[0].ownerId").value(owner.toString()))
+            .andExpect(jsonPath("$.nextCursor").value("next-cursor"));
+    }
+
+    @Test
+    void givenCursorAndLimitAndASignedInViewer_listUserTracks_passesThemAllToTheUseCase() throws Exception {
+        UUID owner = UUID.randomUUID();
+        when(listTracksUseCase.executeForOwner(owner, "abc", 5, USER_ID))
+            .thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", owner)
+                .param("cursor", "abc").param("limit", "5").principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk());
+
+        verify(listTracksUseCase).executeForOwner(owner, "abc", 5, USER_ID);
+    }
+
+    @Test
+    void givenAnIdThatIsNotAUuid_listUserTracks_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", "not-a-uuid"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(listTracksUseCase);
     }
 }

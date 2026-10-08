@@ -123,6 +123,18 @@ public class TrackController {
         return listTracksUseCase.execute(cursor, limit, viewerOf(principal));
     }
 
+    // A profile page lists the tracks of one user. The track module only knows the owner's id, so the name and
+    // the rest of the profile come from the identity module, and the app puts the two together.
+    @GetMapping("/api/v1/users/{id}/tracks")
+    public ListTracksResult listUserTracks(
+        @PathVariable("id") UUID ownerId,
+        @RequestParam(value = "cursor", required = false) String cursor,
+        @RequestParam(value = "limit", required = false) Integer limit,
+        Principal principal
+    ) {
+        return listTracksUseCase.executeForOwner(ownerId, cursor, limit, viewerOf(principal));
+    }
+
     @GetMapping("/api/v1/tracks/{id}")
     public GetTrackResult getTrack(@PathVariable("id") UUID id, Principal principal) {
         return getTrackUseCase.execute(id, viewerOf(principal));
