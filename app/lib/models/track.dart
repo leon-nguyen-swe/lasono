@@ -4,6 +4,8 @@ class Track {
     required this.title,
     required this.description,
     required this.status,
+    this.ownerId = '',
+    this.visibility = 'PUBLIC',
     this.mimeType,
     this.durationSeconds,
     this.waveform,
@@ -15,6 +17,8 @@ class Track {
       title: json['title'] as String,
       description: json['description'] as String? ?? '',
       status: json['status'] as String,
+      ownerId: json['ownerId'] as String? ?? '',
+      visibility: json['visibility'] as String? ?? 'PUBLIC',
       mimeType: json['mimeType'] as String?,
       durationSeconds: (json['durationSeconds'] as num?)?.toDouble(),
       waveform: (json['waveform'] as List<dynamic>?)
@@ -27,6 +31,12 @@ class Track {
   final String title;
   final String description;
   final String status;
+
+  /// The user who uploaded the track.
+  final String ownerId;
+
+  /// `PUBLIC` or `PRIVATE`: a private track is seen only by its owner.
+  final String visibility;
   final String? mimeType;
   final double? durationSeconds;
 

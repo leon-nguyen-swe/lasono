@@ -259,16 +259,42 @@ void main() {
     });
   });
 
-  group('TrackApi.streamUrl', () {
-    test('points at /api/v1/tracks/{id}/stream on the configured base url', () {
+  group('TrackApi.fetchStreamUrl', () {
+    const signed = {
+      'url': '/api/v1/tracks/abc/stream?expires=1900000000&signature=sig_-1',
+      'expiresAt': '2030-03-17T17:46:40Z',
+    };
+
+    test('asks GET /tracks/{id}/stream-url and gives the full signed address',
+        () async {
+      late http.Request captured;
       final api = TrackApi(
         baseUrl: 'http://api.test/',
-        client: MockClient((_) async => http.Response('', 200)),
+        client: MockClient((request) async {
+          captured = request;
+          return _json(signed, 200);
+        }),
+      );
+
+      final url = await api.fetchStreamUrl('abc');
+
+      expect(captured.method, 'GET');
+      expect(captured.url.toString(),
+          'http://api.test/api/v1/tracks/abc/stream-url');
+      expect(url.toString(),
+          'http://api.test/api/v1/tracks/abc/stream?expires=1900000000&signature=sig_-1');
+    });
+
+    test('maps 404 to "Track not found"', () async {
+      final api = TrackApi(
+        baseUrl: 'http://api.test',
+        client: MockClient((_) async => _json({'status': 404}, 404)),
       );
 
       expect(
-        api.streamUrl('abc').toString(),
-        'http://api.test/api/v1/tracks/abc/stream',
+        () => api.fetchStreamUrl('abc'),
+        throwsA(isA<TrackApiException>()
+            .having((e) => e.message, 'message', 'Track not found')),
       );
     });
   });
@@ -315,6 +341,27 @@ void main() {
       expect(body, contains('name="file"'));
       expect(body, contains('filename="song.mp3"'));
       expect(body, contains('content-type: audio/mpeg'));
+    });
+
+    test('says who may see the track: public unless told otherwise', () async {
+      final bodies = <String>[];
+      final api = apiWith((request) async {
+        bodies.add(request.body);
+        return created();
+      });
+
+      await api.uploadTrack(title: 'A', filename: 'a.mp3', bytes: audio);
+      await api.uploadTrack(
+        title: 'B',
+        visibility: 'PRIVATE',
+        filename: 'b.mp3',
+        bytes: audio,
+      );
+
+      expect(bodies[0], contains('name="visibility"'));
+      expect(bodies[0], contains('PUBLIC'));
+      expect(bodies[1], contains('PRIVATE'));
+      expect(bodies[1], isNot(contains('PUBLIC')));
     });
 
     test('sends audio/wav for a .WAV file regardless of case', () async {

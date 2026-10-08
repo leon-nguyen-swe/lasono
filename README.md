@@ -76,7 +76,9 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 3. **Seek**: drag or click the slider.
 4. **Account**: press **Log in** in the top bar. On the same screen, **Create a new account** asks for an email, a name and a password (at least 8 characters). You are logged in right after you register. Your name replaces the button; open it and choose **Log out** to leave. A reload of the page keeps you logged in: the app gets a new access token from the refresh cookie when it opens. The access token itself is only kept in memory.
 5. **Upload**: press the upload icon in the top bar (it asks you to log in first), type a title, press **Choose file**, pick an `.mp3` or `.wav` (max 50 MB), press **Upload**. The new track loads automatically. When you go back, the list reloads and shows it. The list also reloads when you log in or out.
-6. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
+6. **Private tracks**: the upload form has a **Private** switch. A private track shows only for you (in the list, on your profile, and when you play it); everyone else gets "not found". In the player, the owner of a track sees **Edit** (title, description, Private) and **Delete**. A track that is still processing cannot be deleted yet.
+7. **Profile**: open your name and choose **My profile**, or press **View profile** in the player of a track. A profile shows the name and the tracks of that user, 20 at a time (**Load more**). On your own profile you can change your name. The email is never shown.
+8. **Load by id**: on the same upload screen, paste a track id and press **Load** to see a track that already exists.
 
 ## Configuration
 

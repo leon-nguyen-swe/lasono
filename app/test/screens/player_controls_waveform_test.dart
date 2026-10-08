@@ -19,7 +19,7 @@ Future<void> _pump(WidgetTester tester, {List<double>? waveform}) {
           width: 400,
           child: PlayerControls(
             player: _player,
-            streamUrl: Uri.parse('http://api.test/stream'),
+            streamUrl: () async => Uri.parse('http://api.test/stream'),
             waveform: waveform,
           ),
         ),

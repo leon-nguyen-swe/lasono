@@ -88,21 +88,10 @@ class TrackApi {
         ),
       );
 
-  // The server refuses a token that has run out, also on the routes anyone may
-  // read. A new token is asked for once and the request is sent once more; a
-  // second refusal is the answer. Without a token there is nothing to renew.
   Future<http.Response> _authorized(
     Future<http.Response> Function(String? token) send,
-  ) async {
-    final auth = _auth;
-    final token = auth?.accessToken;
-    final response = await send(token);
-    if (response.statusCode != 401 || auth == null || token == null) {
-      return response;
-    }
-    final renewed = await auth.refreshAccessToken();
-    return renewed == null ? response : send(renewed);
-  }
+  ) =>
+      sendWithToken(_auth, send);
 
   Map<String, String> _bearer(String? token) =>
       {'Authorization': ?(token == null ? null : 'Bearer $token')};
@@ -122,13 +111,108 @@ class TrackApi {
     }
   }
 
-  Uri streamUrl(String id) =>
-      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}/stream');
+  /// The tracks of one user, newest first, one page at a time. The owner also
+  /// gets the private ones when logged in.
+  Future<TrackPage> listUserTracks(
+    String userId, {
+    String? cursor,
+    int? limit,
+  }) async {
+    final query = {'cursor': ?cursor, 'limit': ?limit?.toString()};
+    final uri = Uri.parse(
+      '$_baseUrl$_prefix/users/${Uri.encodeComponent(userId)}/tracks',
+    ).replace(queryParameters: query.isEmpty ? null : query);
+    final response = await _get(uri);
+
+    return switch (response.statusCode) {
+      200 => TrackPage.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      401 => throw const TrackApiException(_logInAgain),
+      final status => throw TrackApiException('Server error ($status)'),
+    };
+  }
+
+  /// Asks for an address the audio player can open. The player cannot send the
+  /// login header, so the server signs the permission into the address.
+  Future<Uri> fetchStreamUrl(String id) async {
+    final response = await _get(
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}/stream-url'),
+    );
+
+    return switch (response.statusCode) {
+      // The server gives the path and the query; the host is the one we asked.
+      200 => Uri.parse(
+          '$_baseUrl${(jsonDecode(response.body) as Map<String, dynamic>)['url']}',
+        ),
+      401 => throw const TrackApiException(_logInAgain),
+      404 => throw const TrackApiException('Track not found'),
+      final status => throw TrackApiException('Server error ($status)'),
+    };
+  }
+
+  /// Changes a track of the logged-in user. A field left null stays as it is;
+  /// an empty [description] clears it.
+  Future<Track> updateTrack(
+    String id, {
+    String? title,
+    String? description,
+    String? visibility,
+  }) async {
+    final body = jsonEncode({
+      'title': ?title,
+      'description': ?description,
+      'visibility': ?visibility,
+    });
+    final response = await _authorized(
+      (token) => _call(
+        () => _client.patch(
+          _trackUri(id),
+          headers: {'Content-Type': 'application/json', ..._bearer(token)},
+          body: body,
+        ),
+        _requestTimeout,
+        'Request timed out',
+      ),
+    );
+
+    return switch (response.statusCode) {
+      200 => Track.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
+      400 => throw TrackApiException(_problemDetail(response) ?? 'Invalid change'),
+      final status => throw _changeFailure(status),
+    };
+  }
+
+  /// Deletes a track of the logged-in user.
+  Future<void> deleteTrack(String id) async {
+    final response = await _authorized(
+      (token) => _call(
+        () => _client.delete(_trackUri(id), headers: _bearer(token)),
+        _requestTimeout,
+        'Request timed out',
+      ),
+    );
+
+    if (response.statusCode != 204) throw _changeFailure(response.statusCode);
+  }
+
+  Uri _trackUri(String id) =>
+      Uri.parse('$_baseUrl$_prefix/tracks/${Uri.encodeComponent(id)}');
+
+  // The answers a change or a delete has in common.
+  TrackApiException _changeFailure(int status) => switch (status) {
+        401 => const TrackApiException(_logInAgain),
+        403 => const TrackApiException('Only the owner can change this track'),
+        404 => const TrackApiException('Track not found'),
+        409 => const TrackApiException(
+            'This track is still being processed. Try again in a moment.',
+          ),
+        _ => TrackApiException('Server error ($status)'),
+      };
 
   /// Uploads an audio file and returns the new track id.
   Future<String> uploadTrack({
     required String title,
     String description = '',
+    String visibility = 'PUBLIC',
     required String filename,
     required Uint8List bytes,
   }) async {
@@ -146,6 +230,7 @@ class TrackApi {
           ..headers.addAll(_bearer(token))
           ..fields['title'] = trimmedTitle
           ..fields['description'] = description
+          ..fields['visibility'] = visibility
           ..files.add(
             http.MultipartFile.fromBytes(
               'file',

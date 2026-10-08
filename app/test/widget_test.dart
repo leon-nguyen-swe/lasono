@@ -38,8 +38,22 @@ http.Response _trackResponse([String id = _trackId, String status = 'READY']) =>
 AudioPicker _picker(String name) =>
     () async => PickedAudio(name: name, bytes: Uint8List.fromList([1, 2, 3]));
 
-/// Answers every GET /api/v1/tracks/{id} with a track carrying that id.
-TrackApi _trackApi() => _api((request) async => _trackResponse(request.url.pathSegments.last));
+/// Answers GET /api/v1/tracks/{id} with a track carrying that id, and
+/// GET /api/v1/tracks/{id}/stream-url with a signed address for it.
+TrackApi _trackApi() => _api((request) async {
+      final segments = request.url.pathSegments;
+      if (segments.last == 'stream-url') {
+        return http.Response(
+          jsonEncode({
+            'url': '/api/v1/tracks/${segments[segments.length - 2]}/stream?expires=1&signature=sig',
+            'expiresAt': '2030-01-01T00:00:00Z',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return _trackResponse(segments.last);
+    });
 
 Future<void> _loadTrack(WidgetTester tester, String id) async {
   await tester.enterText(find.byKey(const Key('trackIdField')), id);
@@ -200,6 +214,47 @@ void main() {
       expect(find.text('PROCESSING'), findsOneWidget);
     });
 
+    testWidgets('uploads a public track unless Private is switched on',
+        (WidgetTester tester) async {
+      final bodies = <String>[];
+      final api = _api((request) async {
+        if (request.method == 'POST') {
+          bodies.add(request.body);
+          return http.Response(
+            jsonEncode({'trackId': _trackId}),
+            201,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return _trackResponse(_trackId, 'PROCESSING');
+      });
+      await tester.pumpWidget(
+        _uploadScreen(
+          api: api,
+          pickAudio: _picker('song.mp3'),
+          player: FakePlayerService(),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('titleField')), 'My Song');
+      await tester.tap(find.byKey(const Key('chooseFileButton')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byKey(const Key('privateSwitch'))).value,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const Key('uploadButton')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('privateSwitch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('uploadButton')));
+      await tester.pumpAndSettle();
+
+      expect(bodies, hasLength(2));
+      expect(bodies[0], contains('PUBLIC'));
+      expect(bodies[1], contains('PRIVATE'));
+    });
+
     testWidgets('shows the server error and keeps no track on a 415',
         (WidgetTester tester) async {
       final api = _api((_) async => http.Response('{"status":415}', 415));
@@ -301,7 +356,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.loaded, [
-        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream'),
+        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream?expires=1&signature=sig'),
       ]);
       expect(player.playCalls, 1);
       expect(find.byIcon(Icons.pause), findsOneWidget);
@@ -387,8 +442,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.loaded, [
-        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream'),
-        Uri.parse('http://api.test/api/v1/tracks/$_otherTrackId/stream'),
+        Uri.parse('http://api.test/api/v1/tracks/$_trackId/stream?expires=1&signature=sig'),
+        Uri.parse('http://api.test/api/v1/tracks/$_otherTrackId/stream?expires=1&signature=sig'),
       ]);
     });
 
