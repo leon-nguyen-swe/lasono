@@ -8,7 +8,6 @@ import com.lasono.track.domain.OwnerId;
 import com.lasono.track.domain.Track;
 import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
-import com.lasono.track.domain.TrackSnapshot;
 
 @Component 
 public class GetTrackUseCase {
@@ -24,26 +23,6 @@ public class GetTrackUseCase {
             .filter(found -> found.isVisibleTo(viewerId == null ? null : new OwnerId(viewerId)))
             .orElseThrow(() -> new TrackNotFoundException(trackId));
 
-        TrackSnapshot snapshot = track.toSnapshot();
-
-        String mimeType = null;
-        if (snapshot.streamingAudio() != null) {
-            mimeType = snapshot.streamingAudio().getMimeType();
-        } else if (snapshot.originalAudio() != null) {
-            mimeType = snapshot.originalAudio().getMimeType();
-        }
-
-        Double durationSeconds = snapshot.audioDuration() != null ? snapshot.audioDuration().toMilliseconds() / 1000.0 : null;
-
-        return new GetTrackResult(
-            snapshot.trackId().getValue().toString(),
-            snapshot.title(),
-            snapshot.description(),
-            snapshot.visibility().name(),
-            snapshot.trackStatus().toString(),
-            mimeType,
-            durationSeconds,
-            snapshot.waveform() != null ? snapshot.waveform().getSamples() : null
-        );
+        return GetTrackResult.from(track);
     }
 }
