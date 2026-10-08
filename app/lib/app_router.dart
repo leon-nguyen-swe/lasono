@@ -8,6 +8,7 @@ import 'data/app_repositories.dart';
 import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
 import 'screens/auth_page.dart';
+import 'screens/home_page.dart';
 import 'shell/app_shell.dart';
 
 /// The places of the app. The routes that are not in the table yet (a page that is still the old screen) are
@@ -33,7 +34,6 @@ class RouterDependencies {
     required this.themeController,
     required this.repositories,
     required this.playback,
-    required this.legacyHome,
     required this.legacyUpload,
   });
 
@@ -44,8 +44,7 @@ class RouterDependencies {
   /// Made when a page of the shell first needs it (see [PlaybackScope]).
   final PlaybackController Function() playback;
 
-  /// The track list and the upload form of the old UI, which stay as they are until their new versions are built.
-  final WidgetBuilder legacyHome;
+  /// The upload form of the old UI, which stays as it is until its new version is built.
   final WidgetBuilder legacyUpload;
 }
 
@@ -93,7 +92,6 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (context, state) => const _SplashPage()),
       // The old screens, until the new ones replace them (UI_BUILD_PLAN.md, phase 7).
-      GoRoute(path: AppRoutes.home, builder: (context, state) => deps.legacyHome(context)),
       GoRoute(path: AppRoutes.upload, builder: (context, state) => deps.legacyUpload(context)),
       GoRoute(
         path: AppRoutes.login,
@@ -117,6 +115,7 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
         ),
         routes: [
           if (debug) GoRoute(path: AppRoutes.gallery, builder: (context, state) => GalleryScreen(themeController: deps.themeController, embedded: true)),
+          GoRoute(path: AppRoutes.home, builder: (context, state) => const HomePage()),
           GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),
           GoRoute(path: AppRoutes.search, builder: (context, state) => const _ComingSoonPage(title: 'Tìm kiếm')),
         ],

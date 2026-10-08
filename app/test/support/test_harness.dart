@@ -32,12 +32,14 @@ class TestEnv {
   final FakeWorld world;
   final AppRepositories repositories;
 
+  /// [client] answers the real backend's routes of the data (tracks, users); the login has its own [authServer].
   /// [restore] false leaves the login "being looked for" (the session has not asked the server yet).
   static Future<TestEnv> create({
     bool signedIn = false,
     bool restore = true,
     FakeAuthServer? authServer,
     FakeFlags flags = const FakeFlags(likes: true, follows: true, comments: true, feed: true, search: true),
+    http.Client? client,
   }) async {
     final server = authServer ?? FakeAuthServer();
     final session = !restore
@@ -48,7 +50,7 @@ class TestEnv {
       session: session,
       flags: flags,
       baseUrl: 'http://api.test',
-      client: MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
+      client: client ?? MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
       world: world,
       behavior: FakeBehavior.instant(),
       routeFakeIds: true,

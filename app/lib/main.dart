@@ -17,7 +17,6 @@ import 'data/fake_flags.dart';
 import 'player_service.dart';
 import 'playback/playback_controller.dart';
 import 'shell/app_context.dart';
-import 'screens/track_list_screen.dart';
 import 'screens/track_screen.dart';
 
 void main() {
@@ -97,13 +96,6 @@ class _LasonoAppState extends State<LasonoApp> {
       themeController: _theme,
       repositories: _repositories,
       playback: () => _playback,
-      legacyHome: (context) => TrackListScreen(
-        session: widget.session,
-        api: widget.api,
-        profileApi: widget.profileApi,
-        pickAudio: widget.pickAudio,
-        player: widget.player,
-      ),
       legacyUpload: (context) => Scaffold(
         appBar: AppBar(
           title: const Text('Upload'),

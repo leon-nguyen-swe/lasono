@@ -15,6 +15,7 @@ import 'package:lasono_app/screens/track_screen.dart';
 
 import 'fake_auth_server.dart';
 import 'fake_player_service.dart';
+import 'support/test_harness.dart';
 
 const _trackId = '3f2b8a52-8f5e-4c1d-9a55-0b7f4f6c2d10';
 const _otherTrackId = '9a1c2d3e-0000-4000-8000-000000000001';
@@ -74,7 +75,7 @@ Widget _uploadScreen({
     );
 
 /// A server whose track list is one page with these titles.
-TrackApi _listApi(List<String> titles) => _api(
+MockClient _listClient(List<String> titles) => MockClient(
       (_) async => http.Response(
         jsonEncode({
           'items': [
@@ -93,6 +94,8 @@ TrackApi _listApi(List<String> titles) => _api(
       ),
     );
 
+TrackApi _listApi(List<String> titles) => TrackApi(baseUrl: 'http://api.test', client: _listClient(titles));
+
 void main() {
   testWidgets('shows the LaSono title screen', (WidgetTester tester) async {
     await tester.pumpWidget(LasonoApp(session: FakeAuthServer().session(), api: _listApi([])));
@@ -108,17 +111,16 @@ void main() {
   });
 
   testWidgets('opens on the list of tracks', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      LasonoApp(
-        session: FakeAuthServer().session(),
-        api: _listApi(['Vietnamese', 'Second']),
-      ),
-    );
-    await tester.pumpAndSettle();
+    TestEnv.window(tester, width: 1280, height: 1000);
+    final env = await TestEnv.create(client: _listClient(['Vietnamese', 'Second']));
+    await tester.pumpWidget(env.app());
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.text('Vietnamese'), findsOneWidget);
     expect(find.text('Second'), findsOneWidget);
-    expect(find.byKey(const Key('uploadAction')), findsOneWidget);
+    expect(find.byKey(const Key('uploadButton')), findsOneWidget);
   });
 
   group('load a track by id', () {
