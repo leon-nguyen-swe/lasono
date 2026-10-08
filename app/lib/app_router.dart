@@ -89,6 +89,18 @@ String? _safeFrom(Uri location) {
   return from;
 }
 
+/// A page that fades in over the one it replaces when the user arrives. People who asked their system for less
+/// motion get no fade.
+Page<void> _fade(GoRouterState state, Widget child) => CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: AppDurations.normal,
+      reverseTransitionDuration: Duration.zero,
+      transitionsBuilder: (context, animation, secondaryAnimation, page) => MediaQuery.disableAnimationsOf(context)
+          ? page
+          : FadeTransition(opacity: CurvedAnimation(parent: animation, curve: AppCurves.standard), child: page),
+    );
+
 GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRoutes.home, bool debug = kDebugMode}) {
   return GoRouter(
     initialLocation: initialLocation,
@@ -119,37 +131,45 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
           child: child,
         ),
         routes: [
-          if (debug) GoRoute(path: AppRoutes.gallery, builder: (context, state) => GalleryScreen(themeController: deps.themeController, embedded: true)),
-          GoRoute(path: AppRoutes.home, builder: (context, state) => const HomePage()),
+          if (debug) GoRoute(path: AppRoutes.gallery, pageBuilder: (context, state) => _fade(state, GalleryScreen(themeController: deps.themeController, embedded: true))),
+          GoRoute(path: AppRoutes.home, pageBuilder: (context, state) => _fade(state, const HomePage())),
           GoRoute(
             path: '/tracks/:id',
-            builder: (context, state) => TrackPage(key: ValueKey(state.pathParameters['id']), trackId: state.pathParameters['id']!),
+            pageBuilder: (context, state) =>
+                _fade(state, TrackPage(key: ValueKey(state.pathParameters['id']), trackId: state.pathParameters['id']!)),
           ),
           GoRoute(
             path: '/users/:id',
-            builder: (context, state) => ProfilePage(key: ValueKey(state.pathParameters['id']), userId: state.pathParameters['id']!),
+            pageBuilder: (context, state) =>
+                _fade(state, ProfilePage(key: ValueKey(state.pathParameters['id']), userId: state.pathParameters['id']!)),
             routes: [
               GoRoute(
                 path: 'followers',
-                builder: (context, state) => PeoplePage(
-                  key: ValueKey('followers-${state.pathParameters['id']}'),
-                  userId: state.pathParameters['id']!,
-                  kind: PeopleKind.followers,
+                pageBuilder: (context, state) => _fade(
+                  state,
+                  PeoplePage(
+                    key: ValueKey('followers-${state.pathParameters['id']}'),
+                    userId: state.pathParameters['id']!,
+                    kind: PeopleKind.followers,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'following',
-                builder: (context, state) => PeoplePage(
-                  key: ValueKey('following-${state.pathParameters['id']}'),
-                  userId: state.pathParameters['id']!,
-                  kind: PeopleKind.following,
+                pageBuilder: (context, state) => _fade(
+                  state,
+                  PeoplePage(
+                    key: ValueKey('following-${state.pathParameters['id']}'),
+                    userId: state.pathParameters['id']!,
+                    kind: PeopleKind.following,
+                  ),
                 ),
               ),
             ],
           ),
-          GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
-          GoRoute(path: AppRoutes.feed, builder: (context, state) => const FeedPage()),
-          GoRoute(path: AppRoutes.search, builder: (context, state) => SearchPage(query: state.uri.queryParameters['q'] ?? '')),
+          GoRoute(path: AppRoutes.upload, pageBuilder: (context, state) => _fade(state, UploadPage(pickAudio: deps.pickAudio))),
+          GoRoute(path: AppRoutes.feed, pageBuilder: (context, state) => _fade(state, const FeedPage())),
+          GoRoute(path: AppRoutes.search, pageBuilder: (context, state) => _fade(state, SearchPage(query: state.uri.queryParameters['q'] ?? ''))),
         ],
       ),
     ],
