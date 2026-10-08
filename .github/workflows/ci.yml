@@ -56,7 +56,7 @@ jobs:
       # end-to-end processing test among the Postgres tests.
       # On ubuntu-latest, ffmpeg is already available; only install if a future image removes it.
       - name: Install ffmpeg
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
             echo "ffmpeg and ffprobe are already installed."
