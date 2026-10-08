@@ -165,6 +165,35 @@ void main() {
     });
   });
 
+  group('accountChanged', () {
+    test('shows the new account and tells the listeners', () async {
+      await session.login(email: 'ann@example.com', password: 'secret pass');
+      var notified = 0;
+      session.addListener(() => notified++);
+
+      session.accountChanged(const Account(
+        userId: 'u-1',
+        email: 'ann@example.com',
+        displayName: 'Ann B.',
+      ));
+
+      expect(session.account?.displayName, 'Ann B.');
+      expect(notified, 1);
+    });
+
+    test('ignores an account of someone else, and a call when nobody is logged in',
+        () async {
+      const other = Account(userId: 'u-2', email: 'b@example.com', displayName: 'Bob');
+      session.accountChanged(other);
+      expect(session.account, isNull);
+
+      await session.login(email: 'ann@example.com', password: 'secret pass');
+      session.accountChanged(other);
+
+      expect(session.account?.displayName, 'Ann');
+    });
+  });
+
   group('refreshAccessToken', () {
     setUp(() async {
       await session.login(email: 'ann@example.com', password: 'secret pass');

@@ -61,6 +61,17 @@ class SessionController extends ChangeNotifier implements AccessTokens {
     await login(email: email, password: password);
   }
 
+  /// The account was changed on the server (for example the display name), so
+  /// the one shown is replaced. Nothing happens when nobody is logged in, or
+  /// when it is another user's account.
+  void accountChanged(Account account) {
+    if (_status != SessionStatus.signedIn || account.userId != _account?.userId) {
+      return;
+    }
+    _account = account;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _signOut();
     await _api.logout();
