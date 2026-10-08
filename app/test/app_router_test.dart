@@ -198,7 +198,7 @@ void main() {
       await tester.tap(find.byKey(const Key('navFeed')));
       await _settle(tester);
 
-      expect(find.text('Trang này đang được xây dựng.'), findsOneWidget, reason: 'the Feed page of the shell');
+      expect(find.byKey(const Key('feedTitle')), findsOneWidget, reason: 'the Feed page of the shell');
       expect(find.byKey(const Key('playerBar')), findsOneWidget, reason: 'the bar stays on the new page');
       expect(inBar(), findsOneWidget);
       expect(env.player.stopCalls, 0, reason: 'the music was not stopped by changing page');
@@ -227,7 +227,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await _settle(tester);
 
-      expect(find.text('Tìm kiếm'), findsOneWidget);
+      expect(find.text('Kết quả cho “son tung”'), findsOneWidget);
       expect(tester.widget<TextField>(find.byKey(const Key('searchField'))).controller!.text, 'son tung');
     });
 

@@ -9,9 +9,11 @@ import 'data/app_repositories.dart';
 import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
 import 'screens/auth_page.dart';
+import 'screens/feed_page.dart';
 import 'screens/home_page.dart';
 import 'screens/people_page.dart';
 import 'screens/profile_page.dart';
+import 'screens/search_page.dart';
 import 'screens/track_page.dart';
 import 'screens/upload_page.dart';
 import 'shell/app_shell.dart';
@@ -146,8 +148,8 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
             ],
           ),
           GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
-          GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),
-          GoRoute(path: AppRoutes.search, builder: (context, state) => const _ComingSoonPage(title: 'Tìm kiếm')),
+          GoRoute(path: AppRoutes.feed, builder: (context, state) => const FeedPage()),
+          GoRoute(path: AppRoutes.search, builder: (context, state) => SearchPage(query: state.uri.queryParameters['q'] ?? '')),
         ],
       ),
     ],
@@ -163,28 +165,6 @@ class _SplashPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('LaSono')),
       body: const Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
-/// A page of the shell that is not built yet.
-class _ComingSoonPage extends StatelessWidget {
-  const _ComingSoonPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return PageContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: text.headlineMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Text('Trang này đang được xây dựng.', style: text.bodyMedium),
-        ],
-      ),
     );
   }
 }
