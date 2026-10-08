@@ -92,7 +92,8 @@ class AppRepositories {
       );
     }
 
-    final fakeWorld = world ?? FakeWorld();
+    // In the app a new account follows nobody, like on the real backend: the feed starts empty and says how to fill it.
+    final fakeWorld = world ?? FakeWorld(newViewerFollowsSome: false);
     final fakeBehavior = behavior ?? FakeBehavior();
     String? viewerId() => session.account?.userId;
 

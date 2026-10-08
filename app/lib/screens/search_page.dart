@@ -171,7 +171,11 @@ class _SearchPageState extends State<SearchPage> {
         EmptyState(
           key: const Key('searchEmpty'),
           icon: Icons.search_off_rounded,
-          title: 'Không có kết quả cho “$_query”',
+          title: switch (_type) {
+            SearchType.tracks => 'Không có bài hát nào khớp “$_query”',
+            SearchType.users => 'Không có người dùng nào khớp “$_query”',
+            SearchType.all => 'Không có kết quả cho “$_query”',
+          },
           message: 'Thử một từ khác, hoặc kiểm tra lại chính tả.',
         ),
       ];

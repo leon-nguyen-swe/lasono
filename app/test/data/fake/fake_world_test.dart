@@ -156,6 +156,13 @@ void main() {
       expect(world.followingOf('real-user').length, 2, reason: 'the start is not applied again');
     });
 
+    test('a viewer follows nobody at the start when the world is made that way (a new account in the app)', () {
+      final world = FakeWorld(clock: () => _now, newViewerFollowsSome: false);
+      world.ensureViewer('real-user');
+      expect(world.followingOf('real-user'), isEmpty);
+      expect(world.isFollowing('real-user', world.users.first.id), isFalse);
+    });
+
     test('follow and unfollow say whether they changed anything', () {
       final world = _world()..ensureViewer('v');
       final target = world.users[7].id;

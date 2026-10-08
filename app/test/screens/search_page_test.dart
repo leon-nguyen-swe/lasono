@@ -83,6 +83,7 @@ void main() {
     await _settle(tester);
     expect(find.byKey(const Key('usersHeading')), findsNothing);
     expect(find.byKey(const Key('searchEmpty')), findsOneWidget);
+    expect(find.text('Không có bài hát nào khớp “son tung”'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('tabUsers')));
     await _settle(tester);
