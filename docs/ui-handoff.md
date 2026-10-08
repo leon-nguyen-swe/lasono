@@ -292,7 +292,7 @@ Không cờ nào bật thì **không** có lớp định tuyến: dùng thẳng 
 - 8 user (Sơn Tùng, Đen Vâu, Bích Phương, Hà Anh Tuấn, Minh Anh, Luna Park, DJ Kaito, Maya Chen), 30 track tên Việt lẫn Anh, track xen kẽ tác giả, thời điểm đăng từ vài chục phút đến ~3 tuần trước.
 - 28 track `READY` (45-90 giây, 200 peak waveform), 1 `PROCESSING` ("Hạ trắng"), 1 `FAILED` ("Bản tình ca cuối"): thấy đủ các trạng thái.
 - Comment rải trên waveform (tổng hơn 60), người comment là các user giả.
-- Minh Anh **không follow ai**. User thật đăng nhập lần đầu mặc định follow Sơn Tùng, Đen Vâu, Luna Park để feed không trống; bỏ follow hết thì thấy trạng thái trống.
+- Minh Anh **không follow ai**. User thật đăng nhập lần đầu **không theo dõi ai** (như backend thật), nên bảng tin trống cho tới khi họ theo dõi ai đó. Test dùng `FakeWorld()` mặc định, trong đó user mới theo dõi sẵn Sơn Tùng, Đen Vâu, Luna Park (`newViewerFollowsSome: true`) để có bảng tin đầy.
 - **Track giả phát được thật:** `FakeAudio` sinh một file WAV 8 kHz trong bộ nhớ (một giai điệu nhẹ, mỗi track một giai điệu) và trả về dạng `data:` URI, nên play/seek/waveform/comment đều thử được mà không cần file.
 - Search giả mô phỏng `unaccent` + `pg_trgm` (cùng công thức độ giống, test ghim đúng các số 9/13, 6/16 của guide 06), nên `son tung` ra `Sơn Tùng` và `son tuhg` vẫn ra.
 
