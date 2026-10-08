@@ -78,6 +78,7 @@ class TrackCard extends StatefulWidget {
 
 class _TrackCardState extends State<TrackCard> {
   List<double>? _peaks;
+  bool _hover = false;
 
   Track get _track => widget.track;
 
@@ -165,11 +166,13 @@ class _TrackCardState extends State<TrackCard> {
       ],
     );
 
-    return AnimatedContainer(
+    final card = AnimatedContainer(
+      key: const Key('trackCardBody'),
       duration: AppDurations.normal,
       padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
       decoration: BoxDecoration(
-        color: c.surface,
+        // Under the mouse the card lifts one step, so it is clear which one a press belongs to.
+        color: _hover ? c.surfaceRaised : c.surface,
         borderRadius: AppRadius.all(AppRadius.lg),
         border: Border.all(color: current ? c.accent.withValues(alpha: 0.55) : c.outline),
       ),
@@ -195,6 +198,11 @@ class _TrackCardState extends State<TrackCard> {
                 ),
               ],
             ),
+    );
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: card,
     );
   }
 

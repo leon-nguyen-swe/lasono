@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lasono_app/models/track.dart';
@@ -385,6 +386,32 @@ void main() {
 
       await tester.pumpWidget(rig.card(track, viewerId: track.ownerId));
       expect(find.byKey(const Key('trackMenu')), findsNothing);
+    });
+  });
+
+  group('hover', () {
+    Color? cardColor(WidgetTester tester) {
+      final box = tester.widget<AnimatedContainer>(find.byKey(const Key('trackCardBody')));
+      return (box.decoration as BoxDecoration?)?.color;
+    }
+
+    testWidgets('the card lifts a little under the mouse, and goes back when the mouse leaves', (tester) async {
+      TestEnv.window(tester);
+      final rig = await _Rig.create();
+      await tester.pumpWidget(rig.card(rig.first));
+      await rig.settle(tester);
+      final resting = cardColor(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('trackCardBody'))));
+      await rig.settle(tester);
+      expect(cardColor(tester), isNot(resting));
+
+      await mouse.moveTo(const Offset(1, 1));
+      await rig.settle(tester);
+      expect(cardColor(tester), resting);
     });
   });
 
