@@ -318,7 +318,8 @@ class ProcessingJobPersistenceAdapterPostgresTest extends PostgresIntegrationTes
     private UUID insertTrack() {
         UUID id = UUID.randomUUID();
         jdbcTemplate.update(
-            "INSERT INTO tracks (id, owner_id, title, description, status) VALUES (?, ?, 'a song', NULL, 'PROCESSING')",
+            "INSERT INTO tracks (id, owner_id, title, description, visibility, status) "
+                + "VALUES (?, ?, 'a song', NULL, 'PUBLIC', 'PROCESSING')",
             id, TrackFixtures.OWNER.getValue());
         return id;
     }

@@ -6,12 +6,14 @@ import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
 
 public record TrackSnapshot(
     TrackId trackId,
     OwnerId ownerId,
     String title,
     String description,
+    Visibility visibility,
     TrackStatus trackStatus,
 
     AudioResourceId audioResourceId,

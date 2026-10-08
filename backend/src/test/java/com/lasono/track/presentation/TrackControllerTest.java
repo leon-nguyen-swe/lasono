@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.security.Principal;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +48,9 @@ import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.application.usecase.UploadTrackCommand;
 import com.lasono.track.application.usecase.UploadTrackResult;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
+import com.lasono.track.application.usecase.GetStreamUrlUseCase;
+import com.lasono.track.application.usecase.StreamSignature;
+import com.lasono.track.application.usecase.StreamUrlResult;
 
 @ExtendWith(MockitoExtension.class)
 class TrackControllerTest {
@@ -65,12 +69,16 @@ class TrackControllerTest {
     @Mock
     private ListTracksUseCase listTracksUseCase;
 
+    @Mock
+    private GetStreamUrlUseCase getStreamUrlUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
-            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
+            new TrackController(
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .build();
@@ -83,8 +91,8 @@ class TrackControllerTest {
     @Test
     void givenExistingTrack_getTrack_returns200WithTrackInfo() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "PROCESSING", "audio/mpeg", null, null)
+        when(getTrackUseCase.execute(id, null)).thenReturn(
+            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", "audio/mpeg", null, null)
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -96,8 +104,8 @@ class TrackControllerTest {
     @Test
     void givenReadyTrack_getTrack_returnsDurationAndWaveform() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenReturn(
-            new GetTrackResult(id.toString(), "My song", "desc", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
+        when(getTrackUseCase.execute(id, null)).thenReturn(
+            new GetTrackResult(id.toString(), "My song", "desc", "PUBLIC", "READY", "audio/mpeg", 3.5, List.of(0.1f, 0.5f))
         );
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
@@ -110,7 +118,7 @@ class TrackControllerTest {
     @Test
     void givenUnknownTrackId_getTrack_returns404() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+        when(getTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id))
             .andExpect(status().isNotFound());
@@ -129,8 +137,8 @@ class TrackControllerTest {
     @Test
     void givenTracks_listTracks_returns200WithItemsAndNextCursor() throws Exception {
         UUID id = UUID.randomUUID();
-        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(
-            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PROCESSING", null)),
+        when(listTracksUseCase.execute(null, null, null)).thenReturn(new ListTracksResult(
+            List.of(new TrackListItemResult(id.toString(), "My song", "desc", "PUBLIC", "PROCESSING", null)),
             "next-cursor"
         ));
 
@@ -146,7 +154,7 @@ class TrackControllerTest {
 
     @Test
     void givenLastPage_listTracks_returnsANullNextCursor() throws Exception {
-        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(List.of(), null));
+        when(listTracksUseCase.execute(null, null, null)).thenReturn(new ListTracksResult(List.of(), null));
 
         mockMvc.perform(get("/api/v1/tracks"))
             .andExpect(status().isOk())
@@ -156,12 +164,12 @@ class TrackControllerTest {
 
     @Test
     void givenCursorAndLimit_listTracks_passesThemToTheUseCase() throws Exception {
-        when(listTracksUseCase.execute("abc", 5)).thenReturn(new ListTracksResult(List.of(), null));
+        when(listTracksUseCase.execute("abc", 5, null)).thenReturn(new ListTracksResult(List.of(), null));
 
         mockMvc.perform(get("/api/v1/tracks").param("cursor", "abc").param("limit", "5"))
             .andExpect(status().isOk());
 
-        verify(listTracksUseCase).execute("abc", 5);
+        verify(listTracksUseCase).execute("abc", 5, null);
     }
 
     @Test
@@ -237,6 +245,25 @@ class TrackControllerTest {
         assertEquals(USER_ID, captor.getValue().ownerId());
     }
 
+    @Test
+    void givenVisibilityField_uploadTrack_passesItToTheUseCase() throws Exception {
+        when(uploadTrackUseCase.execute(any())).thenReturn(
+            new UploadTrackResult(UUID.randomUUID().toString(), "My Song", "PROCESSING")
+        );
+        MockMultipartFile file = new MockMultipartFile("file", "song.mp3", "audio/mpeg", "audio-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/tracks")
+                .file(file)
+                .param("title", "My Song")
+                .param("visibility", "PRIVATE")
+                .principal(signedInAs(USER_ID)))
+            .andExpect(status().isCreated());
+
+        ArgumentCaptor<UploadTrackCommand> captor = ArgumentCaptor.forClass(UploadTrackCommand.class);
+        verify(uploadTrackUseCase).execute(captor.capture());
+        assertEquals("PRIVATE", captor.getValue().visibility());
+    }
+
     private static Principal signedInAs(UUID userId) {
         return userId::toString;
     }
@@ -275,7 +302,7 @@ class TrackControllerTest {
             audioBytes.length - 1,
             false   // not partial
         );
-        when(streamTrackUseCase.execute(eq(id), isNull())).thenReturn(result);
+        when(streamTrackUseCase.execute(eq(id), isNull(), isNull(), isNull())).thenReturn(result);
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id))
             .andExpect(status().isOk())
@@ -297,7 +324,7 @@ class TrackControllerTest {
             audioBytes.length - 1,
             false
         );
-        when(streamTrackUseCase.execute(eq(id), isNull())).thenReturn(result);
+        when(streamTrackUseCase.execute(eq(id), isNull(), isNull(), isNull())).thenReturn(result);
 
         // StreamingResponseBody runs asynchronously — must use asyncDispatch to read body
         MvcResult asyncResult = mockMvc.perform(get("/api/v1/tracks/{id}/stream", id))
@@ -326,7 +353,7 @@ class TrackControllerTest {
             499,
             true    // partial
         );
-        when(streamTrackUseCase.execute(eq(id), eq("bytes=0-499"))).thenReturn(result);
+        when(streamTrackUseCase.execute(eq(id), eq("bytes=0-499"), isNull(), isNull())).thenReturn(result);
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id)
                 .header(HttpHeaders.RANGE, "bytes=0-499"))
@@ -348,7 +375,7 @@ class TrackControllerTest {
             999,
             true
         );
-        when(streamTrackUseCase.execute(eq(id), eq("bytes=500-999"))).thenReturn(result);
+        when(streamTrackUseCase.execute(eq(id), eq("bytes=500-999"), isNull(), isNull())).thenReturn(result);
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id)
                 .header(HttpHeaders.RANGE, "bytes=500-999"))
@@ -369,7 +396,7 @@ class TrackControllerTest {
             slice.length - 1,
             true
         );
-        when(streamTrackUseCase.execute(eq(id), eq("bytes=0-" + (slice.length - 1)))).thenReturn(result);
+        when(streamTrackUseCase.execute(eq(id), eq("bytes=0-" + (slice.length - 1)), isNull(), isNull())).thenReturn(result);
 
         MvcResult asyncResult = mockMvc.perform(get("/api/v1/tracks/{id}/stream", id)
                 .header(HttpHeaders.RANGE, "bytes=0-" + (slice.length - 1)))
@@ -388,7 +415,7 @@ class TrackControllerTest {
     @Test
     void givenUnknownTrackId_streamTrack_returns404() throws Exception {
         UUID id = UUID.randomUUID();
-        when(streamTrackUseCase.execute(eq(id), any())).thenThrow(new TrackNotFoundException(id));
+        when(streamTrackUseCase.execute(eq(id), any(), isNull(), isNull())).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id))
             .andExpect(status().isNotFound());
@@ -398,7 +425,7 @@ class TrackControllerTest {
     void givenInvalidRangeHeader_streamTrack_returns416WithContentRangeHeaderAndBody() throws Exception {
         UUID id = UUID.randomUUID();
         long fileSize = 1000L;
-        when(streamTrackUseCase.execute(eq(id), eq("bytes=5000-9999")))
+        when(streamTrackUseCase.execute(eq(id), eq("bytes=5000-9999"), isNull(), isNull()))
             .thenThrow(new InvalidRangeException(fileSize));
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id)
@@ -412,5 +439,99 @@ class TrackControllerTest {
     void givenNonUuidPathVariable_streamTrack_returns400() throws Exception {
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", "not-a-uuid"))
             .andExpect(status().isBadRequest());
+    }
+
+    // The viewer is the id in the token. Reading is open to everyone, so without a login it is null.
+    @Test
+    void givenSignedInCaller_getTrack_passesTheCallerIdAsViewer() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getTrackUseCase.execute(id, USER_ID)).thenReturn(
+            new GetTrackResult(id.toString(), "My song", "desc", "PRIVATE", "READY", "audio/mpeg", 3.5, null));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}", id).principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.visibility").value("PRIVATE"));
+    }
+
+    @Test
+    void givenSignedInCaller_listTracks_passesTheCallerIdAsViewer() throws Exception {
+        when(listTracksUseCase.execute(null, null, USER_ID)).thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/tracks").principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk());
+
+        verify(listTracksUseCase).execute(null, null, USER_ID);
+    }
+
+    @Test
+    void givenSignedInCaller_streamTrack_passesTheCallerIdAsViewer() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(streamTrackUseCase.execute(id, null, USER_ID, null)).thenThrow(new TrackNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).principal(signedInAs(USER_ID)))
+            .andExpect(status().isNotFound());
+
+        verify(streamTrackUseCase).execute(id, null, USER_ID, null);
+    }
+
+    // --- stream-url and signed stream addresses ---
+
+    @Test
+    void givenVisibleTrack_streamUrl_returnsTheSignedAddressAndTellsCachesNotToKeepIt() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getStreamUrlUseCase.execute(id, USER_ID)).thenReturn(new StreamUrlResult(
+            "/api/v1/tracks/" + id + "/stream?expires=1&signature=abc", Instant.parse("2026-10-08T11:00:00Z")));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream-url", id).principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.url").value("/api/v1/tracks/" + id + "/stream?expires=1&signature=abc"))
+            .andExpect(jsonPath("$.expiresAt").value("2026-10-08T11:00:00Z"))
+            .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void givenNobodyLoggedIn_streamUrl_asksForAPublicViewer() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getStreamUrlUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream-url", id))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void givenSignatureParameters_streamTrack_passesThemToTheUseCase() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(streamTrackUseCase.execute(eq(id), isNull(), isNull(), any()))
+            .thenThrow(new TrackNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).param("expires", "1800000000").param("signature", "abc"))
+            .andExpect(status().isNotFound());
+
+        ArgumentCaptor<StreamSignature> captor = ArgumentCaptor.forClass(StreamSignature.class);
+        verify(streamTrackUseCase).execute(eq(id), isNull(), isNull(), captor.capture());
+        assertEquals(new StreamSignature(1_800_000_000L, "abc"), captor.getValue());
+    }
+
+    // Half a signature proves nothing, so it is treated as none.
+    @Test
+    void givenOnlyOneOfTheSignatureParameters_streamTrack_passesNoSignature() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(streamTrackUseCase.execute(eq(id), isNull(), isNull(), isNull()))
+            .thenThrow(new TrackNotFoundException(id));
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).param("signature", "abc"))
+            .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).param("expires", "1800000000"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void givenAnExpiryThatIsNotANumber_streamTrack_returns400() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).param("expires", "soon").param("signature", "abc"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(streamTrackUseCase);
     }
 }

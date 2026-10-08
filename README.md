@@ -88,6 +88,8 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 | Lifetime of a login token | property `lasono.jwt.access-token-ttl` | `15m` |
 | Lifetime of the refresh token (how long one login lasts without being used) | property `lasono.jwt.refresh-token-ttl` | `30d` |
 | Send the refresh cookie only over HTTPS (`Secure`) | property `lasono.auth.refresh-cookie-secure` | `true`. Browsers still accept it on `http://localhost`, but not on a plain `http://<IP>` address |
+| Lifetime of a signed stream address | property `lasono.stream.url-ttl` | `1h` |
+| Key that signs stream addresses | property `lasono.stream.signing-secret`, at least 32 bytes | the login-token secret `LASONO_JWT_SECRET` |
 | Upload size limit | `spring.servlet.multipart.max-file-size` / `max-request-size` in `backend/src/main/resources/application.yaml` | 50MB / 52MB |
 
 Any Spring property can be overridden on the command line, for example:
@@ -100,14 +102,15 @@ Any Spring property can be overridden on the command line, for example:
 
 Track endpoints are under `/api/v1/tracks` and account endpoints under `/api/v1/auth` and `/api/v1/users`.
 Uploading a track needs a login (header `Authorization: Bearer <accessToken>`), and the track belongs to the user in the token.
-Reading tracks (list, details, stream) still works without logging in for now.
+Reading tracks (list, details, stream) works without logging in, but only for public tracks. A private track is seen only by its owner (log in with the same header); for everyone else it answers `404`, exactly like a track that does not exist.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/tracks` | Needs a login. Multipart form: `title`, optional `description`, `file`. Returns `201 {trackId, title, status}` with `status` `PROCESSING`; a background worker then converts the audio to MP3 and the track becomes `READY` (or `FAILED`). Errors: `401` without a valid token, `415` unsupported audio type, `400` blank title or empty file, `413` file too large |
+| `POST` | `/api/v1/tracks` | Needs a login. Multipart form: `title`, optional `description`, optional `visibility` (`PUBLIC` or `PRIVATE`, `PUBLIC` when missing), `file`. Returns `201 {trackId, title, status}` with `status` `PROCESSING`; a background worker then converts the audio to MP3 and the track becomes `READY` (or `FAILED`). Errors: `401` without a valid token, `415` unsupported audio type, `400` blank title, empty file or unknown `visibility`, `413` file too large |
 | `GET` | `/api/v1/tracks?limit=20&cursor=...` | Lists tracks newest first, one page at a time (keyset pagination). Returns `{items: [{id, title, description, status, durationSeconds}], nextCursor}` (`durationSeconds` is `null` until the track is `READY`); `nextCursor` is `null` on the last page, otherwise send it back as `cursor` to get the next page. `limit` defaults to 20 and is capped at 50. `400` for a malformed cursor or a `limit` below 1 |
 | `GET` | `/api/v1/tracks/{id}` | Returns `{id, title, description, status, mimeType, durationSeconds, waveform}`; `waveform` is 200 peaks between 0 and 1, and `durationSeconds` and `waveform` are `null` until the track is `READY`. `404` if unknown, `400` if the id is not a UUID |
-| `GET` | `/api/v1/tracks/{id}/stream` | Bytes of the converted MP3. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid, `409` if the track is not `READY` (still processing, or processing failed) |
+| `GET` | `/api/v1/tracks/{id}/stream` | Bytes of the converted MP3. A private track needs the login header or the query parameters `expires` and `signature` (see the next row); a public one needs neither. `200` for a full read, `206` with `Content-Range` when a `Range` header is sent, `416` if the range is invalid, `409` if the track is not `READY` (still processing, or processing failed) |
+| `GET` | `/api/v1/tracks/{id}/stream-url` | Returns `{url, expiresAt}`: a relative address (`/api/v1/tracks/{id}/stream?expires=...&signature=...`) that plays the track without any login header, until `expiresAt` (1 hour by default). A browser's audio player cannot send `Authorization`, so the permission is signed into the address. Only someone who may see the track gets one (`404` otherwise). The address is a key: do not log or share it. Not cached (`Cache-Control: no-store`) |
 
 Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
 

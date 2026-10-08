@@ -16,6 +16,7 @@ import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
+import com.lasono.track.domain.model.Visibility;
 
 class TrackRepositoryTest {
 
@@ -162,5 +163,13 @@ class TrackRepositoryTest {
         repository.save(new Track(id, owner, "Owned", null));
 
         assertEquals(owner, repository.findById(id).orElseThrow().getOwnerId());
+    }
+
+    @Test
+    void shouldReturnTheVisibilityOfASavedTrack() {
+        TrackId id = new TrackId(UUID.randomUUID());
+        repository.save(new Track(id, TrackFixtures.OWNER, "Hidden", null, Visibility.PRIVATE));
+
+        assertEquals(Visibility.PRIVATE, repository.findById(id).orElseThrow().getVisibility());
     }
 }

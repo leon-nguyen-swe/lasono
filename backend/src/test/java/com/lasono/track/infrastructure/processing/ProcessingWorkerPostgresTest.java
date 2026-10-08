@@ -84,11 +84,11 @@ class ProcessingWorkerPostgresTest extends PostgresIntegrationTest {
         }
 
         // What the API shows for the finished track.
-        GetTrackResult shown = getTrack.execute(id.getValue());
+        GetTrackResult shown = getTrack.execute(id.getValue(), null);
         assertThat(shown.status()).isEqualTo("READY");
         assertThat(shown.waveform()).hasSize(200);
         assertThat(shown.durationSeconds()).isCloseTo(3.0, within(0.15));
-        TrackListItemResult listed = listTracks.execute(null, null).items().get(0);
+        TrackListItemResult listed = listTracks.execute(null, null, null).items().get(0);
         assertThat(listed.durationSeconds()).isCloseTo(3.0, within(0.15));
     }
 

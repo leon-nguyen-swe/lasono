@@ -14,6 +14,8 @@ import com.lasono.track.application.port.out.TrackSummaryReader;
 @Repository
 public class TrackSummaryPersistenceAdapter implements TrackSummaryReader {
 
+    private static final UUID NOBODY = new UUID(0L, 0L);
+
     private final TrackJpaRepository trackJpaRepository;
     private final AudioResourceJpaRepository audioResourceJpaRepository;
 
@@ -26,10 +28,13 @@ public class TrackSummaryPersistenceAdapter implements TrackSummaryReader {
     }
 
     @Override
-    public List<TrackSummary> findNewestAfter(TrackPosition after, int limit) {
+    public List<TrackSummary> findNewestAfter(TrackPosition after, int limit, UUID viewerId) {
+        // Nobody logged in is "a viewer who owns nothing". A real value keeps the query simple: a null parameter
+        // has no type for PostgreSQL to compare with. No user has the all-zero id.
+        UUID viewer = viewerId == null ? NOBODY : viewerId;
         List<TrackJpaEntity> tracks = after == null
-            ? trackJpaRepository.findNewest(limit)
-            : trackJpaRepository.findNewestAfter(after.createdAt(), after.id(), limit);
+            ? trackJpaRepository.findNewest(viewer, limit)
+            : trackJpaRepository.findNewestAfter(after.createdAt(), after.id(), viewer, limit);
         if (tracks.isEmpty()) {
             return List.of();
         }
@@ -47,8 +52,10 @@ public class TrackSummaryPersistenceAdapter implements TrackSummaryReader {
     private static TrackSummary toSummary(TrackJpaEntity track, Long durationMs) {
         return new TrackSummary(
             track.getId(),
+            track.getOwnerId(),
             track.getTitle(),
             track.getDescription(),
+            track.getVisibility(),
             track.getStatus(),
             track.getCreatedAt(),
             durationMs

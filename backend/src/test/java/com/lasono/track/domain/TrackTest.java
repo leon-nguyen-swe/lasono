@@ -2,6 +2,8 @@ package com.lasono.track.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 
@@ -16,6 +18,7 @@ import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
 import com.lasono.track.domain.exception.TrackInvalidStateException;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
 
 class TrackTest {
 
@@ -283,10 +286,69 @@ class TrackTest {
             owner,
             "Test Track",
             null,
+            Visibility.PUBLIC,
             TrackStatus.PROCESSING,
             new AudioResource(new AudioResourceId(UUID.randomUUID()))
         );
 
         assertEquals(owner, track.getOwnerId());
+    }
+
+    @Test
+    void shouldBePublicUnlessItsOwnerChoosesOtherwise() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        assertEquals(Visibility.PUBLIC, track.getVisibility());
+    }
+
+    @Test
+    void shouldBePrivateWhenItsOwnerChoosesSo() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, Visibility.PRIVATE);
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
+        assertEquals(Visibility.PRIVATE, track.toSnapshot().visibility());
+    }
+
+    @Test
+    void shouldNotExistWithoutAVisibility() {
+        assertThrows(NullPointerException.class, () -> new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, null));
+    }
+
+    @Test
+    void shouldKeepItsVisibilityWhenRebuiltFromStorage() {
+        Track track = Track.reconstitute(
+            new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
+            "Test Track",
+            null,
+            Visibility.PRIVATE,
+            TrackStatus.PROCESSING,
+            new AudioResource(new AudioResourceId(UUID.randomUUID()))
+        );
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
+    }
+
+    private static final OwnerId STRANGER = new OwnerId(UUID.fromString("00000000-0000-0000-0000-0000000000b2"));
+
+    @Test
+    void aPublicTrackIsVisibleToEveryone() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        assertTrue(track.isVisibleTo(TrackFixtures.OWNER));
+        assertTrue(track.isVisibleTo(STRANGER));
+        assertTrue(track.isVisibleTo(null), "nobody is logged in");
+    }
+
+    @Test
+    void aPrivateTrackIsVisibleOnlyToItsOwner() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, Visibility.PRIVATE);
+
+        assertTrue(track.isVisibleTo(TrackFixtures.OWNER));
+        assertFalse(track.isVisibleTo(STRANGER));
+        assertFalse(track.isVisibleTo(null), "nobody is logged in");
     }
 }

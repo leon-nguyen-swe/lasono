@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import com.lasono.track.domain.model.Visibility;
 
 @SpringBootTest 
 @Import(TrackPersistenceAdapter.class)
@@ -78,5 +79,16 @@ class TrackPersistenceAdapterTest {
 
         assertThat(result).isPresent();
         assertThat(result.get().getOwnerId()).isEqualTo(owner);
+    }
+
+    @Test
+    void shouldKeepTheVisibilityOfASavedTrack() {
+        TrackId privateId = new TrackId(UUID.randomUUID());
+        TrackId publicId = new TrackId(UUID.randomUUID());
+        adapter.save(new Track(privateId, TrackFixtures.OWNER, "Hidden", null, Visibility.PRIVATE));
+        adapter.save(new Track(publicId, TrackFixtures.OWNER, "Shown", null));
+
+        assertThat(adapter.findById(privateId).orElseThrow().getVisibility()).isEqualTo(Visibility.PRIVATE);
+        assertThat(adapter.findById(publicId).orElseThrow().getVisibility()).isEqualTo(Visibility.PUBLIC);
     }
 }

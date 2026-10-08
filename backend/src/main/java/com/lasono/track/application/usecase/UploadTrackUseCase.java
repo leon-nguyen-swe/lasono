@@ -14,6 +14,7 @@ import com.lasono.track.domain.TrackId;
 import com.lasono.track.domain.TrackRepository;
 import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.audio.model.OriginalAudio;
+import com.lasono.track.domain.model.Visibility;
 
 @Component 
 public class UploadTrackUseCase {
@@ -38,12 +39,13 @@ public class UploadTrackUseCase {
     public UploadTrackResult execute(UploadTrackCommand command) {
         AudioFormat format = AudioFormat.fromMimeType(command.mimeType());
 
-        // Validates the title before any file is written.
+        // Validates the title and the visibility before any file is written.
         Track track = new Track(
             new TrackId(UUID.randomUUID()),
             new OwnerId(command.ownerId()),
             command.title(),
-            command.description()
+            command.description(),
+            Visibility.parse(command.visibility())
         );
 
         StorageKey key = audioStorage.store(command.audioData(), format);

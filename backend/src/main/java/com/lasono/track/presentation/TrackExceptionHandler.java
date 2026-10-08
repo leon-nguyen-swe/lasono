@@ -15,6 +15,7 @@ import com.lasono.track.application.usecase.TrackNotReadyException;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
+import com.lasono.track.domain.exception.TrackVisibilityInvalidException;
 
 @RestControllerAdvice
 public class TrackExceptionHandler {
@@ -31,6 +32,11 @@ public class TrackExceptionHandler {
 
     @ExceptionHandler(InvalidPageRequestException.class)
     public ProblemDetail handleInvalidPageRequest(InvalidPageRequestException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(TrackVisibilityInvalidException.class)
+    public ProblemDetail handleInvalidVisibility(TrackVisibilityInvalidException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 

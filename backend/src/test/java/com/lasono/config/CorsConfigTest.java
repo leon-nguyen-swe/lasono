@@ -30,6 +30,7 @@ import com.lasono.track.application.usecase.TrackNotFoundException;
 import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.presentation.TrackController;
 import com.lasono.track.presentation.TrackExceptionHandler;
+import com.lasono.track.application.usecase.GetStreamUrlUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class CorsConfigTest {
@@ -50,12 +51,16 @@ class CorsConfigTest {
     @Mock
     private ListTracksUseCase listTracksUseCase;
 
+    @Mock
+    private GetStreamUrlUseCase getStreamUrlUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         TrackController controller =
-            new TrackController(uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase);
+            new TrackController(
+                uploadTrackUseCase, getTrackUseCase, streamTrackUseCase, listTracksUseCase, getStreamUrlUseCase);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new TrackExceptionHandler())
             .addFilters(new CorsConfig().corsFilter(List.of(FLUTTER_ORIGIN, FLUTTER_ORIGIN_IP)))
@@ -65,7 +70,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedOrigin_get_returnsAllowOriginHeader() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+        when(getTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN));
@@ -73,7 +78,7 @@ class CorsConfigTest {
 
     @Test
     void givenAllowedOrigin_listTracks_returnsAllowOriginHeader() throws Exception {
-        when(listTracksUseCase.execute(null, null)).thenReturn(new ListTracksResult(List.of(), null));
+        when(listTracksUseCase.execute(null, null, null)).thenReturn(new ListTracksResult(List.of(), null));
 
         mockMvc.perform(get("/api/v1/tracks").header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(status().isOk())
@@ -83,7 +88,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedIpOrigin_get_returnsAllowOriginHeader() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+        when(getTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN_IP))
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, FLUTTER_ORIGIN_IP));
@@ -92,7 +97,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedOrigin_errorResponse_stillCarriesAllowOriginHeader() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+        when(getTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(status().isNotFound())
@@ -102,7 +107,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedOrigin_streamResponse_exposesRangeHeaders() throws Exception {
         UUID id = UUID.randomUUID();
-        when(streamTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
+        when(streamTrackUseCase.execute(id, null, null, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}/stream", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(header().string(
@@ -129,7 +134,7 @@ class CorsConfigTest {
     @Test
     void givenAllowedOrigin_get_allowsCredentials() throws Exception {
         UUID id = UUID.randomUUID();
-        when(getTrackUseCase.execute(id)).thenThrow(new TrackNotFoundException(id));
+        when(getTrackUseCase.execute(id, null)).thenThrow(new TrackNotFoundException(id));
 
         mockMvc.perform(get("/api/v1/tracks/{id}", id).header(HttpHeaders.ORIGIN, FLUTTER_ORIGIN))
             .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));

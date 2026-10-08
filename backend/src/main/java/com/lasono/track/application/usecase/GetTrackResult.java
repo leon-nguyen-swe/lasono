@@ -6,6 +6,7 @@ public record GetTrackResult(
     String id,
     String title,
     String description,
+    String visibility,
     String status,
     String mimeType,
     Double durationSeconds,
