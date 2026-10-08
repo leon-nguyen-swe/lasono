@@ -1,12 +1,11 @@
 {
-    "name": "lasono_app",
-    "short_name": "lasono_app",
+    "name": "LaSono",
+    "short_name": "LaSono",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0B0D12",
+    "theme_color": "#0B0D12",
+    "description": "LaSono: nghe và chia sẻ nhạc của chính bạn.",
     "prefer_related_applications": false,
     "icons": [
         {
