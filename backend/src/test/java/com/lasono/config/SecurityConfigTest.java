@@ -282,4 +282,18 @@ class SecurityConfigTest {
         mockMvc.perform(get("/v3/api-docs"))
             .andExpect(status().isOk());
     }
+
+    // A profile is public like the tracks on it, so the list of a user's tracks needs no login ...
+    @Test
+    void theTracksOfAUserCanBeListedWithoutALogin() throws Exception {
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", UUID.randomUUID()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(0));
+    }
+
+    // ... while "me" still asks who you are.
+    @Test
+    void meStillNeedsALoginNextToThePublicProfileRoutes() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
+    }
 }

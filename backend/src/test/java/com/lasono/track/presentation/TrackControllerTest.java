@@ -597,4 +597,43 @@ class TrackControllerTest {
 
         verifyNoInteractions(deleteTrackUseCase);
     }
+
+    // --- the tracks of one user (a profile page) ---
+
+    @Test
+    void givenAUserId_listUserTracks_returnsTheirTracksWithTheOwner() throws Exception {
+        UUID owner = UUID.randomUUID();
+        UUID track = UUID.randomUUID();
+        when(listTracksUseCase.executeForOwner(owner, null, null, null)).thenReturn(new ListTracksResult(
+            List.of(new TrackListItemResult(track.toString(), owner.toString(), "Song", "", "PUBLIC", "READY", 3.5)),
+            "next-cursor"));
+
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", owner))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(track.toString()))
+            .andExpect(jsonPath("$.items[0].ownerId").value(owner.toString()))
+            .andExpect(jsonPath("$.nextCursor").value("next-cursor"));
+    }
+
+    @Test
+    void givenCursorAndLimitAndASignedInViewer_listUserTracks_passesThemAllToTheUseCase() throws Exception {
+        UUID owner = UUID.randomUUID();
+        when(listTracksUseCase.executeForOwner(owner, "abc", 5, USER_ID))
+            .thenReturn(new ListTracksResult(List.of(), null));
+
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", owner)
+                .param("cursor", "abc").param("limit", "5").principal(signedInAs(USER_ID)))
+            .andExpect(status().isOk());
+
+        verify(listTracksUseCase).executeForOwner(owner, "abc", 5, USER_ID);
+    }
+
+    @Test
+    void givenAnIdThatIsNotAUuid_listUserTracks_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/users/{id}/tracks", "not-a-uuid"))
+            .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(listTracksUseCase);
+    }
 }

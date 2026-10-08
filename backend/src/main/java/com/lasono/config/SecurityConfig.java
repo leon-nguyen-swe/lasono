@@ -32,6 +32,8 @@ public class SecurityConfig {
                 // Reading is open until tracks can be private. Uploading, and later editing and deleting, need a
                 // login: every other method falls through to the rule at the bottom.
                 .requestMatchers(HttpMethod.GET, "/api/v1/tracks/**").permitAll()
+                // The tracks of a user, like any other track listing. "me" stays closed: it falls to the last rule.
+                .requestMatchers(HttpMethod.GET, "/api/v1/users/*/tracks").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Everything else is closed unless a route above opens it.
                 .anyRequest().authenticated())
