@@ -17,6 +17,7 @@ import com.lasono.track.domain.audio.model.OriginalAudio;
 import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
 import com.lasono.track.domain.exception.TrackInvalidStateException;
+import com.lasono.track.domain.exception.TrackTitleInvalidException;
 import com.lasono.track.domain.model.TrackStatus;
 import com.lasono.track.domain.model.Visibility;
 
@@ -350,5 +351,54 @@ class TrackTest {
         assertTrue(track.isVisibleTo(TrackFixtures.OWNER));
         assertFalse(track.isVisibleTo(STRANGER));
         assertFalse(track.isVisibleTo(null), "nobody is logged in");
+    }
+
+    @Test
+    void isOwnedByTellsTheOwnerFromEveryoneElse() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        assertTrue(track.isOwnedBy(TrackFixtures.OWNER));
+        assertFalse(track.isOwnedBy(STRANGER));
+        assertFalse(track.isOwnedBy(null));
+    }
+
+    @Test
+    void shouldChangeItsDescription() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", "old");
+
+        track.changeDescription("new");
+
+        assertEquals("new", track.getDescription());
+        assertEquals("new", track.toSnapshot().description());
+    }
+
+    @Test
+    void shouldChangeItsVisibility() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        track.changeVisibility(Visibility.PRIVATE);
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
+        track.changeVisibility(Visibility.PUBLIC);
+        assertEquals(Visibility.PUBLIC, track.getVisibility());
+    }
+
+    @Test
+    void shouldNotLoseItsVisibilityWhenAskedToChangeToNothing() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, Visibility.PRIVATE);
+
+        assertThrows(NullPointerException.class, () -> track.changeVisibility(null));
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
+    }
+
+    @Test
+    void shouldKeepItsOldTitleWhenTheNewOneIsBlank() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Old title", null);
+
+        assertThrows(TrackTitleInvalidException.class, () -> track.rename("   "));
+
+        assertEquals("Old title", track.getTitle());
     }
 }

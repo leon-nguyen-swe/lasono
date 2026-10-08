@@ -144,6 +144,18 @@ public class Track {
         this.status = TrackStatus.FAILED;
     }
 
+    public boolean isOwnedBy(OwnerId someone) {
+        return this.ownerId.equals(someone);
+    }
+
+    public void changeDescription(String newDescription) {
+        this.description = newDescription;
+    }
+
+    public void changeVisibility(Visibility newVisibility) {
+        this.visibility = Objects.requireNonNull(newVisibility);
+    }
+
     public void rename(String newTitle) {
         validateTitle(newTitle);
         this.title = newTitle;

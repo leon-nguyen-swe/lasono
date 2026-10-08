@@ -172,4 +172,24 @@ class TrackRepositoryTest {
 
         assertEquals(Visibility.PRIVATE, repository.findById(id).orElseThrow().getVisibility());
     }
+
+    @Test
+    void shouldFindATrackForUpdateLikeAnyOther() {
+        TrackId id = new TrackId(UUID.randomUUID());
+        repository.save(new Track(id, TrackFixtures.OWNER, "Mine", null));
+
+        assertEquals("Mine", repository.findByIdForUpdate(id).orElseThrow().getTitle());
+        assertTrue(repository.findByIdForUpdate(new TrackId(UUID.randomUUID())).isEmpty());
+    }
+
+    @Test
+    void shouldForgetADeletedTrackAndAcceptDeletingOneThatIsNotThere() {
+        TrackId id = new TrackId(UUID.randomUUID());
+        repository.save(new Track(id, TrackFixtures.OWNER, "Mine", null));
+
+        repository.delete(id);
+        repository.delete(id);
+
+        assertTrue(repository.findById(id).isEmpty());
+    }
 }

@@ -6,11 +6,19 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface AudioResourceJpaRepository extends JpaRepository<AudioResourceJpaEntity, UUID> {  
     Optional<AudioResourceJpaEntity> findByTrack_Id(UUID trackId);
+
+    // The audio resource points at the track, so it has to go first.
+    @Transactional
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from AudioResourceJpaEntity a where a.track.id = :trackId")
+    void deleteByTrackId(@Param("trackId") UUID trackId);
 
     /** Reads only these two columns, so the waveform of every track is not loaded just to show a list. */
     @Query("select a.track.id as trackId, a.durationMs as durationMs "

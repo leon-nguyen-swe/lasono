@@ -139,6 +139,16 @@ class ProcessTrackUseCaseTest {
             public Optional<Track> findById(TrackId trackId) {
                 return trackRepository.findById(trackId);
             }
+
+            @Override
+            public Optional<Track> findByIdForUpdate(TrackId trackId) {
+                return trackRepository.findByIdForUpdate(trackId);
+            }
+
+            @Override
+            public void delete(TrackId trackId) {
+                trackRepository.delete(trackId);
+            }
         };
         ProcessTrackUseCase failingUseCase = new ProcessTrackUseCase(failingSave, storage, processor);
 

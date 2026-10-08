@@ -89,8 +89,25 @@ public class TrackPersistenceAdapter implements TrackRepository {
         return result;
     }
 
+    @Override
+    public Optional<Track> findByIdForUpdate(TrackId id) {
+        return load(id, trackJpaRepository.findWithLockById(id.getValue()));
+    }
+
+    @Override
+    public void delete(TrackId id) {
+        audioResourceJpaRepository.deleteByTrackId(id.getValue());
+        trackJpaRepository.deleteById(id.getValue());
+        // Flush so a problem shows up here and not at the end of the surrounding transaction.
+        trackJpaRepository.flush();
+    }
+
+    @Override
     public Optional<Track> findById(TrackId id) {
-        Optional<TrackJpaEntity> trackEntity = trackJpaRepository.findById(id.getValue());
+        return load(id, trackJpaRepository.findById(id.getValue()));
+    }
+
+    private Optional<Track> load(TrackId id, Optional<TrackJpaEntity> trackEntity) {
         if (trackEntity.isEmpty()) {
             return Optional.empty();
         }
