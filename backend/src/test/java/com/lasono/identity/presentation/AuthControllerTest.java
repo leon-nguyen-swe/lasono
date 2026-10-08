@@ -1,5 +1,7 @@
 package com.lasono.identity.presentation;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,9 +9,14 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Duration;
+
+import jakarta.servlet.http.Cookie;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,11 +29,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.lasono.identity.application.usecase.AuthSession;
 import com.lasono.identity.application.usecase.InvalidCredentialsException;
+import com.lasono.identity.application.usecase.InvalidRefreshTokenException;
 import com.lasono.identity.application.usecase.LoginCommand;
 import com.lasono.identity.application.usecase.LoginResult;
 import com.lasono.identity.application.usecase.LoginUseCase;
+import com.lasono.identity.application.usecase.LogoutUseCase;
 import com.lasono.identity.application.usecase.PasswordInvalidException;
+import com.lasono.identity.application.usecase.RefreshSessionUseCase;
 import com.lasono.identity.application.usecase.RegisterUserCommand;
 import com.lasono.identity.application.usecase.RegisterUserResult;
 import com.lasono.identity.application.usecase.RegisterUserUseCase;
@@ -49,11 +60,24 @@ class AuthControllerTest {
     @Mock
     private LoginUseCase loginUseCase;
 
+    @Mock
+    private RefreshSessionUseCase refreshSessionUseCase;
+
+    @Mock
+    private LogoutUseCase logoutUseCase;
+
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(registerUserUseCase, loginUseCase))
+        AuthController controller = new AuthController(
+            registerUserUseCase,
+            loginUseCase,
+            refreshSessionUseCase,
+            logoutUseCase,
+            new RefreshCookies(Duration.ofDays(30), true)
+        );
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new IdentityExceptionHandler())
             .build();
     }
@@ -147,9 +171,13 @@ class AuthControllerTest {
         assertNull(captor.getValue().password());
     }
 
+    private static AuthSession aSession() {
+        return new AuthSession(new LoginResult("a.jwt.token", "Bearer", 900), "a-refresh-token");
+    }
+
     @Test
     void login_returns200WithTheAccessToken() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY)
             .andExpect(status().isOk())
@@ -161,7 +189,7 @@ class AuthControllerTest {
     // RFC 6749: a response that carries a token must not be stored by browsers or proxies.
     @Test
     void login_tellsEveryCacheNotToKeepTheToken() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY)
             .andExpect(header().string("Cache-Control", "no-store"));
@@ -169,7 +197,7 @@ class AuthControllerTest {
 
     @Test
     void login_passesTheRequestFieldsToTheUseCase() throws Exception {
-        when(loginUseCase.execute(any())).thenReturn(new LoginResult("a.jwt.token", "Bearer", 900));
+        when(loginUseCase.execute(any())).thenReturn(aSession());
 
         login(LOGIN_BODY);
 
@@ -207,6 +235,85 @@ class AuthControllerTest {
         verify(loginUseCase).execute(captor.capture());
         assertNull(captor.getValue().email());
         assertNull(captor.getValue().password());
+    }
+
+    // The refresh token must reach the browser only as an HttpOnly cookie, never in a body a script can read.
+    @Test
+    void login_setsTheRefreshTokenInACookieAndNotInTheBody() throws Exception {
+        when(loginUseCase.execute(any())).thenReturn(aSession());
+
+        login(LOGIN_BODY)
+            .andExpect(header().string("Set-Cookie", containsString("lasono_refresh=a-refresh-token")))
+            .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+            .andExpect(header().string("Set-Cookie", containsString("SameSite=Strict")))
+            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andExpect(content().string(not(containsString("a-refresh-token"))));
+    }
+
+    @Test
+    void login_failureSetsNoCookie() throws Exception {
+        when(loginUseCase.execute(any())).thenThrow(new InvalidCredentialsException());
+
+        login(LOGIN_BODY).andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void refresh_exchangesTheCookieForNewTokens() throws Exception {
+        when(refreshSessionUseCase.execute("old-token"))
+            .thenReturn(new AuthSession(new LoginResult("new.jwt.token", "Bearer", 900), "new-refresh-token"));
+
+        refresh("old-token")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessToken").value("new.jwt.token"))
+            .andExpect(jsonPath("$.tokenType").value("Bearer"))
+            .andExpect(jsonPath("$.expiresIn").value(900))
+            .andExpect(jsonPath("$.refreshToken").doesNotExist())
+            .andExpect(header().string("Set-Cookie", containsString("lasono_refresh=new-refresh-token")))
+            .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void refresh_returns401WithoutACookieAndPassesNullToTheUseCase() throws Exception {
+        when(refreshSessionUseCase.execute(null)).thenThrow(new InvalidRefreshTokenException());
+
+        mockMvc.perform(post("/api/v1/auth/refresh"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.detail").value("Invalid refresh token"));
+    }
+
+    @Test
+    void refresh_returns401WithOneNeutralMessageAndSetsNoCookieForATokenThatCannotBeUsed() throws Exception {
+        when(refreshSessionUseCase.execute("stale")).thenThrow(new InvalidRefreshTokenException());
+
+        refresh("stale")
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.detail").value("Invalid refresh token"))
+            .andExpect(header().doesNotExist("Set-Cookie"));
+    }
+
+    @Test
+    void logout_endsTheSessionAndAsksTheBrowserToDeleteTheCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout").cookie(new Cookie("lasono_refresh", "the-token")))
+            .andExpect(status().isNoContent())
+            .andExpect(header().string("Set-Cookie", containsString("lasono_refresh=;")))
+            .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")))
+            .andExpect(header().string("Set-Cookie", containsString("Path=/api/v1/auth")));
+
+        verify(logoutUseCase).execute("the-token");
+    }
+
+    // A logout the browser sends twice, or after the cookie expired, must still be a success.
+    @Test
+    void logout_withoutACookieStillAnswers204AndClearsTheCookie() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+            .andExpect(status().isNoContent())
+            .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+
+        verify(logoutUseCase).execute(null);
+    }
+
+    private ResultActions refresh(String refreshToken) throws Exception {
+        return mockMvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("lasono_refresh", refreshToken)));
     }
 
     private ResultActions login(String body) throws Exception {

@@ -46,6 +46,7 @@ public abstract class PostgresIntegrationTest {
         jdbcTemplate.update("DELETE FROM processing_jobs");
         jdbcTemplate.update("DELETE FROM audio_resources");
         jdbcTemplate.update("DELETE FROM tracks");
+        jdbcTemplate.update("DELETE FROM refresh_tokens");
         jdbcTemplate.update("DELETE FROM users");
     }
 }

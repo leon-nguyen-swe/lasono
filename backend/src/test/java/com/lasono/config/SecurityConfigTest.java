@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import jakarta.servlet.http.Cookie;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -162,6 +164,51 @@ class SecurityConfigTest {
                 .content("{\"email\":\"nobody@example.com\",\"password\":\"wrong horse\"}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.detail").value("Invalid email or password"));
+    }
+
+    // localhost:3000 and localhost:8080 count as the same site, so SameSite=Strict alone would still send the
+    // cookie from another page served on localhost. The Origin check is what refuses that request. The cookie
+    // here is made up: 403 (not 401) proves the request was stopped before anything looked at it.
+    @Test
+    void refreshAndLogoutFromAnOriginThatIsNotAllowedAreRefusedBeforeTheCookieIsRead() throws Exception {
+        for (String route : new String[] {"/api/v1/auth/refresh", "/api/v1/auth/logout"}) {
+            mockMvc.perform(post(route)
+                    .header(HttpHeaders.ORIGIN, "http://evil.example")
+                    .cookie(new Cookie("lasono_refresh", "made-up")))
+                .andExpect(status().isForbidden())
+                .andExpect(header().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+        }
+    }
+
+    @Test
+    void refreshFromTheFlutterAppReachesTheControllerAndMayUseCookies() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                .cookie(new Cookie("lasono_refresh", "made-up")))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.detail").value("Invalid refresh token"))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:3000"))
+            .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true"));
+    }
+
+    // Tools such as curl send no Origin. They are not the browser attack the check is for.
+    @Test
+    void refreshWithoutAnOriginHeaderReachesTheController() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("lasono_refresh", "made-up")))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.detail").value("Invalid refresh token"));
+    }
+
+    // The access token has usually expired by the time the app refreshes, which is the very reason it refreshes.
+    @Test
+    void refreshIsNotBlockedByAStaleAccessTokenInTheHeader() throws Exception {
+        String stale = sign(jwtEncoder, Instant.now().minus(2, ChronoUnit.HOURS), Instant.now().minus(1, ChronoUnit.HOURS));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + stale)
+                .cookie(new Cookie("lasono_refresh", "made-up")))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.detail").value("Invalid refresh token"));
     }
 
     @Test

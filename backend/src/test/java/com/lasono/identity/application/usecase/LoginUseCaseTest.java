@@ -1,8 +1,14 @@
 package com.lasono.identity.application.usecase;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -10,17 +16,24 @@ import org.junit.jupiter.api.Test;
 
 import com.lasono.identity.domain.DisplayName;
 import com.lasono.identity.domain.Email;
+import com.lasono.identity.domain.InMemoryRefreshTokenRepository;
 import com.lasono.identity.domain.InMemoryUserRepository;
+import com.lasono.identity.domain.RefreshToken;
+import com.lasono.identity.domain.RefreshTokenCheck;
 import com.lasono.identity.domain.User;
 import com.lasono.identity.domain.UserId;
 
 class LoginUseCaseTest {
 
     private static final String PASSWORD = "correct horse";
+    private static final Instant NOW = Instant.parse("2026-10-08T10:00:00Z");
+    private static final Duration TTL = Duration.ofDays(30);
 
     private InMemoryUserRepository userRepository;
     private FakePasswordHasher passwordHasher;
     private FakeAccessTokenIssuer tokenIssuer;
+    private InMemoryRefreshTokenRepository refreshTokens;
+    private FakeRefreshTokenCodec refreshTokenCodec;
     private LoginUseCase useCase;
     private String aliceId;
 
@@ -29,7 +42,17 @@ class LoginUseCaseTest {
         userRepository = new InMemoryUserRepository();
         passwordHasher = new FakePasswordHasher();
         tokenIssuer = new FakeAccessTokenIssuer();
-        useCase = new LoginUseCase(userRepository, passwordHasher, tokenIssuer);
+        refreshTokens = new InMemoryRefreshTokenRepository();
+        refreshTokenCodec = new FakeRefreshTokenCodec();
+        useCase = new LoginUseCase(
+            userRepository,
+            passwordHasher,
+            tokenIssuer,
+            refreshTokens,
+            refreshTokenCodec,
+            Clock.fixed(NOW, ZoneOffset.UTC),
+            TTL
+        );
         aliceId = new RegisterUserUseCase(userRepository, passwordHasher)
             .execute(new RegisterUserCommand("alice@example.com", "Alice", PASSWORD))
             .userId();
@@ -37,7 +60,7 @@ class LoginUseCaseTest {
 
     @Test
     void execute_shouldGiveATokenForTheRightUser() {
-        LoginResult result = useCase.execute(new LoginCommand("alice@example.com", PASSWORD));
+        LoginResult result = useCase.execute(new LoginCommand("alice@example.com", PASSWORD)).access();
 
         assertEquals(FakeAccessTokenIssuer.PREFIX + aliceId, result.accessToken());
         assertEquals("Bearer", result.tokenType());
@@ -45,8 +68,43 @@ class LoginUseCaseTest {
     }
 
     @Test
+    void execute_shouldGiveARefreshTokenAndKeepOnlyItsHashInTheDatabase() {
+        AuthSession session = useCase.execute(new LoginCommand("alice@example.com", PASSWORD));
+
+        assertEquals("raw-1", session.refreshToken());
+        assertTrue(refreshTokens.findByTokenHashForUpdate("raw-1").isEmpty());
+        RefreshToken stored = refreshTokens.findByTokenHashForUpdate(refreshTokenCodec.hash("raw-1")).orElseThrow();
+        assertEquals(aliceId, stored.getUserId().getValue().toString());
+        assertEquals(NOW.plus(TTL), stored.getExpiresAt());
+        assertEquals(RefreshTokenCheck.USABLE, stored.check(NOW));
+    }
+
+    // Each login is its own session: logging out on one device must not end the session on another.
+    @Test
+    void execute_shouldStartANewFamilyForEveryLogin() {
+        AuthSession laptop = useCase.execute(new LoginCommand("alice@example.com", PASSWORD));
+        AuthSession phone = useCase.execute(new LoginCommand("alice@example.com", PASSWORD));
+
+        UUID laptopFamily = refreshTokens.findByTokenHashForUpdate(refreshTokenCodec.hash(laptop.refreshToken()))
+            .orElseThrow().getFamilyId();
+        UUID phoneFamily = refreshTokens.findByTokenHashForUpdate(refreshTokenCodec.hash(phone.refreshToken()))
+            .orElseThrow().getFamilyId();
+        assertNotEquals(laptopFamily, phoneFamily);
+    }
+
+    @Test
+    void execute_shouldGiveNoRefreshTokenWhenTheLoginFails() {
+        assertThrows(InvalidCredentialsException.class,
+            () -> useCase.execute(new LoginCommand("alice@example.com", "wrong horse")));
+        assertThrows(InvalidCredentialsException.class,
+            () -> useCase.execute(new LoginCommand("nobody@example.com", PASSWORD)));
+
+        assertTrue(refreshTokens.findByTokenHashForUpdate(refreshTokenCodec.hash("raw-1")).isEmpty());
+    }
+
+    @Test
     void execute_shouldIgnoreCaseAndSurroundingSpacesInTheEmail() {
-        LoginResult result = useCase.execute(new LoginCommand("  ALICE@Example.com ", PASSWORD));
+        LoginResult result = useCase.execute(new LoginCommand("  ALICE@Example.com ", PASSWORD)).access();
 
         assertEquals(FakeAccessTokenIssuer.PREFIX + aliceId, result.accessToken());
     }
@@ -131,7 +189,7 @@ class LoginUseCaseTest {
             FakePasswordHasher.PREFIX + "abc"
         ));
 
-        LoginResult result = useCase.execute(new LoginCommand("old@example.com", "abc"));
+        LoginResult result = useCase.execute(new LoginCommand("old@example.com", "abc")).access();
 
         assertEquals("Bearer", result.tokenType());
     }
