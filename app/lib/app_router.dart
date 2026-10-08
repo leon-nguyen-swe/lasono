@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'audio_picker.dart';
 import 'auth/session_controller.dart';
 import 'core/theme/theme.dart';
 import 'data/app_repositories.dart';
@@ -9,6 +10,7 @@ import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
 import 'screens/auth_page.dart';
 import 'screens/home_page.dart';
+import 'screens/upload_page.dart';
 import 'shell/app_shell.dart';
 
 /// The places of the app. The routes that are not in the table yet (a page that is still the old screen) are
@@ -34,7 +36,7 @@ class RouterDependencies {
     required this.themeController,
     required this.repositories,
     required this.playback,
-    required this.legacyUpload,
+    this.pickAudio,
   });
 
   final SessionController session;
@@ -44,8 +46,8 @@ class RouterDependencies {
   /// Made when a page of the shell first needs it (see [PlaybackScope]).
   final PlaybackController Function() playback;
 
-  /// The upload form of the old UI, which stays as it is until its new version is built.
-  final WidgetBuilder legacyUpload;
+  /// The file dialog of the upload page; the real one when null.
+  final AudioPicker? pickAudio;
 }
 
 /// Where a login (or the start of the app) must send the user, given where they are and who they are; null means
@@ -91,9 +93,7 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
     errorBuilder: (context, state) => _NotFoundPage(location: state.uri.toString()),
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (context, state) => const _SplashPage()),
-      // The old screens, until the new ones replace them (UI_BUILD_PLAN.md, phase 7).
-      GoRoute(path: AppRoutes.upload, builder: (context, state) => deps.legacyUpload(context)),
-      GoRoute(
+            GoRoute(
         path: AppRoutes.login,
         builder: (context, state) => AuthPage(session: deps.session, from: state.uri.queryParameters['from']),
       ),
@@ -116,6 +116,7 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
         routes: [
           if (debug) GoRoute(path: AppRoutes.gallery, builder: (context, state) => GalleryScreen(themeController: deps.themeController, embedded: true)),
           GoRoute(path: AppRoutes.home, builder: (context, state) => const HomePage()),
+          GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
           GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),
           GoRoute(path: AppRoutes.search, builder: (context, state) => const _ComingSoonPage(title: 'Tìm kiếm')),
         ],

@@ -17,7 +17,6 @@ import 'data/fake_flags.dart';
 import 'player_service.dart';
 import 'playback/playback_controller.dart';
 import 'shell/app_context.dart';
-import 'screens/track_screen.dart';
 
 void main() {
   // Addresses like /users/42 instead of /#/users/42. The server must answer every such address with the app
@@ -96,13 +95,7 @@ class _LasonoAppState extends State<LasonoApp> {
       themeController: _theme,
       repositories: _repositories,
       playback: () => _playback,
-      legacyUpload: (context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Upload'),
-          leading: BackButton(onPressed: () => context.go(AppRoutes.home)),
-        ),
-        body: TrackScreen(api: widget.api, pickAudio: widget.pickAudio, player: widget.player),
-      ),
+      pickAudio: widget.pickAudio,
     ),
     initialLocation: widget.initialLocation,
   );

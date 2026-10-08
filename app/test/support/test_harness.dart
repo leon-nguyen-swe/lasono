@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lasono_app/api/track_api.dart';
+import 'package:lasono_app/audio_picker.dart';
 import 'package:lasono_app/auth/session_controller.dart';
 import 'package:lasono_app/core/theme/theme.dart';
 import 'package:lasono_app/data/app_repositories.dart';
@@ -62,11 +63,12 @@ class TestEnv {
   PlaybackController newPlayback() => PlaybackController(player: player, streamUrl: repositories.tracks.fetchStreamUrl);
 
   /// The whole app, opened at [location].
-  Widget app({String location = '/', ThemeController? theme}) => LasonoApp(
+  Widget app({String location = '/', ThemeController? theme, AudioPicker? pickAudio}) => LasonoApp(
         session: session,
         repositories: repositories,
         player: player,
         themeController: theme,
+        pickAudio: pickAudio,
         initialLocation: location,
         api: TrackApi(
           baseUrl: 'http://api.test',

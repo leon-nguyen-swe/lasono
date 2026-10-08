@@ -126,40 +126,40 @@ void main() {
     });
 
     testWidgets('a page that needs a login sends a visitor to the login, and after the login they arrive on it', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create();
 
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
       expect(find.byKey(const Key('emailField')), findsOneWidget, reason: 'the login page, not the upload form');
-      expect(find.byKey(const Key('chooseFileButton')), findsNothing);
+      expect(find.byKey(const Key('dropZone')), findsNothing);
 
       await tester.enterText(find.byKey(const Key('emailField')), 'ann@example.com');
       await tester.enterText(find.byKey(const Key('passwordField')), 'secret pass');
       await tester.tap(find.byKey(const Key('submitButton')));
       await _settle(tester);
 
-      expect(find.byKey(const Key('chooseFileButton')), findsOneWidget, reason: 'the upload form the user asked for');
+      expect(find.byKey(const Key('dropZone')), findsOneWidget, reason: 'the upload form the user asked for');
       expect(env.server.count('POST /api/v1/auth/login'), 1);
     });
 
     testWidgets('a user who is logged in goes straight to the page that needs a login', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create(signedIn: true);
 
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
 
-      expect(find.byKey(const Key('chooseFileButton')), findsOneWidget);
+      expect(find.byKey(const Key('dropZone')), findsOneWidget);
     });
 
-    testWidgets('the upload page has a way back to the list', (tester) async {
+    testWidgets('the upload page has a way back to the list: the logo of the top bar', (tester) async {
       TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create(signedIn: true);
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
 
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byKey(const Key('logo')));
       await _settle(tester);
 
       expect(find.byKey(const Key('homeTitle')), findsOneWidget);
