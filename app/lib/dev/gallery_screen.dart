@@ -43,9 +43,9 @@ class GalleryScreen extends StatelessWidget {
     _ShapeSection(),
     _MotionSection(),
     _BreakpointSection(),
+    _PlayerSection(),
     _ComponentsSection(),
     _AppComponentsSection(),
-    _PlayerSection(),
   ];
 
   Widget _themeSwitch() => Row(
