@@ -88,21 +88,10 @@ class TrackApi {
         ),
       );
 
-  // The server refuses a token that has run out, also on the routes anyone may
-  // read. A new token is asked for once and the request is sent once more; a
-  // second refusal is the answer. Without a token there is nothing to renew.
   Future<http.Response> _authorized(
     Future<http.Response> Function(String? token) send,
-  ) async {
-    final auth = _auth;
-    final token = auth?.accessToken;
-    final response = await send(token);
-    if (response.statusCode != 401 || auth == null || token == null) {
-      return response;
-    }
-    final renewed = await auth.refreshAccessToken();
-    return renewed == null ? response : send(renewed);
-  }
+  ) =>
+      sendWithToken(_auth, send);
 
   Map<String, String> _bearer(String? token) =>
       {'Authorization': ?(token == null ? null : 'Bearer $token')};
