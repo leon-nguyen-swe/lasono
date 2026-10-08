@@ -180,100 +180,103 @@ class _AuthPageState extends State<AuthPage> {
     final text = Theme.of(context).textTheme;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
-      child: AutofillGroup(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_registering ? 'Tạo tài khoản' : 'Chào mừng trở lại', key: const Key('authTitle'), style: text.headlineMedium),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              _registering ? 'Miễn phí và chỉ mất một phút.' : 'Đăng nhập để tải nhạc lên, thích và bình luận.',
-              style: text.bodyMedium?.copyWith(color: c.textSecondary),
-            ),
-            const SizedBox(height: AppSpacing.xl),
+      // No AutofillGroup and no autofillHints on purpose: when Chrome filled the fields in from its memory, the
+      // password field could no longer be edited (no character could be deleted). The fields ask the browser not to.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_registering ? 'Tạo tài khoản' : 'Chào mừng trở lại', key: const Key('authTitle'), style: text.headlineMedium),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            _registering ? 'Miễn phí và chỉ mất một phút.' : 'Đăng nhập để tải nhạc lên, thích và bình luận.',
+            style: text.bodyMedium?.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          TextField(
+            key: const Key('emailField'),
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(labelText: 'Email', errorText: _errors[AuthField.email]),
+          ),
+          if (_registering) ...[
+            const SizedBox(height: AppSpacing.lg),
             TextField(
-              key: const Key('emailField'),
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
+              key: const Key('displayNameField'),
+              controller: _name,
               textInputAction: TextInputAction.next,
-              decoration: InputDecoration(labelText: 'Email', errorText: _errors[AuthField.email]),
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(labelText: 'Tên hiển thị', errorText: _errors[AuthField.displayName]),
             ),
-            if (_registering) ...[
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                key: const Key('displayNameField'),
-                controller: _name,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.nickname],
-                decoration: InputDecoration(labelText: 'Tên hiển thị', errorText: _errors[AuthField.displayName]),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            TextField(
-              key: const Key('passwordField'),
-              controller: _password,
-              obscureText: !_showPassword,
-              autofillHints: [_registering ? AutofillHints.newPassword : AutofillHints.password],
-              onSubmitted: (_) => _submit(),
-              decoration: InputDecoration(
-                labelText: 'Mật khẩu',
-                helperText: _registering ? 'Ít nhất 8 ký tự.' : null,
-                errorText: _errors[AuthField.password],
-                suffixIcon: IconButton(
-                  key: const Key('togglePassword'),
-                  tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
-                  onPressed: () => setState(() => _showPassword = !_showPassword),
-                  icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                ),
+          ],
+          const SizedBox(height: AppSpacing.lg),
+          TextField(
+            key: const Key('passwordField'),
+            controller: _password,
+            obscureText: !_showPassword,
+            autocorrect: false,
+            enableSuggestions: false,
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(
+              labelText: 'Mật khẩu',
+              helperText: _registering ? 'Ít nhất 8 ký tự.' : null,
+              errorText: _errors[AuthField.password],
+              suffixIcon: IconButton(
+                key: const Key('togglePassword'),
+                tooltip: _showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu',
+                onPressed: () => setState(() => _showPassword = !_showPassword),
+                icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
               ),
             ),
-            if (_errors[AuthField.form] != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                key: const Key('formError'),
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(color: c.error.withValues(alpha: 0.12), borderRadius: AppRadius.all(AppRadius.md)),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline_rounded, size: 20, color: c.error),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: Text(_errors[AuthField.form]!, style: text.bodySmall?.copyWith(color: c.textPrimary))),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.xl),
-            FilledButton(
-              key: const Key('submitButton'),
-              onPressed: _busy ? null : _submit,
-              child: _busy
-                  ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: c.onAccent))
-                  : Text(_registering ? 'Tạo tài khoản' : 'Đăng nhập'),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(_registering ? 'Đã có tài khoản?' : 'Chưa có tài khoản?', style: text.bodyMedium?.copyWith(color: c.textSecondary)),
-                TextButton(
-                  key: const Key('switchModeButton'),
-                  onPressed: _busy ? null : _switchMode,
-                  child: Text(_registering ? 'Đăng nhập' : 'Đăng ký'),
-                ),
-              ],
-            ),
-            Center(
-              child: TextButton(
-                key: const Key('backHome'),
-                onPressed: () => context.go('/'),
-                child: const Text('Về trang chủ'),
+          ),
+          if (_errors[AuthField.form] != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              key: const Key('formError'),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(color: c.error.withValues(alpha: 0.12), borderRadius: AppRadius.all(AppRadius.md)),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 20, color: c.error),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: Text(_errors[AuthField.form]!, style: text.bodySmall?.copyWith(color: c.textPrimary))),
+                ],
               ),
             ),
           ],
-        ),
+          const SizedBox(height: AppSpacing.xl),
+          FilledButton(
+            key: const Key('submitButton'),
+            onPressed: _busy ? null : _submit,
+            child: _busy
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: c.onAccent))
+                : Text(_registering ? 'Tạo tài khoản' : 'Đăng nhập'),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(_registering ? 'Đã có tài khoản?' : 'Chưa có tài khoản?', style: text.bodyMedium?.copyWith(color: c.textSecondary)),
+              TextButton(
+                key: const Key('switchModeButton'),
+                onPressed: _busy ? null : _switchMode,
+                child: Text(_registering ? 'Đăng nhập' : 'Đăng ký'),
+              ),
+            ],
+          ),
+          Center(
+            child: TextButton(
+              key: const Key('backHome'),
+              onPressed: () => context.go('/'),
+              child: const Text('Về trang chủ'),
+            ),
+          ),
+        ],
       ),
     );
   }
