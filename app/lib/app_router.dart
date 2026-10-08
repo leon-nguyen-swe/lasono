@@ -7,7 +7,7 @@ import 'core/theme/theme.dart';
 import 'data/app_repositories.dart';
 import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
-import 'screens/auth_screen.dart';
+import 'screens/auth_page.dart';
 import 'shell/app_shell.dart';
 
 /// The places of the app. The routes that are not in the table yet (a page that is still the old screen) are
@@ -97,11 +97,11 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
       GoRoute(path: AppRoutes.upload, builder: (context, state) => deps.legacyUpload(context)),
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => AuthScreen(session: deps.session, onSignedIn: () {}),
+        builder: (context, state) => AuthPage(session: deps.session, from: state.uri.queryParameters['from']),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => AuthScreen(session: deps.session, onSignedIn: () {}, initialRegistering: true),
+        builder: (context, state) => AuthPage(session: deps.session, registering: true, from: state.uri.queryParameters['from']),
       ),
       // The new frame. A page put in here gets the top bar and the player bar, and the music keeps playing
       // while the user moves between its pages.
