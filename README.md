@@ -86,6 +86,8 @@ Then open **http://localhost:3000** in Chrome (the first start takes a minute wh
 | Audio storage folder | property `lasono.storage.root` | `./storage/audio` (relative to where the backend starts) |
 | Secret that signs login tokens | environment variable `LASONO_JWT_SECRET` (property `lasono.jwt.secret`), at least 32 bytes | none: the backend does not start without it |
 | Lifetime of a login token | property `lasono.jwt.access-token-ttl` | `15m` |
+| Lifetime of the refresh token (how long one login lasts without being used) | property `lasono.jwt.refresh-token-ttl` | `30d` |
+| Send the refresh cookie only over HTTPS (`Secure`) | property `lasono.auth.refresh-cookie-secure` | `true`. Browsers still accept it on `http://localhost`, but not on a plain `http://<IP>` address |
 | Upload size limit | `spring.servlet.multipart.max-file-size` / `max-request-size` in `backend/src/main/resources/application.yaml` | 50MB / 52MB |
 
 Any Spring property can be overridden on the command line, for example:
@@ -114,7 +116,15 @@ Only `audio/mpeg` (MP3) and `audio/wav` / `audio/x-wav` (WAV) are accepted.
 |--------|------|-------------|
 | `POST` | `/api/v1/auth/register` | JSON `{email, displayName, password}`. Returns `201 {userId, email, displayName}`. The password needs at least 8 characters and at most 72 bytes. Errors: `400` invalid email, name or password, `409` email already registered |
 | `POST` | `/api/v1/auth/login` | JSON `{email, password}`. Returns `200 {accessToken, tokenType: "Bearer", expiresIn}` (`expiresIn` is in seconds, 900 by default). A wrong password and an unknown email give the same `401`, on purpose |
+| `POST` | `/api/v1/auth/refresh` | No body. Reads the cookie `lasono_refresh`, returns `200 {accessToken, tokenType, expiresIn}` like login, and sets a new cookie. `401` (same answer for every reason) if the cookie is missing, unknown, expired, revoked or already used |
+| `POST` | `/api/v1/auth/logout` | No body. Revokes the session of the cookie and deletes the cookie. Always `204`, also when there is no valid cookie |
 | `GET` | `/api/v1/users/me` | Needs the header `Authorization: Bearer <accessToken>`. Returns `{userId, email, displayName}`. `401` without a valid token |
+
+Login and refresh put the refresh token in the cookie `lasono_refresh` (`HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`),
+never in the JSON body. Each refresh replaces it with a new one and marks the old one as used. If a used token is shown
+again, someone holds a copy, so every token of that login is revoked and the user must log in again. Two tabs that refresh
+at the same moment hit this too (the app must send one refresh at a time). Requests from a browser must come from an
+allowed CORS origin, and `/auth/refresh` and `/auth/logout` answer `403` to any other `Origin`.
 
 Errors come as `application/problem+json`. A request with a token that is expired or not signed by this server gets `401`
 and the header `WWW-Authenticate: Bearer error="invalid_token"`; the body never says why. The token is only signed, not
