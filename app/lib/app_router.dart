@@ -10,6 +10,7 @@ import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
 import 'screens/auth_page.dart';
 import 'screens/home_page.dart';
+import 'screens/people_page.dart';
 import 'screens/profile_page.dart';
 import 'screens/track_page.dart';
 import 'screens/upload_page.dart';
@@ -125,6 +126,24 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
           GoRoute(
             path: '/users/:id',
             builder: (context, state) => ProfilePage(key: ValueKey(state.pathParameters['id']), userId: state.pathParameters['id']!),
+            routes: [
+              GoRoute(
+                path: 'followers',
+                builder: (context, state) => PeoplePage(
+                  key: ValueKey('followers-${state.pathParameters['id']}'),
+                  userId: state.pathParameters['id']!,
+                  kind: PeopleKind.followers,
+                ),
+              ),
+              GoRoute(
+                path: 'following',
+                builder: (context, state) => PeoplePage(
+                  key: ValueKey('following-${state.pathParameters['id']}'),
+                  userId: state.pathParameters['id']!,
+                  kind: PeopleKind.following,
+                ),
+              ),
+            ],
           ),
           GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
           GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),

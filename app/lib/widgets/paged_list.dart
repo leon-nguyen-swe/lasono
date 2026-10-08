@@ -219,7 +219,8 @@ class _PagedListViewState<T> extends State<PagedListView<T>> {
   }
 
   void _maybeLoadMore() {
-    if (!_scroll.hasClients) return;
+    // A list that has not been laid out yet (a page behind another one, the first frame) has no extent to ask about.
+    if (!_scroll.hasClients || !_scroll.position.hasContentDimensions) return;
     if (_scroll.position.extentAfter < widget.loadMoreDistance) widget.controller.loadMore();
   }
 
