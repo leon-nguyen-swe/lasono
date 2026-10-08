@@ -300,7 +300,7 @@ Response `201` Bình luận. Quy tắc: `text` sau khi cắt khoảng trắng d�
 - `order=recent`: mới nhất trước, keyset `(created_at, id)`. Dùng cho danh sách bên dưới waveform.
 - Cursor của order này không dùng được cho order kia → `400`. `order` lạ → `400`. `404` như B1.
 
-UI v1.0 tải tối đa 200 marker đầu theo `order=position`; track nhiều hơn 200 comment chỉ hiện 200 đầu trên waveform (ghi nhận là giới hạn).
+UI v1.0 tải **100** marker đầu theo `order=position` (một request); track nhiều hơn 100 comment chỉ hiện 100 đầu trên waveform (ghi nhận là giới hạn, server cho phép tới 200).
 
 ### `DELETE /api/v1/tracks/{id}/comments/{commentId}` — Bearer
 `204`. Được xoá: tác giả comment **hoặc** chủ track.
