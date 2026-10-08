@@ -1,10 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/theme.dart';
+import '../api/profile_api.dart';
 import '../data/app_repositories.dart';
+import '../data/fake/fake_behavior.dart';
+import '../data/fake/fake_repositories.dart';
+import '../data/fake/fake_world.dart';
+import '../data/user_directory.dart';
+import '../data/waveform_cache.dart';
 import '../playback/playback_controller.dart';
 import '../screens/status_badge.dart';
-import '../screens/waveform_view.dart';
+import '../screens/waveform_view.dart' as legacy;
+import '../widgets/comments.dart';
+import '../widgets/cover_art.dart';
+import '../widgets/follow_button.dart';
+import '../widgets/like_button.dart';
+import '../widgets/states.dart';
+import '../widgets/track_card.dart';
+import '../widgets/user_avatar.dart';
+import '../widgets/user_widgets.dart';
+import '../widgets/waveform_view.dart';
 
 /// Every design token and component on one page, in the current theme. Only for development (the route
 /// exists in debug builds), to look at the design system without going through the app.
@@ -29,6 +44,7 @@ class GalleryScreen extends StatelessWidget {
     _MotionSection(),
     _BreakpointSection(),
     _ComponentsSection(),
+    _AppComponentsSection(),
     _PlayerSection(),
   ];
 
@@ -458,7 +474,7 @@ class _ComponentsSection extends StatelessWidget {
               borderRadius: AppRadius.all(AppRadius.lg),
               border: Border.all(color: c.outline),
             ),
-            child: WaveformView(peaks: peaks, progress: 0.35, onSeek: (_) {}, height: 72),
+            child: legacy.WaveformView(peaks: peaks, progress: 0.35, onSeek: (_) {}, height: 72),
           ),
           const SizedBox(height: AppSpacing.xl),
           Wrap(
@@ -545,6 +561,160 @@ class _PlayerSection extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// The components of LaSono itself, made with made-up data. Each is also tried in tests; this page is to look at them.
+class _AppComponentsSection extends StatefulWidget {
+  const _AppComponentsSection();
+
+  @override
+  State<_AppComponentsSection> createState() => _AppComponentsSectionState();
+}
+
+class _AppComponentsSectionState extends State<_AppComponentsSection> {
+  static const _viewer = 'gallery-viewer';
+
+  // Used when the page is shown on its own (without the app around it).
+  late final _world = FakeWorld();
+  late final _behavior = FakeBehavior();
+  late final _social = FakeSocialRepository(_world, _behavior, () => _viewer);
+  late final _directory = UserDirectory(FakeUserRepository(_world, _behavior, () => _viewer));
+  late final _waveforms = WaveformCache(FakeTrackRepository(_world, _behavior, () => _viewer));
+
+  @override
+  Widget build(BuildContext context) {
+    final repositories = RepositoriesScope.maybeOf(context);
+    final playback = PlaybackScope.maybeOf(context);
+    final world = repositories?.fakeWorld ?? _world;
+    final directory = repositories?.fakeWorld != null ? repositories!.directory : _directory;
+    final waveforms = repositories?.fakeWorld != null ? repositories!.waveforms : _waveforms;
+    final social = repositories?.fakeWorld != null ? repositories!.social : _social;
+    final text = Theme.of(context).textTheme;
+
+    final ready = world.tracks.where((t) => t.isReady).toList();
+    // A track with plenty of comments, to see them on the waveform.
+    final track = ready.firstWhere((t) => world.commentCountOf(t.id) >= 5, orElse: () => ready.first);
+    final processing = world.tracks.firstWhere((t) => t.status == 'PROCESSING');
+    final failed = world.tracks.firstWhere((t) => t.status == 'FAILED');
+    final owner = world.user(track.ownerId)!;
+    final markers = [
+      for (final comment in world.commentsOf(track.id).take(10))
+        WaveformMarker(
+          id: comment.id,
+          positionMs: comment.positionMs,
+          authorId: comment.authorId,
+          authorName: world.user(comment.authorId)?.displayName ?? '?',
+          text: comment.text,
+        ),
+    ];
+    Widget label(String value) => Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.sm),
+          child: Text(value, style: text.titleMedium),
+        );
+
+    return _Section(
+      title: 'App components',
+      note: 'Made with the fake world. Hover the waveform, press a heart, follow a user.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          label('Cover and avatar (colours made from the id)'),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (final t in world.tracks.take(6)) CoverArt(trackId: t.id, size: 64),
+              for (final u in world.users.take(6)) UserAvatar(userId: u.id, displayName: u.displayName, size: 44),
+            ],
+          ),
+          label('Waveform with comments'),
+          if (markers.isEmpty)
+            const Text('No comment on this track.')
+          else
+            WaveformView(
+              peaks: track.waveform ?? const [],
+              progress: 0.3,
+              durationMs: track.durationMs,
+              markers: markers,
+              onSeek: (_) {},
+            ),
+          label('Track cards: ready, processing, failed'),
+          if (playback == null)
+            Text('The cards need the player: open this page inside the app.', style: text.bodySmall)
+          else
+            for (final t in [ready[0], ready[1], processing, failed])
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                child: TrackCard(
+                  track: t,
+                  playback: playback,
+                  directory: directory,
+                  waveforms: waveforms,
+                  social: social,
+                  viewerId: _viewer,
+                  onPlay: () => playback.playQueue(ready, startIndex: ready.indexWhere((r) => r.id == t.id), sourceId: 'gallery'),
+                  onOpen: () {},
+                  onOpenUser: (_) {},
+                  onNeedLogin: () {},
+                  onEdit: () {},
+                  onDelete: () {},
+                  onToggleVisibility: () {},
+                ),
+              ),
+          label('Like and follow (try them: the fake network takes 200-600 ms)'),
+          Wrap(
+            spacing: AppSpacing.lg,
+            runSpacing: AppSpacing.md,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              LikeButton(trackId: track.id, liked: false, count: track.likeCount, social: social, signedIn: true, onNeedLogin: () {}),
+              LikeButton(trackId: ready[1].id, liked: true, count: 1234, social: social, signedIn: true, onNeedLogin: () {}),
+              FollowButton(userId: FakeWorld.userId(8), following: false, social: social, viewerId: _viewer, onNeedLogin: () {}),
+              FollowButton(userId: FakeWorld.userId(1), following: true, social: social, viewerId: _viewer, onNeedLogin: () {}, compact: true),
+            ],
+          ),
+          label('Comments'),
+          CommentComposer(
+            viewerId: _viewer,
+            viewerName: 'Gallery',
+            durationMs: track.durationMs,
+            livePosition: null,
+            onSubmit: (position, text) async => _social.postComment(track.id, positionMs: position, text: text),
+            onNeedLogin: () {},
+          ),
+          const SizedBox(height: AppSpacing.md),
+          CommentList(
+            comments: world.commentsOf(track.id).take(3).toList(),
+            directory: directory,
+            viewerId: _viewer,
+            trackOwnerId: track.ownerId,
+            onSeekTo: (_) {},
+            onDelete: (_) async {},
+          ),
+          label('Users'),
+          UserTile(profile: world.profileOf(owner), trailing: FollowButton(userId: owner.id, following: false, social: social, viewerId: _viewer, onNeedLogin: () {}, compact: true)),
+          const SizedBox(height: AppSpacing.md),
+          ProfileHeader(
+            profile: Profile(userId: owner.id, displayName: owner.displayName, followerCount: world.followerCountOf(owner.id), followingCount: 12),
+            trackCount: 14,
+            action: FollowButton(userId: owner.id, following: false, social: social, viewerId: _viewer, onNeedLogin: () {}),
+          ),
+          label('Loading, empty, error'),
+          const Row(
+            children: [
+              SkeletonLoader(height: 48, circle: true),
+              SizedBox(width: AppSpacing.md),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [SkeletonLoader(width: 220), SizedBox(height: AppSpacing.sm), SkeletonLoader(width: 140, height: 12)])),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: 300, child: EmptyState(icon: Icons.dynamic_feed_rounded, title: 'Bảng tin của bạn đang trống', message: 'Theo dõi vài người để xem bài mới của họ ở đây.')),
+          SizedBox(height: 260, child: ErrorState(message: errorMessageFor(const Object()), onRetry: () {})),
+        ],
+      ),
     );
   }
 }
