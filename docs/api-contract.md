@@ -392,7 +392,7 @@ user trong search không có `followingCount`; `GET /users?ids=` chia 50 id mỗ
 | Model | Field | Bắt buộc? | Nếu server không gửi |
 |-------|-------|-----------|----------------------|
 | Track | `id`, `title`, `status` | có | lỗi đọc dữ liệu (app coi là server sai) |
-| Track | `description`, `ownerId`, `visibility` | không | `""`, `""`, `PUBLIC` (thiếu `ownerId` thì không hiện tác giả và không hiện menu chủ sở hữu) |
+| Track | `description`, `ownerId`, `visibility` | không | `""`, `""`, `PUBLIC` (thiếu `ownerId` thì không hiện tên tác giả và không ai được coi là chủ track nên không có menu chủ sở hữu) |
 | Track | `mimeType`, `durationSeconds`, `waveform` | không | `null`: không vẽ waveform, không cho comment (cần độ dài) |
 | Track | `createdAt` | không | `null`: ẩn dòng "x ngày trước" |
 | Track | `likeCount`, `commentCount`, `isLikedByMe` | không | `0`, `0`, `false` |
@@ -407,7 +407,7 @@ user trong search không có `followingCount`; `GET /users?ids=` chia 50 id mỗ
 | Phần tử followers/following | `userId` | có | |
 | Phần tử followers/following | `followedAt` | không | `null` |
 | Trang danh sách | `items`, `nextCursor` | `items` có | `nextCursor` thiếu = trang cuối |
-| `GET /users/{id}/tracks` | `totalCount` | không | `null`: số "Bài hát" ở hồ sơ lấy theo số đã tải |
+| `GET /users/{id}/tracks` | `totalCount` | không | `null`: ô "Bài hát" ở hồ sơ bị ẩn (hai ô còn lại vẫn hiện) |
 | Search | `tracks`, `users` | không | mảng rỗng |
 | Upload `201` | `trackId` | có | |
 | Stream URL | `url` | có | `expiresAt` không dùng |
