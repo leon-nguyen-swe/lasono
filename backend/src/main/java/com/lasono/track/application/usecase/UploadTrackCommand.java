@@ -9,5 +9,19 @@ public record UploadTrackCommand(
     String description,
     InputStream audioData,
     long fileSize,
-    String mimeType
-) {}
+    String mimeType,
+    String visibility
+) {
+
+    /** An upload that does not say who may see it: the track will be public. */
+    public UploadTrackCommand(
+        UUID ownerId,
+        String title,
+        String description,
+        InputStream audioData,
+        long fileSize,
+        String mimeType
+    ) {
+        this(ownerId, title, description, audioData, fileSize, mimeType, null);
+    }
+}

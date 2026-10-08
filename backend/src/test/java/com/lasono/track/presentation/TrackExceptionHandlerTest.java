@@ -28,6 +28,7 @@ import com.lasono.track.application.usecase.UploadTrackUseCase;
 import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
+import com.lasono.track.domain.exception.TrackVisibilityInvalidException;
 
 @ExtendWith(MockitoExtension.class)
 class TrackExceptionHandlerTest {
@@ -79,6 +80,17 @@ class TrackExceptionHandlerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("Track title must not be blank"));
+    }
+
+    @Test
+    void givenInvalidVisibility_uploadTrack_returns400() throws Exception {
+        when(uploadTrackUseCase.execute(any()))
+            .thenThrow(new TrackVisibilityInvalidException("Visibility must be PUBLIC or PRIVATE"));
+
+        mockMvc.perform(multipart("/api/v1/tracks").file(audioFile()).param("title", "My Song")
+                .param("visibility", "secret").principal(aCaller()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.detail").value("Visibility must be PUBLIC or PRIVATE"));
     }
 
     @Test

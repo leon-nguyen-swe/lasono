@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,6 +37,10 @@ public class TrackJpaEntity {
 
     @Column(name = "description")
     private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false)
+    private Visibility visibility;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

@@ -7,15 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.sql.DataSource;
-
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
-import com.lasono.PostgresIntegrationTest;
 import com.lasono.identity.infrastructure.security.BCryptPasswordHasher;
 
 /**
@@ -23,29 +16,9 @@ import com.lasono.identity.infrastructure.security.BCryptPasswordHasher;
  * undone. So it is tried here on data from before it existed: the database is built up to V5, old tracks are
  * added, then the migration runs. It all happens in its own schema, so the real tables are never touched.
  */
-class TrackOwnerMigrationPostgresTest extends PostgresIntegrationTest {
+class TrackOwnerMigrationPostgresTest extends SchemaMigrationPostgresTest {
 
-    private static final String SCHEMA = "migration_test";
     private static final UUID LEGACY_USER = UUID.fromString("00000000-0000-0000-0000-00000000001e");
-
-    @Autowired
-    private DataSource dataSource;
-
-    @BeforeEach
-    @AfterEach
-    void dropTheScratchSchema() {
-        jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + SCHEMA + " CASCADE");
-    }
-
-    private Flyway flyway(String target) {
-        return Flyway.configure()
-            .dataSource(dataSource)
-            .schemas(SCHEMA)
-            .defaultSchema(SCHEMA)
-            .locations("classpath:db/migration")
-            .target(target)
-            .load();
-    }
 
     private void insertOldTrack(UUID id, String title) {
         jdbcTemplate.update(
@@ -61,7 +34,7 @@ class TrackOwnerMigrationPostgresTest extends PostgresIntegrationTest {
         insertOldTrack(first, "Old song 1");
         insertOldTrack(second, "Old song 2");
 
-        flyway("latest").migrate();
+        flyway("6").migrate();
 
         List<Map<String, Object>> tracks = jdbcTemplate.queryForList(
             "SELECT id, title, owner_id FROM " + SCHEMA + ".tracks ORDER BY title");
@@ -78,7 +51,7 @@ class TrackOwnerMigrationPostgresTest extends PostgresIntegrationTest {
         flyway("5").migrate();
         insertOldTrack(UUID.randomUUID(), "Old song");
 
-        flyway("latest").migrate();
+        flyway("6").migrate();
 
         String hash = jdbcTemplate.queryForObject(
             "SELECT password_hash FROM " + SCHEMA + ".users WHERE id = ?", String.class, LEGACY_USER);
@@ -90,14 +63,14 @@ class TrackOwnerMigrationPostgresTest extends PostgresIntegrationTest {
 
     @Test
     void aDatabaseWithoutTracksGetsNoLegacyUser() {
-        flyway("latest").migrate();
+        flyway("6").migrate();
 
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM " + SCHEMA + ".users", Integer.class)).isZero();
     }
 
     @Test
     void everyNewTrackMustHaveAnOwner() {
-        flyway("latest").migrate();
+        flyway("6").migrate();
 
         assertThatThrownBy(() -> insertOldTrack(UUID.randomUUID(), "No owner"))
             .hasMessageContaining("owner_id");
@@ -106,7 +79,7 @@ class TrackOwnerMigrationPostgresTest extends PostgresIntegrationTest {
     // D6: modules hold each other's ids as plain values, so the database has no link either.
     @Test
     void theOwnerColumnHasNoForeignKeyToUsers() {
-        flyway("latest").migrate();
+        flyway("6").migrate();
 
         Integer foreignKeys = jdbcTemplate.queryForObject(
             "SELECT count(*) FROM information_schema.table_constraints "

@@ -237,6 +237,25 @@ class TrackControllerTest {
         assertEquals(USER_ID, captor.getValue().ownerId());
     }
 
+    @Test
+    void givenVisibilityField_uploadTrack_passesItToTheUseCase() throws Exception {
+        when(uploadTrackUseCase.execute(any())).thenReturn(
+            new UploadTrackResult(UUID.randomUUID().toString(), "My Song", "PROCESSING")
+        );
+        MockMultipartFile file = new MockMultipartFile("file", "song.mp3", "audio/mpeg", "audio-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/tracks")
+                .file(file)
+                .param("title", "My Song")
+                .param("visibility", "PRIVATE")
+                .principal(signedInAs(USER_ID)))
+            .andExpect(status().isCreated());
+
+        ArgumentCaptor<UploadTrackCommand> captor = ArgumentCaptor.forClass(UploadTrackCommand.class);
+        verify(uploadTrackUseCase).execute(captor.capture());
+        assertEquals("PRIVATE", captor.getValue().visibility());
+    }
+
     private static Principal signedInAs(UUID userId) {
         return userId::toString;
     }

@@ -29,6 +29,8 @@ import com.lasono.track.domain.audio.exception.AudioFormatInvalidException;
 import com.lasono.track.domain.audio.exception.OriginalAudioInvalidException;
 import com.lasono.track.domain.audio.model.AudioFormat;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
+import com.lasono.track.domain.exception.TrackVisibilityInvalidException;
+import com.lasono.track.domain.model.Visibility;
 
 public class UploadTrackUseCaseTest {
 
@@ -315,6 +317,39 @@ public class UploadTrackUseCaseTest {
 
         assertThrows(NullPointerException.class, () -> useCase.execute(noOwner));
 
+        assertTrue(jobQueue.enqueued.isEmpty());
+    }
+
+    @Test
+    void execute_shouldKeepATrackPrivateWhenTheOwnerAsksForIt() {
+        UploadTrackResult result = useCase.execute(new UploadTrackCommand(
+            TrackFixtures.OWNER.getValue(), "My Song", "desc", new ByteArrayInputStream("data".getBytes()),
+            4L, "audio/mpeg", "PRIVATE"));
+
+        TrackId trackId = new TrackId(UUID.fromString(result.trackId()));
+        assertEquals(Visibility.PRIVATE, trackRepository.findById(trackId).orElseThrow().getVisibility());
+    }
+
+    @Test
+    void execute_shouldMakeATrackPublicWhenNothingIsSaid() {
+        UploadTrackResult result = useCase.execute(anUpload());
+
+        TrackId trackId = new TrackId(UUID.fromString(result.trackId()));
+        assertEquals(Visibility.PUBLIC, trackRepository.findById(trackId).orElseThrow().getVisibility());
+    }
+
+    // A typo must not publish a track meant to be hidden, and must not leave a file behind either.
+    @Test
+    void execute_shouldRefuseAnUnknownVisibilityBeforeStoringAnyFile() {
+        RecordingAudioStorage storage = new RecordingAudioStorage();
+        UploadTrackUseCase recordingUseCase = new UploadTrackUseCase(storage, trackRepository, jobQueue);
+        UploadTrackCommand command = new UploadTrackCommand(
+            TrackFixtures.OWNER.getValue(), "My Song", "desc", new ByteArrayInputStream("data".getBytes()),
+            4L, "audio/mpeg", "secret");
+
+        assertThrows(TrackVisibilityInvalidException.class, () -> recordingUseCase.execute(command));
+
+        assertTrue(storage.stored.isEmpty(), "no file must be written for an invalid visibility");
         assertTrue(jobQueue.enqueued.isEmpty());
     }
 }

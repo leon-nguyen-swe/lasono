@@ -10,20 +10,28 @@ import com.lasono.track.domain.audio.model.Waveform;
 import com.lasono.track.domain.exception.TrackInvalidStateException;
 import com.lasono.track.domain.exception.TrackTitleInvalidException;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
 
 public class Track {
 
     private final TrackId id;
     private final OwnerId ownerId;
+    private Visibility visibility;
     private TrackStatus status;
     private String title;
     private String description;
     private final AudioResource audioResource;
 
+    /** A new track is public unless its owner chooses otherwise. */
     public Track(TrackId id, OwnerId ownerId, String title, String description) {
+        this(id, ownerId, title, description, Visibility.PUBLIC);
+    }
+
+    public Track(TrackId id, OwnerId ownerId, String title, String description, Visibility visibility) {
         validateTitle(title);
         this.id = Objects.requireNonNull(id);
         this.ownerId = Objects.requireNonNull(ownerId);
+        this.visibility = Objects.requireNonNull(visibility);
         this.title = title;
         this.description = description;
         this.audioResource = new AudioResource(new AudioResourceId(UUID.randomUUID()));
@@ -35,11 +43,13 @@ public class Track {
         OwnerId ownerId,
         String title,
         String description,
+        Visibility visibility,
         TrackStatus status,
         AudioResource audioResource
     ) {
         this.id = Objects.requireNonNull(id);
         this.ownerId = Objects.requireNonNull(ownerId);
+        this.visibility = Objects.requireNonNull(visibility);
         this.title = title;
         this.description = description;
         this.status = Objects.requireNonNull(status);
@@ -51,10 +61,11 @@ public class Track {
         OwnerId ownerId,
         String title,
         String description,
+        Visibility visibility,
         TrackStatus status,
         AudioResource audioResource
     ) {
-        return new Track(id, ownerId, title, description, status, audioResource);
+        return new Track(id, ownerId, title, description, visibility, status, audioResource);
     }
 
     public TrackId getId() {
@@ -63,6 +74,10 @@ public class Track {
 
     public OwnerId getOwnerId() {
         return this.ownerId;
+    }
+
+    public Visibility getVisibility() {
+        return this.visibility;
     }
 
     public TrackStatus getStatus() {
@@ -83,6 +98,7 @@ public class Track {
             this.getOwnerId(),
             this.title,
             this.description,
+            this.getVisibility(),
             this.status,
             this.audioResource.getId(),
             this.audioResource.getStatus(),

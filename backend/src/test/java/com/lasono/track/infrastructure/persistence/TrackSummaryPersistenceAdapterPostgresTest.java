@@ -189,7 +189,8 @@ class TrackSummaryPersistenceAdapterPostgresTest extends PostgresIntegrationTest
 
     private void insert(UUID id, String title, String description, Instant createdAt) {
         jdbcTemplate.update(
-            "INSERT INTO tracks (id, owner_id, title, description, status, created_at) VALUES (?, ?, ?, ?, 'PROCESSING', ?)",
+            "INSERT INTO tracks (id, owner_id, title, description, visibility, status, created_at) "
+                + "VALUES (?, ?, ?, ?, 'PUBLIC', 'PROCESSING', ?)",
             id, TrackFixtures.OWNER.getValue(), title, description, OffsetDateTime.ofInstant(createdAt, ZoneOffset.UTC));
     }
 

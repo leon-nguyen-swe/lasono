@@ -16,6 +16,7 @@ import com.lasono.track.domain.audio.model.StreamingAudio;
 import com.lasono.track.domain.audio.model.Waveform;
 import com.lasono.track.domain.exception.TrackInvalidStateException;
 import com.lasono.track.domain.model.TrackStatus;
+import com.lasono.track.domain.model.Visibility;
 
 class TrackTest {
 
@@ -283,10 +284,48 @@ class TrackTest {
             owner,
             "Test Track",
             null,
+            Visibility.PUBLIC,
             TrackStatus.PROCESSING,
             new AudioResource(new AudioResourceId(UUID.randomUUID()))
         );
 
         assertEquals(owner, track.getOwnerId());
+    }
+
+    @Test
+    void shouldBePublicUnlessItsOwnerChoosesOtherwise() {
+        Track track = new Track(new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null);
+
+        assertEquals(Visibility.PUBLIC, track.getVisibility());
+    }
+
+    @Test
+    void shouldBePrivateWhenItsOwnerChoosesSo() {
+        Track track = new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, Visibility.PRIVATE);
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
+        assertEquals(Visibility.PRIVATE, track.toSnapshot().visibility());
+    }
+
+    @Test
+    void shouldNotExistWithoutAVisibility() {
+        assertThrows(NullPointerException.class, () -> new Track(
+            new TrackId(UUID.randomUUID()), TrackFixtures.OWNER, "Test Track", null, null));
+    }
+
+    @Test
+    void shouldKeepItsVisibilityWhenRebuiltFromStorage() {
+        Track track = Track.reconstitute(
+            new TrackId(UUID.randomUUID()),
+            TrackFixtures.OWNER,
+            "Test Track",
+            null,
+            Visibility.PRIVATE,
+            TrackStatus.PROCESSING,
+            new AudioResource(new AudioResourceId(UUID.randomUUID()))
+        );
+
+        assertEquals(Visibility.PRIVATE, track.getVisibility());
     }
 }

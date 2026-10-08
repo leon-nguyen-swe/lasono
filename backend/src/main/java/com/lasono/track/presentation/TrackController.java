@@ -53,6 +53,7 @@ public class TrackController {
         @RequestParam("title") String title,
         @RequestParam(value = "description", required = false, defaultValue = "") String description,
         @RequestParam("file") MultipartFile file,
+        @RequestParam(value = "visibility", required = false) String visibility,
         Principal principal
     ) throws IOException {
         // The name of a logged-in caller is the "sub" of the token: the id of the user.
@@ -62,7 +63,8 @@ public class TrackController {
             description,
             file.getInputStream(),
             file.getSize(),
-            file.getContentType()
+            file.getContentType(),
+            visibility
         );
 
         UploadTrackResult result = uploadTrackUseCase.execute(command);

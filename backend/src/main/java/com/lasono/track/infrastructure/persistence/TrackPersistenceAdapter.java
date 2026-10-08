@@ -44,6 +44,7 @@ public class TrackPersistenceAdapter implements TrackRepository {
             snapshot.ownerId().getValue(),
             snapshot.title(),
             snapshot.description(),
+            snapshot.visibility(),
             snapshot.trackStatus(),
             // PostgreSQL stores microseconds, so cut the nanoseconds to keep the value we hand out equal to the stored one.
             Instant.now().truncatedTo(ChronoUnit.MICROS)
@@ -150,6 +151,7 @@ public class TrackPersistenceAdapter implements TrackRepository {
             new OwnerId(track.getOwnerId()),
             track.getTitle(), 
             track.getDescription(), 
+            track.getVisibility(),
             track.getStatus(), 
             domainAudioResource
         );
