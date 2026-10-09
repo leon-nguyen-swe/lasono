@@ -61,6 +61,19 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Be Vietnam Pro (SIL Open Font License, see assets/fonts/OFL.txt): a Google font drawn for Vietnamese,
+  # bundled so the app and its tests never need the network for text.
+  fonts:
+    - family: BeVietnamPro
+      fonts:
+        - asset: assets/fonts/BeVietnamPro-Regular.ttf
+        - asset: assets/fonts/BeVietnamPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BeVietnamPro-Bold.ttf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

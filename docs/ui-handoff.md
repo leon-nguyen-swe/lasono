@@ -12,7 +12,7 @@
 | 0 | Khảo sát (mục "Khảo sát" bên dưới) | Xong |
 | 1 | `docs/api-contract.md` | Xong |
 | 2 | `docs/backend-guide/` + `docs/backend-checklist.md` | Xong |
-| 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Chưa |
+| 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Xong: token màu (dark mặc định + light, WCAG AA có test), font Be Vietnam Pro nhúng, spacing/radius/elevation/motion/breakpoint, 2 theme, `ThemeController`. Xem trang tại `http://localhost:3000/#/dev/gallery` (chỉ debug) |
 | 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Chưa |
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Chưa |
 | 6 | Component | Chưa |

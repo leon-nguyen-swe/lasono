@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'api/auth_api.dart';
@@ -7,6 +8,8 @@ import 'api/profile_api.dart';
 import 'api/track_api.dart';
 import 'audio_picker.dart';
 import 'auth/session_controller.dart';
+import 'core/theme/theme.dart';
+import 'dev/gallery_screen.dart';
 import 'player_service.dart';
 import 'screens/track_list_screen.dart';
 
@@ -31,6 +34,7 @@ class LasonoApp extends StatefulWidget {
     this.profileApi,
     this.pickAudio,
     this.player,
+    this.themeController,
   });
 
   final SessionController session;
@@ -39,11 +43,16 @@ class LasonoApp extends StatefulWidget {
   final AudioPicker? pickAudio;
   final PlayerService? player;
 
+  /// Which theme is shown; dark unless it is changed. Tests may pass their own.
+  final ThemeController? themeController;
+
   @override
   State<LasonoApp> createState() => _LasonoAppState();
 }
 
 class _LasonoAppState extends State<LasonoApp> {
+  late final ThemeController _theme = widget.themeController ?? ThemeController();
+
   @override
   void initState() {
     super.initState();
@@ -56,12 +65,28 @@ class _LasonoAppState extends State<LasonoApp> {
 
   @override
   Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _theme,
+      builder: (context, _) => _app(),
+    );
+  }
+
+  Widget _app() {
     return MaterialApp(
       title: 'LaSono',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: _theme.mode,
+      // The design system page exists only while developing.
+      onGenerateRoute: kDebugMode
+          ? (settings) => settings.name == GalleryScreen.routeName
+              ? MaterialPageRoute<void>(
+                  settings: settings,
+                  builder: (_) => GalleryScreen(themeController: _theme),
+                )
+              : null
+          : null,
       home: ListenableBuilder(
         listenable: widget.session,
         builder: (context, _) {
