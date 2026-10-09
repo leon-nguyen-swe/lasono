@@ -30,6 +30,9 @@ abstract class PlayerService {
   /// Jumps to [position]. In the browser this makes the audio element issue a
   /// new `Range` request to the stream endpoint.
   Future<void> seek(Duration position);
+
+  /// Sets the loudness, from 0 (silent) to 1 (full). It stays for the next tracks.
+  Future<void> setVolume(double volume);
   Future<void> dispose();
 }
 
@@ -77,6 +80,9 @@ class JustAudioPlayerService implements PlayerService {
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
+
+  @override
+  Future<void> setVolume(double volume) => _player.setVolume(volume.clamp(0.0, 1.0));
 
   @override
   Future<void> dispose() => _player.dispose();
