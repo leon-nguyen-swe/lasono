@@ -356,5 +356,22 @@ void main() {
       expect(tester.getCenter(find.byKey(const Key('item-0'))).dx, 800);
       expect(tester.getSize(find.byKey(const Key('item-0'))).width, lessThanOrEqualTo(1200));
     });
+
+    testWidgets('a short header starts at the same left edge as the rows, not in the middle', (tester) async {
+      TestEnv.window(tester, width: 1600, height: 900);
+      final controller = _controller(_Server(2));
+      await tester.pumpWidget(themed(
+        PagedListView<int>(
+          controller: controller,
+          header: const Text('đầu trang', key: Key('header')),
+          empty: const SizedBox(),
+          itemBuilder: (context, n, index) => SizedBox(key: Key('item-$n'), height: 80, width: double.infinity),
+        ),
+      ));
+      await controller.loadFirst();
+      await tester.pump();
+
+      expect(tester.getTopLeft(find.byKey(const Key('header'))).dx, tester.getTopLeft(find.byKey(const Key('item-0'))).dx);
+    });
   });
 }

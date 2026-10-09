@@ -96,6 +96,10 @@ class TopBar extends StatefulWidget {
   /// How long the user must stop typing before the search runs.
   static const searchPause = Duration(milliseconds: 400);
 
+  /// The narrowest window that has room for the whole bar (two words, a search field, Upload, and two account
+  /// buttons). Below it the bar uses icons, which fit all the way down to a phone.
+  static const fullBarMinWidth = 900.0;
+
   @override
   State<TopBar> createState() => _TopBarState();
 }
@@ -156,7 +160,8 @@ class _TopBarState extends State<TopBar> {
                   padding: EdgeInsets.symmetric(horizontal: size == ScreenSize.compact ? AppSpacing.md : AppSpacing.xl),
                   child: ListenableBuilder(
                     listenable: Listenable.merge([widget.session, widget.themeController]),
-                    builder: (context, _) => size == ScreenSize.compact ? _compact(context) : _wide(context, size),
+                    builder: (context, _) =>
+                        MediaQuery.sizeOf(context).width < TopBar.fullBarMinWidth ? _compact(context) : _wide(context, size),
                   ),
                 ),
               ),

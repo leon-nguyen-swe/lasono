@@ -69,11 +69,15 @@ Không body. Luôn `204`, xoá cookie.
 ### `PATCH /api/v1/users/me` — Bearer
 Request: `{ "displayName": "Alice B." }` → `200` như `GET /users/me`. `400` nếu tên rỗng hoặc dài hơn 50 ký tự hoặc thiếu field.
 
-### `GET /api/v1/users/{id}` — công khai
+### `GET /api/v1/users/{id}` — tuỳ chọn auth
 ```json
 { "userId": "5b0c2d4e-...", "displayName": "Alice" }
 ```
-Không bao giờ có email. `404 "No user with id ..."`. **App không gửi token vào route này** (xem ghi chú ở `ui-handoff.md`).
+Không bao giờ có email. `404 "No user with id ..."`.
+
+Ở Phase 4 route này **công khai** và app cũ không gửi token (server từ chối cả token hết hạn ở route công khai). Từ Phần B, `isFollowedByMe`
+phụ thuộc người xem nên app **gửi Bearer nếu đang đăng nhập**; nếu server trả `401` mà app không refresh được, app đọc lại **không token**.
+Backend chỉ cần để route mở cho cả hai (có token hay không) và đọc người xem nếu có.
 
 ### `GET /api/v1/users/{id}/tracks?cursor=&limit=` — tuỳ chọn auth
 `{ items: [Track tóm tắt], nextCursor }`. Ai cũng thấy track `PUBLIC`; track `PRIVATE` chỉ hiện khi người xem chính là chủ. Id lạ → danh sách rỗng (track module không biết user có tồn tại hay không); app đọc profile trước để hiện "không tìm thấy".
@@ -260,13 +264,14 @@ Sắp theo `followedAt` mới nhất trước, keyset `(followed_at, user_id)`. 
 bằng `GET /users?ids=`. User lạ → `404`.
 Màn hình: Followers / Following, `UserTile` + `FollowButton`.
 
-### `GET /api/v1/users/{id}` (mở rộng) và `GET /api/v1/users?ids=a,b,c` (mới, batch) — công khai
-`GET /users/{id}` trả Profile (mới) ở B0. `GET /users?ids=` nhận tối đa **50** id, cách nhau dấu phẩy:
+### `GET /api/v1/users/{id}` (mở rộng) và `GET /api/v1/users?ids=a,b,c` (mới, batch) — tuỳ chọn auth
+Cả hai trả `isFollowedByMe` theo người xem, nên phải đọc Bearer nếu có (không có thì `false`). `GET /users/{id}` trả Profile (mới) ở B0. `GET /users?ids=` nhận tối đa **50** id, cách nhau dấu phẩy:
 ```json
 { "items": [ { "userId": "...", "displayName": "...", "followerCount": 0, "followingCount": 0, "isFollowedByMe": false } ] }
 ```
 Id lạ bị bỏ qua (không lỗi); thứ tự không đảm bảo; `> 50` id hoặc id sai định dạng → `400`. Dùng cho tên tác giả
-trên `TrackCard`, tên người comment, danh sách followers.
+trên `TrackCard`, tên người comment, danh sách followers. App gọi một lần cho cả trang (tối đa 50 id mỗi request, tự chia nếu nhiều hơn);
+nếu backend chưa có route này (`401/403/404/405`), app tự quay về gọi từng `GET /users/{id}`.
 
 ### `GET /api/v1/users/{id}/tracks` (mở rộng)
 Thêm field `totalCount` vào phản hồi: số track **người xem được phép thấy** của user đó. Dùng cho `StatBlock` "Tracks".
@@ -295,7 +300,7 @@ Response `201` Bình luận. Quy tắc: `text` sau khi cắt khoảng trắng d�
 - `order=recent`: mới nhất trước, keyset `(created_at, id)`. Dùng cho danh sách bên dưới waveform.
 - Cursor của order này không dùng được cho order kia → `400`. `order` lạ → `400`. `404` như B1.
 
-UI v1.0 tải tối đa 200 marker đầu theo `order=position`; track nhiều hơn 200 comment chỉ hiện 200 đầu trên waveform (ghi nhận là giới hạn).
+UI v1.0 tải **100** marker đầu theo `order=position` (một request); track nhiều hơn 100 comment chỉ hiện 100 đầu trên waveform (ghi nhận là giới hạn, server cho phép tới 200).
 
 ### `DELETE /api/v1/tracks/{id}/comments/{commentId}` — Bearer
 `204`. Được xoá: tác giả comment **hoặc** chủ track.
@@ -326,6 +331,8 @@ mới nhất trước, keyset `(created_at, id)`. Không gồm track của chín
   "users":  [ { "userId": "7a8b...", "displayName": "Sơn Tùng", "followerCount": 120, "isFollowedByMe": false } ]
 }
 ```
+User trong kết quả search **không có `followingCount`** (UI không hiển thị số đó ở đây; app đọc thiếu thành `0`). Nếu muốn dùng chung
+một record với Profile thì thêm field này cũng được: app chấp nhận cả hai.
 Khớp không phân biệt dấu và hoa thường (`"son tung"` khớp `"Sơn Tùng"`), cho cả lỗi gõ nhẹ (trigram). Track: khớp `title`; user:
 khớp `displayName`. Xếp theo độ giống giảm dần, hoà thì mới hơn trước. Loại không được hỏi trả mảng rỗng.
 
@@ -370,3 +377,49 @@ Gợi ý nếu Leon muốn làm: port `ImageStorage` (như `AudioStorage`, adapt
 | `GET /api/v1/users/{id}/avatar` | Công khai. `404` nếu chưa có. |
 
 Field mới (nullable) nếu có làm: `coverUrl` ở Track, `avatarUrl` ở Profile. Model Dart đã đọc hai field này và mặc định `null`.
+
+---
+
+# Phần D. Đối chiếu với app (Giai đoạn 9)
+
+Đối chiếu từng model Dart (`app/lib/models/`, `app/lib/api/profile_api.dart`) và từng `Http*Repository` với hợp đồng này, ngày 2026-10-08.
+Kết luận: **mọi route, tên query, JSON và mã lỗi mà app dùng đều có trong hợp đồng**, các test `app/test/data/http/*` ghim đúng những điều đó.
+Ba chỗ hợp đồng được sửa cho khớp với UI: `GET /users/{id}` và `GET /users?ids=` là *tuỳ chọn auth* (cần `isFollowedByMe` theo người xem);
+user trong search không có `followingCount`; `GET /users?ids=` chia 50 id mỗi request.
+
+## D1. Field mà app đọc, và việc gì xảy ra nếu thiếu
+
+| Model | Field | Bắt buộc? | Nếu server không gửi |
+|-------|-------|-----------|----------------------|
+| Track | `id`, `title`, `status` | có | lỗi đọc dữ liệu (app coi là server sai) |
+| Track | `description`, `ownerId`, `visibility` | không | `""`, `""`, `PUBLIC` (thiếu `ownerId` thì không hiện tên tác giả và không ai được coi là chủ track nên không có menu chủ sở hữu) |
+| Track | `mimeType`, `durationSeconds`, `waveform` | không | `null`: không vẽ waveform, không cho comment (cần độ dài) |
+| Track | `createdAt` | không | `null`: ẩn dòng "x ngày trước" |
+| Track | `likeCount`, `commentCount`, `isLikedByMe` | không | `0`, `0`, `false` |
+| Track | `coverUrl` (Phần C) | không | `null`: ảnh bìa là gradient sinh theo id |
+| Profile | `userId`, `displayName` | có | lỗi đọc dữ liệu |
+| Profile | `followerCount`, `followingCount`, `isFollowedByMe` | không | `0`, `0`, `false` |
+| Profile | `avatarUrl` (Phần C) | không | `null`: avatar là chữ cái đầu |
+| Bình luận | `id`, `trackId`, `authorId`, `positionMs`, `text` | có | lỗi đọc dữ liệu |
+| Bình luận | `createdAt` | không | `null`: ẩn dòng thời gian |
+| Like (`PUT`/`DELETE`) | `trackId`, `liked`, `likeCount` | có | UI dùng số trả về để sửa số lạc quan |
+| Follow (`PUT`/`DELETE`) | `userId`, `following`, `followerCount` | có | như trên |
+| Phần tử followers/following | `userId` | có | |
+| Phần tử followers/following | `followedAt` | không | `null` |
+| Trang danh sách | `items`, `nextCursor` | `items` có | `nextCursor` thiếu = trang cuối |
+| `GET /users/{id}/tracks` | `totalCount` | không | `null`: ô "Bài hát" ở hồ sơ bị ẩn (hai ô còn lại vẫn hiện) |
+| Search | `tracks`, `users` | không | mảng rỗng |
+| Upload `201` | `trackId` | có | |
+| Stream URL | `url` | có | `expiresAt` không dùng |
+
+Quy tắc chung: app **chịu được backend cũ** (thiếu field Phần B) nhưng **không chịu được** thiếu field bắt buộc ở trên.
+
+## D2. Điều UI giả định về backend (đã có trong hợp đồng, liệt kê để khỏi quên)
+
+- Track private của người khác trả `404` (không `403`) ở like, comment, stream-url, chi tiết.
+- Like/follow là idempotent và trả trạng thái mới cùng số đếm mới.
+- Danh sách mới nhất trước, không trùng, không sót khi có bài mới đăng giữa hai lần tải trang (keyset, không `OFFSET`).
+- `GET /tracks/{id}/comments?order=position&limit=100` được chấp nhận (UI xin 100 marker); `order=recent&limit=20` cho danh sách.
+- Search: `q` ≥ 2 ký tự sau khi cắt khoảng trắng (UI chặn trước nên hiếm khi chạm `400`); `limit` ≤ 50 mỗi loại (UI xin 6 cho tab Tất cả, 30 cho tab một loại).
+- `PUT` phải được CORS cho phép (like, follow).
+- Mọi lỗi là `application/problem+json` có `detail`; UI hiện `detail` nguyên văn chỉ cho lỗi `400` (cho biết cần sửa gì), các lỗi khác dùng câu tiếng Việt cố định theo mã.

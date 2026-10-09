@@ -194,6 +194,31 @@ void main() {
     });
   });
 
+  group('the top bar on a tablet', () {
+    testWidgets('at 700 px it uses icons, keeps the word LaSono, and everything is inside the window', (tester) async {
+      TestEnv.window(tester, width: 700, height: 800);
+      final env = await TestEnv.create();
+      await tester.pumpWidget(_topBar(_Calls(), session: env.session));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('searchField')), findsNothing);
+      expect(find.byKey(const Key('searchIcon')), findsOneWidget);
+      expect(find.byKey(const Key('uploadIcon')), findsOneWidget);
+      expect(tester.getSize(find.byKey(const Key('logo'))).width, greaterThan(100), reason: 'the word LaSono is beside the bars');
+      expect(tester.getTopRight(find.byKey(const Key('loginButton'))).dx, lessThanOrEqualTo(700));
+    });
+
+    testWidgets('just under the width of the full bar (899 px) it still uses icons and does not overflow', (tester) async {
+      TestEnv.window(tester, width: 899, height: 800);
+      final env = await TestEnv.create(signedIn: true);
+      await tester.pumpWidget(_topBar(_Calls(), session: env.session));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('searchIcon')), findsOneWidget);
+      expect(find.byKey(const Key('accountMenu')), findsOneWidget);
+    });
+  });
+
   group('the top bar on a phone', () {
     testWidgets('keeps the logo mark, the icons and the account; the field and the long buttons go', (tester) async {
       TestEnv.window(tester, width: 390, height: 800);
