@@ -13,7 +13,7 @@
 | 1 | `docs/api-contract.md` | Xong |
 | 2 | `docs/backend-guide/` + `docs/backend-checklist.md` | Xong |
 | 3 | Design system (`lib/core/theme/`, `/dev/gallery`) | Xong: token màu (dark mặc định + light, WCAG AA có test), font Be Vietnam Pro nhúng, spacing/radius/elevation/motion/breakpoint, 2 theme, `ThemeController`. Xem trang tại `http://localhost:3000/#/dev/gallery` (chỉ debug) |
-| 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Chưa |
+| 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Xong: 5 interface, `Http*` theo hợp đồng, `Fake*` + dữ liệu giả (8 user, 30 track, phát được), cờ theo từng tính năng, `UserDirectory`. 543 test xanh |
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Chưa |
 | 6 | Component | Chưa |
 | 7 | Màn hình | Chưa |
@@ -156,3 +156,91 @@ sửa `CorsConfig` (đã ghi trong guide 02).
 | 5 | "Likes" tab trên profile, `followerCount`... | Backend chưa có | Dữ liệu giả (Giai đoạn 4) |
 | 6 | Ảnh bìa, avatar | Backend không có ảnh | Placeholder sinh theo id (Phần C của hợp đồng là OPTIONAL) |
 | 7 | `PUT` like/follow | CORS chưa cho `PUT` | Ghi trong guide 02, Leon sửa khi code |
+
+## Tầng dữ liệu (Giai đoạn 4)
+
+UI **không gọi HTTP trực tiếp**: mọi thứ đi qua các interface repository. Một màn hình không biết dữ liệu là thật hay giả.
+
+### Cấu trúc `app/lib/data/`
+
+```
+data/
+├── repository_exception.dart     RepositoryException + RepositoryErrorKind (network, unauthorized, forbidden, notFound, conflict, invalid, server)
+├── track_repository.dart         TrackRepository   → thật: TrackApi (Phase 1-4, giữ nguyên)
+├── user_repository.dart          UserRepository    → thật: HttpUserRepository (bọc ProfileApi + batch)
+├── social_repository.dart        SocialRepository  (like, follow, comment)
+├── feed_repository.dart          FeedRepository    (feed, danh sách track đã like)
+├── search_repository.dart        SearchRepository
+├── http/                         ApiClient + Http*Repository viết theo docs/api-contract.md Phần B
+├── fake/                         FakeWorld (dữ liệu), Fake*Repository, FakeBehavior (trễ + lỗi), FakeAudio, routing_repositories.dart
+├── fake_flags.dart               cờ --dart-define theo từng tính năng
+├── user_directory.dart           cache tên user (ChangeNotifier)
+└── app_repositories.dart         AppRepositories.create(...) + RepositoriesScope (InheritedWidget)
+```
+
+| Interface | Dữ liệu thật từ | Phase backend | Cờ fake |
+|-----------|-----------------|---------------|---------|
+| `TrackRepository` | `TrackApi` | 1-4 (có) | — |
+| `UserRepository` | `HttpUserRepository` | 1-4 (có); `GET /users?ids=` và các số đếm thuộc guide 03 | `FAKE_FOLLOWS` (số đếm, `isFollowedByMe`) |
+| `SocialRepository` | `HttpSocialRepository` | guide 02, 03, 04 | `FAKE_LIKES`, `FAKE_FOLLOWS`, `FAKE_COMMENTS` (hoặc `FAKE_SOCIAL` cho cả ba) |
+| `FeedRepository` | `HttpFeedRepository` | guide 05 | `FAKE_FEED` |
+| `SearchRepository` | `HttpSearchRepository` | guide 06 | `FAKE_SEARCH` |
+
+Mỗi `Http*` có TODO ghi rõ guide nào làm route đó. Cờ riêng của một tính năng **thắng** `FAKE_SOCIAL`
+(`FAKE_SOCIAL=true FAKE_LIKES=false` = follow/comment giả, like thật).
+
+```bash
+# Trạng thái hiện tại: backend Phase 1-4 thật, mọi thứ Phase 5-6 giả
+flutter run -d web-server --web-port 3000 \
+  --dart-define=FAKE_SOCIAL=true --dart-define=FAKE_FEED=true --dart-define=FAKE_SEARCH=true
+```
+
+### Dữ liệu thật và giả sống chung thế nào (định tuyến theo id)
+
+Khi có ít nhất một cờ, mọi lời gọi đi qua `Routing*Repository`:
+
+1. **id giả** (bắt đầu bằng `f4e00000-`) luôn vào repository giả, vì backend thật chưa từng nghe tới nó;
+2. id thật vào repository thật, trừ khi cờ của tính năng đó bật (khi ấy dùng bản giả cho id thật luôn);
+3. với cờ `likes`/`comments` bật, số like/comment và `isLikedByMe` của **track thật** được thay bằng số của thế giới giả, để màn hình hiện đúng thứ vừa bấm.
+
+Không cờ nào bật thì **không** có lớp định tuyến: dùng thẳng repository thật.
+
+### Thế giới giả (`FakeWorld`, cố định, không ngẫu nhiên)
+
+- 8 user (Sơn Tùng, Đen Vâu, Bích Phương, Hà Anh Tuấn, Minh Anh, Luna Park, DJ Kaito, Maya Chen), 30 track tên Việt lẫn Anh, track xen kẽ tác giả, thời điểm đăng từ vài chục phút đến ~3 tuần trước.
+- 28 track `READY` (45-90 giây, 200 peak waveform), 1 `PROCESSING` ("Hạ trắng"), 1 `FAILED` ("Bản tình ca cuối"): thấy đủ các trạng thái.
+- Comment rải trên waveform (tổng hơn 60), người comment là các user giả.
+- Minh Anh **không follow ai**. User thật đăng nhập lần đầu mặc định follow Sơn Tùng, Đen Vâu, Luna Park để feed không trống; bỏ follow hết thì thấy trạng thái trống.
+- **Track giả phát được thật:** `FakeAudio` sinh một file WAV 8 kHz trong bộ nhớ (một giai điệu nhẹ, mỗi track một giai điệu) và trả về dạng `data:` URI, nên play/seek/waveform/comment đều thử được mà không cần file.
+- Search giả mô phỏng `unaccent` + `pg_trgm` (cùng công thức độ giống, test ghim đúng các số 9/13, 6/16 của guide 06), nên `son tung` ra `Sơn Tùng` và `son tuhg` vẫn ra.
+
+### Giả lập độ trễ và lỗi
+
+`FakeBehavior` (mặc định trễ ngẫu nhiên 200-600 ms, có seed nên lặp lại được) dùng chung cho mọi repository giả:
+`repositories.fakeBehavior!.failing = true` làm **mọi** lời gọi giả lỗi mạng (để xem trạng thái lỗi/thử lại), `failNext(n)` làm hỏng n lời gọi kế tiếp.
+(Công tắc hiển thị trên `/dev/gallery` được làm ở Giai đoạn 8.)
+
+### Nối một tính năng khi backend của nó xong
+
+1. Làm xong guide tương ứng và kiểm bằng `curl` (mục 10 của guide).
+2. Bỏ `--dart-define` của tính năng đó (xem bảng trên). Không sửa code app.
+3. Đăng nhập thật và đi hết kịch bản UI ở mục 10 của guide. Nếu khác hợp đồng: sửa `api-contract.md` trước, rồi `Http*Repository` và test `test/data/http/`.
+4. Backend và app chỉ cần khớp hợp đồng: các test `test/data/http/*` ghim đúng đường dẫn, query, JSON và mã lỗi của hợp đồng.
+
+### Chạy với backend Phase 1-4 thật: không vỡ
+
+- Field mới (`createdAt`, `likeCount`, `commentCount`, `isLikedByMe`, `followerCount`...) được đọc **an toàn**: thiếu thì mặc định 0/false/null (test `social_models_test.dart`).
+- `GET /users?ids=` chưa có → `HttpUserRepository` thử một lần, thấy `404/401/405` thì **tự chuyển sang gọi từng `GET /users/{id}`** (song song) và nhớ như vậy.
+- Khác Phase 4: profile được đọc **kèm token** (để `isFollowedByMe` đúng người xem). Nếu server từ chối token hết hạn mà không refresh được, app đọc lại **không token** (route công khai). `ProfileApi.getProfile` cũ (không gửi token) vẫn giữ nguyên, không dùng cho UI mới.
+- `RepositoryException.kind` cho UI chọn thông báo (`unauthorized` → mời đăng nhập, `notFound`, `conflict`, `network` → "thử lại"...). `TrackApiException` và `ProfileApiException` nay kế thừa nó (giữ nguyên `message`).
+
+### `UserDirectory`
+
+Danh sách track/comment/follower chỉ có **id** user. `UserDirectory.profiles(ids)` xin tên cho cả trang **bằng một request**, không xin lại id đã biết hoặc đang chờ, nhớ kết quả, và là `ChangeNotifier` để widget vẽ lại khi tên đến. Dùng trong `TrackCard`, `CommentList`, `UserTile` (Giai đoạn 6-7).
+
+### Giả định UI đặt cho backend (ghi lại để Giai đoạn 9 đối chiếu)
+
+- `createdAt` có trong mọi track (list, detail); thiếu thì `TrackCard` ẩn dòng "x ngày trước".
+- Track private của người khác trả `404` cho like/comment (không `403`).
+- `PUT/DELETE` like và follow trả trạng thái mới (`liked`/`following` + số đếm) để UI đồng bộ số mà không phải tải lại.
+- Comment `positionMs` được UI kẹp trong `[0, durationMs]` trước khi gửi; server vẫn kiểm lại.
