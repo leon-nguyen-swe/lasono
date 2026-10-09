@@ -164,6 +164,24 @@ void main() {
 
       expect(find.byKey(const Key('homeTitle')), findsOneWidget);
     });
+
+    testWidgets('a new page fades in over the old one, which is gone when the fade is over', (tester) async {
+      TestEnv.window(tester, width: 1280);
+      final env = await TestEnv.create(signedIn: true);
+      await tester.pumpWidget(env.app(location: '/upload'));
+      await _settle(tester);
+
+      await tester.tap(find.byKey(const Key('logo')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+
+      expect(find.byKey(const Key('homeTitle')), findsOneWidget);
+      final fading = tester.widgetList<FadeTransition>(find.descendant(of: find.byType(Scaffold).first, matching: find.byType(FadeTransition)));
+      expect(fading.any((f) => f.opacity.value > 0 && f.opacity.value < 1), isTrue);
+
+      await _settle(tester);
+      expect(find.byKey(const Key('uploadTitle')), findsNothing);
+    });
   });
 
   group('the shell around the pages', () {
