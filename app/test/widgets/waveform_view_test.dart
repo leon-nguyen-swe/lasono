@@ -77,6 +77,16 @@ void main() {
       expect(_paint(tester), isNot(paints..line()));
     });
 
+    testWidgets('show the shape of a loud track instead of a flat band (the peaks from the backend are all near the top)', (tester) async {
+      final loud = [for (var i = 0; i < 100; i++) 0.92 + 0.08 * ((i * 37) % 100) / 100];
+      await tester.pumpWidget(_wrap(WaveformView(peaks: loud)));
+
+      final painter = tester.widget<CustomPaint>(find.byKey(const Key('waveformPaint'))).painter! as WaveformBarsPainter;
+      final sorted = [...painter.peaks]..sort();
+      expect(sorted.last - sorted.first, greaterThan(0.5), reason: 'drawn with ups and downs');
+      expect(painter.peaks.length, loud.length);
+    });
+
     testWidgets('nothing is drawn for a track without peaks', (tester) async {
       await tester.pumpWidget(_wrap(const WaveformView(peaks: [])));
       expect(_paint(tester), paintsNothing);

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/text/time_text.dart';
 import '../core/theme/theme.dart';
+import '../core/waveform_contrast.dart';
 import 'user_avatar.dart';
 
 /// A comment pinned on the waveform: where it is, who wrote it and what it says.
@@ -67,6 +68,18 @@ class WaveformView extends StatefulWidget {
 }
 
 class _WaveformViewState extends State<WaveformView> {
+  // The peaks as drawn: spread over the range of the track (see [emphasizePeaks]), made again only for new peaks.
+  List<double>? _rawPeaks;
+  List<double> _shownPeaks = const [];
+
+  List<double> get _peaks {
+    if (!identical(_rawPeaks, widget.peaks)) {
+      _rawPeaks = widget.peaks;
+      _shownPeaks = emphasizePeaks(widget.peaks);
+    }
+    return _shownPeaks;
+  }
+
   double? _hover; // fraction under the pointer
   WaveformMarker? _pointed; // the comment whose avatar the pointer is on
 
@@ -120,7 +133,7 @@ class _WaveformViewState extends State<WaveformView> {
                           child: CustomPaint(
                             key: const Key('waveformPaint'),
                             painter: WaveformBarsPainter(
-                              peaks: widget.peaks,
+                              peaks: _peaks,
                               progress: widget.progress,
                               hover: _pointed == null ? _hover : null,
                               playedColor: c.waveformPlayed,
