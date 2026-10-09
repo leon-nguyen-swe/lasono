@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lasono_app/core/theme/theme.dart';
@@ -74,6 +75,6 @@ void main() {
       await tester.pump();
 
       expect(find.text('ĐV'), findsOneWidget);
-    });
+    }, skip: kIsWeb); // the browser's test environment loads images in its own way (the failure is simulated for the VM)
   });
 }

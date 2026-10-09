@@ -24,7 +24,7 @@ Future<void> _settleTheme(WidgetTester tester) async {
 
 void main() {
   testWidgets('shows the tokens and the components in the dark theme without errors', (tester) async {
-    tester.view.physicalSize = const Size(1280, 2400);
+    tester.view.physicalSize = const Size(1280, 9000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -35,6 +35,10 @@ void main() {
     expect(find.text('Components'), findsOneWidget);
     // Vietnamese sample text is on the page.
     expect(find.textContaining('Nắng ấm xa dần'), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    // The made-up network answers after 200-600 ms; let it finish so no timer is left over.
+    await tester.pump(const Duration(seconds: 2));
     expect(tester.takeException(), isNull);
   });
 
@@ -63,17 +67,16 @@ void main() {
     addTearDown(tester.view.reset);
 
     for (final (width, name) in [(400.0, 'compact'), (800.0, 'medium'), (1400.0, 'expanded')]) {
-      tester.view.physicalSize = Size(width, 2400);
+      // Tall enough that the whole page is built, so the label is there without scrolling to it.
+      tester.view.physicalSize = Size(width, 9000);
       await tester.pumpWidget(_app(ThemeController()));
       await tester.pump(_settle);
-      final label = find.byKey(const Key('screenSizeLabel'));
-      await tester.scrollUntilVisible(label, 400, scrollable: find.byType(Scrollable).first);
-      expect((tester.widget<Text>(label)).data, endsWith(name));
+      expect((tester.widget<Text>(find.byKey(const Key('screenSizeLabel')))).data, endsWith(name));
     }
   });
 
   testWidgets('the dialog and the snackbar open in the theme', (tester) async {
-    tester.view.physicalSize = const Size(1280, 5000);
+    tester.view.physicalSize = const Size(1280, 9000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(_app(ThemeController()));
