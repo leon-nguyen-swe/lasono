@@ -122,6 +122,18 @@ void main() {
       await tester.pump();
     }
 
+    testWidgets('asks the browser not to fill the fields in (autofill broke editing the password in the browser)', (tester) async {
+      await open(tester, registering: true);
+
+      for (final key in const ['emailField', 'displayNameField', 'passwordField']) {
+        final field = tester.widget<TextField>(find.byKey(Key(key)));
+        expect(field.autofillHints, isEmpty, reason: key);
+        expect(field.enableSuggestions, isFalse, reason: key);
+        expect(field.autocorrect, isFalse, reason: key);
+      }
+      expect(find.byType(AutofillGroup), findsNothing);
+    });
+
     testWidgets('hides the password, and the eye button shows it', (tester) async {
       await open(tester);
       expect(tester.widget<TextField>(find.byKey(const Key('passwordField'))).obscureText, isTrue);

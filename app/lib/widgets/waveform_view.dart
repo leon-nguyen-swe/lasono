@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/text/time_text.dart';
 import '../core/theme/theme.dart';
+import '../core/waveform_contrast.dart';
 import 'user_avatar.dart';
 
 /// A comment pinned on the waveform: where it is, who wrote it and what it says.
@@ -23,9 +24,10 @@ class WaveformMarker {
   final String text;
 }
 
-/// The shape of a track as bars. The part already played has the accent colour, and under the pointer the time that
-/// a press would jump to is shown; pressing seeks there. Comments appear as small avatars under the bars, at their
-/// position, and their text floats above when the pointer is on the avatar or when the playing reaches it.
+/// The shape of a track as square bars on a line, with a fainter reflection under them. The part already played has the
+/// accent colour, a thin line marks where it is playing, and under the pointer the time that a press would jump to is
+/// shown; pressing seeks there. Comments appear as small avatars in the reflection, at their position, and their text
+/// floats above when the pointer is on the avatar or when the playing reaches it.
 class WaveformView extends StatefulWidget {
   const WaveformView({
     super.key,
@@ -60,13 +62,24 @@ class WaveformView extends StatefulWidget {
   static const markerSize = 22.0;
 
   static const _bubbleSpace = 40.0;
-  static const _markerRow = 30.0;
 
   @override
   State<WaveformView> createState() => _WaveformViewState();
 }
 
 class _WaveformViewState extends State<WaveformView> {
+  // The peaks as drawn: spread over the range of the track (see [emphasizePeaks]), made again only for new peaks.
+  List<double>? _rawPeaks;
+  List<double> _shownPeaks = const [];
+
+  List<double> get _peaks {
+    if (!identical(_rawPeaks, widget.peaks)) {
+      _rawPeaks = widget.peaks;
+      _shownPeaks = emphasizePeaks(widget.peaks);
+    }
+    return _shownPeaks;
+  }
+
   double? _hover; // fraction under the pointer
   WaveformMarker? _pointed; // the comment whose avatar the pointer is on
 
@@ -120,9 +133,9 @@ class _WaveformViewState extends State<WaveformView> {
                           child: CustomPaint(
                             key: const Key('waveformPaint'),
                             painter: WaveformBarsPainter(
-                              peaks: widget.peaks,
+                              peaks: _peaks,
                               progress: widget.progress,
-                              hover: _hover,
+                              hover: _pointed == null ? _hover : null,
                               playedColor: c.waveformPlayed,
                               restColor: c.waveformUnplayed,
                               hoverColor: c.waveformHover,
@@ -130,7 +143,16 @@ class _WaveformViewState extends State<WaveformView> {
                             ),
                           ),
                         ),
-                        if (_hover != null && (widget.durationMs ?? 0) > 0)
+                        // The comments sit in the reflection under the bars, each at its place in the track.
+                        if (_hasMarkers)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            top: widget.height * WaveformBarsPainter.topShare + 2,
+                            height: WaveformView.markerSize,
+                            child: _markerRow(context, width),
+                          ),
+                        if (_hover != null && _pointed == null && (widget.durationMs ?? 0) > 0)
                           Positioned(
                             top: -2,
                             left: (_hover! * width - 22).clamp(0.0, math.max(0.0, width - 44)).toDouble(),
@@ -141,7 +163,6 @@ class _WaveformViewState extends State<WaveformView> {
                   ),
                 ),
               ),
-              if (_hasMarkers) SizedBox(height: WaveformView._markerRow, child: _markerRow(context, width)),
             ],
           );
         },
@@ -214,7 +235,7 @@ class _WaveformViewState extends State<WaveformView> {
             left: ((group.first.positionMs / duration).clamp(0.0, 1.0) * width - WaveformView.markerSize / 2)
                 .clamp(0.0, math.max(0.0, width - WaveformView.markerSize))
                 .toDouble(),
-            top: 4,
+            top: 0,
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _pointed = group.first),
@@ -279,8 +300,9 @@ class _TimeLabel extends StatelessWidget {
   }
 }
 
-/// Draws the bars: those up to [progress] in the played colour, the rest in the other. When the pointer is [hover]ing
-/// ahead of the playing, the stretch between them is in the hover colour, and a thin line marks the pointer.
+/// Draws the bars: square-cornered, standing on a thin line, with a shorter and fainter reflection under each. Those up to
+/// [progress] are in the played colour, the rest in the other. A thin line marks the place that is playing now. When the
+/// pointer is [hover]ing ahead of the playing, the stretch between them is in the hover colour, and a line marks the pointer.
 class WaveformBarsPainter extends CustomPainter {
   const WaveformBarsPainter({
     required this.peaks,
@@ -296,7 +318,16 @@ class WaveformBarsPainter extends CustomPainter {
   static const minBarHeight = 3.0;
 
   /// The part of its slot a bar fills; the rest is the gap between bars.
-  static const barFill = 0.62;
+  static const barFill = 0.7;
+
+  /// The share of the height above the line the bars stand on; the rest is the reflection.
+  static const topShare = 0.68;
+
+  /// The reflection is this much of the bar, so it never fills all the room under the line.
+  static const reflectionScale = 0.9;
+
+  /// How faint the reflection is, compared with the bar it belongs to.
+  static const reflectionOpacity = 0.35;
 
   final List<double> peaks;
   final double progress;
@@ -306,25 +337,45 @@ class WaveformBarsPainter extends CustomPainter {
   final Color hoverColor;
   final Color lineColor;
 
+  double _barWidth(Size size) => math.max(1.0, size.width / peaks.length * barFill);
+
+  /// Where bar [i] is drawn, standing on the line.
+  Rect barRect(int i, Size size) {
+    final slot = size.width / peaks.length;
+    final width = _barWidth(size);
+    final baseline = size.height * topShare;
+    final height = math.max(minBarHeight, peaks[i].clamp(0.0, 1.0) * baseline);
+    return Rect.fromLTWH(i * slot + (slot - width) / 2, baseline - height, width, height);
+  }
+
+  /// Where the reflection of bar [i] is drawn, hanging under the line.
+  Rect reflectionRect(int i, Size size) {
+    final bar = barRect(i, size);
+    final room = size.height * (1 - topShare);
+    final height = math.min(room, math.max(1.5, bar.height / (size.height * topShare) * room * reflectionScale));
+    return Rect.fromLTWH(bar.left, size.height * topShare, bar.width, height);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     if (peaks.isEmpty) return;
-    final slot = size.width / peaks.length;
-    final barWidth = math.max(1.5, slot * barFill);
     final playedBars = (progress.clamp(0.0, 1.0) * peaks.length).round();
     final hoverBars = hover == null ? 0 : (hover!.clamp(0.0, 1.0) * peaks.length).round();
 
-    final played = Paint()..color = playedColor;
-    final rest = Paint()..color = restColor;
-    final ahead = Paint()..color = hoverColor;
+    Color colourOf(int i) => i < playedBars ? playedColor : (i < hoverBars ? hoverColor : restColor);
 
     for (var i = 0; i < peaks.length; i++) {
-      final height = math.max(minBarHeight, peaks[i].clamp(0.0, 1.0) * size.height);
-      final bar = RRect.fromRectAndRadius(
-        Rect.fromLTWH(i * slot + (slot - barWidth) / 2, (size.height - height) / 2, barWidth, height),
-        Radius.circular(barWidth / 2),
-      );
-      canvas.drawRRect(bar, i < playedBars ? played : (i < hoverBars ? ahead : rest));
+      canvas.drawRect(barRect(i, size), Paint()..color = colourOf(i));
+    }
+    for (var i = 0; i < peaks.length; i++) {
+      canvas.drawRect(reflectionRect(i, size), Paint()..color = colourOf(i).withValues(alpha: reflectionOpacity));
+    }
+    // The line the bars stand on.
+    canvas.drawRect(Rect.fromLTWH(0, size.height * topShare - 0.5, size.width, 1), Paint()..color = lineColor.withValues(alpha: 0.16));
+
+    if (progress > 0 && progress < 1) {
+      final x = progress * size.width;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), Paint()..color = lineColor.withValues(alpha: 0.9)..strokeWidth = 1.5);
     }
     if (hover != null) {
       final x = hover!.clamp(0.0, 1.0) * size.width;
@@ -339,6 +390,7 @@ class WaveformBarsPainter extends CustomPainter {
       old.playedColor != playedColor ||
       old.restColor != restColor ||
       old.hoverColor != hoverColor ||
+      old.lineColor != lineColor ||
       old.peaks.length != peaks.length ||
       !identical(old.peaks, peaks);
 }

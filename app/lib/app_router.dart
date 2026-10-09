@@ -91,15 +91,43 @@ String? _safeFrom(Uri location) {
 
 /// A page that fades in over the one it replaces when the user arrives. People who asked their system for less
 /// motion get no fade.
-Page<void> _fade(GoRouterState state, Widget child) => CustomTransitionPage<void>(
+///
+/// [takeFocus] false keeps the keyboard focus where it was. A new page normally takes it (good for someone who moves
+/// with the keyboard), but the search page opens while the user is still typing in the box of the top bar, and taking
+/// the cursor away from there in the middle of a word is what must not happen.
+Page<void> _fade(GoRouterState state, Widget child, {bool takeFocus = true}) => _FadePage(
       key: state.pageKey,
+      name: state.name ?? state.path,
+      arguments: <String, String>{...state.pathParameters, ...state.uri.queryParameters},
+      restorationId: state.pageKey.value,
+      takeFocus: takeFocus,
       child: child,
+    );
+
+class _FadePage extends Page<void> {
+  const _FadePage({super.key, super.name, super.arguments, super.restorationId, required this.child, required this.takeFocus});
+
+  final Widget child;
+  final bool takeFocus;
+
+  @override
+  Route<void> createRoute(BuildContext context) {
+    // The same page with another address (`/search?q=So` then `?q=Son`) updates this route: the child is read from the
+    // current page each time, not kept from the first one.
+    late final PageRouteBuilder<void> route;
+    route = PageRouteBuilder<void>(
+      settings: this,
+      requestFocus: takeFocus,
       transitionDuration: AppDurations.normal,
       reverseTransitionDuration: Duration.zero,
+      pageBuilder: (context, animation, secondaryAnimation) => (route.settings as _FadePage).child,
       transitionsBuilder: (context, animation, secondaryAnimation, page) => MediaQuery.disableAnimationsOf(context)
           ? page
           : FadeTransition(opacity: CurvedAnimation(parent: animation, curve: AppCurves.standard), child: page),
     );
+    return route;
+  }
+}
 
 GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRoutes.home, bool debug = kDebugMode}) {
   return GoRouter(
@@ -169,7 +197,7 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
           ),
           GoRoute(path: AppRoutes.upload, pageBuilder: (context, state) => _fade(state, UploadPage(pickAudio: deps.pickAudio))),
           GoRoute(path: AppRoutes.feed, pageBuilder: (context, state) => _fade(state, const FeedPage())),
-          GoRoute(path: AppRoutes.search, pageBuilder: (context, state) => _fade(state, SearchPage(query: state.uri.queryParameters['q'] ?? ''))),
+          GoRoute(path: AppRoutes.search, pageBuilder: (context, state) => _fade(state, SearchPage(query: state.uri.queryParameters['q'] ?? ''), takeFocus: false)),
         ],
       ),
     ],

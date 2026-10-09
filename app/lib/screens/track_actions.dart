@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/theme.dart';
@@ -62,7 +64,10 @@ Future<bool> confirmAndDeleteTrack(BuildContext context, Track track) async {
 
 /// A [TrackCard] wired to the app: pressing play makes the list the queue, the heart, the author and the title go where
 /// they should, and the owner's menu edits, hides and deletes. [onChanged] and [onDeleted] let the list keep its copy.
-class TrackTile extends StatelessWidget {
+///
+/// A track that is still being processed asks the server every [pollEvery] and tells the list when it is ready (or has
+/// failed), so a list never shows "processing" for a track that finished a minute ago.
+class TrackTile extends StatefulWidget {
   const TrackTile({
     super.key,
     required this.track,
@@ -72,6 +77,7 @@ class TrackTile extends StatelessWidget {
     this.onChanged,
     this.onDeleted,
     this.highlight,
+    this.pollEvery = const Duration(seconds: 3),
   });
 
   final Track track;
@@ -88,10 +94,78 @@ class TrackTile extends StatelessWidget {
   /// What was searched for, to highlight in the title.
   final String? highlight;
 
+  /// How often a track that is being processed is looked at again.
+  final Duration pollEvery;
+
+  @override
+  State<TrackTile> createState() => _TrackTileState();
+}
+
+class _TrackTileState extends State<TrackTile> {
+  Timer? _poll;
+
+  Track get track => widget.track;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncPolling();
+  }
+
+  @override
+  void didUpdateWidget(TrackTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncPolling();
+  }
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  // Asks while the track is being processed, and not any more once it is not.
+  void _syncPolling() {
+    final processing = track.status == 'PROCESSING';
+    if (processing && _poll == null) {
+      _poll = Timer.periodic(widget.pollEvery, (_) => _lookAgain());
+    } else if (!processing) {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  Future<void> _lookAgain() async {
+    final repos = context.repos;
+    final playback = context.playback;
+    final asked = track;
+    try {
+      final fresh = await repos.tracks.getTrack(asked.id);
+      if (!mounted || fresh.status == track.status) return;
+      // The server answers with the track as a list does not have it: keep what the list knows (counts).
+      final updated = track.copyWith(
+        status: fresh.status,
+        mimeType: fresh.mimeType,
+        durationSeconds: fresh.durationSeconds,
+        waveform: fresh.waveform,
+      );
+      playback.replaceTrack(updated);
+      widget.onChanged?.call(updated);
+    } on RepositoryException {
+      // The next tick asks again; a short failure is not worth telling the user.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repos = context.repos;
     final playback = context.playback;
+    final onChanged = widget.onChanged;
+    final onDeleted = widget.onDeleted;
+    final queue = widget.queue;
+    final index = widget.index;
+    final sourceId = widget.sourceId;
+    final highlight = widget.highlight;
 
     void changed(Track updated) {
       playback.replaceTrack(updated);

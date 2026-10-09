@@ -57,6 +57,10 @@ class JustAudioPlayerService implements PlayerService {
   @override
   Future<void> load(Uri url) async {
     try {
+      // A new track on a player that is playing another one: in the browser the audio element kept the old
+      // source and no request for the new one was made (the old track went on playing under the new title).
+      // Stopping first makes just_audio build a fresh platform player for the new address.
+      await _player.stop();
       await _player.setUrl(url.toString());
     } on PlayerException catch (e) {
       throw PlaybackException('$e');

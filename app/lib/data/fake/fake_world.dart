@@ -21,9 +21,13 @@ class FakeUser {
 /// [idPrefix], so any id can be told apart from a real one with [isFake]; that is how the app keeps fake and real
 /// data side by side.
 class FakeWorld {
-  FakeWorld({DateTime Function()? clock}) : _clock = clock ?? (() => DateTime.now().toUtc()) {
+  /// [newViewerFollowsSome]: a logged-in person starts out following [viewerStartsFollowing] (handy for tests and for
+  /// seeing a full feed). The app turns it off, because a new account on the real backend follows nobody.
+  FakeWorld({DateTime Function()? clock, this.newViewerFollowsSome = true}) : _clock = clock ?? (() => DateTime.now().toUtc()) {
     _seed();
   }
+
+  final bool newViewerFollowsSome;
 
   static const idPrefix = 'f4e00000-';
 
@@ -192,6 +196,7 @@ class FakeWorld {
   /// start out following [viewerStartsFollowing].
   void ensureViewer(String? viewerId) {
     if (viewerId == null || isFake(viewerId) || !_viewersSeen.add(viewerId)) return;
+    if (!newViewerFollowsSome) return;
     final start = _clock();
     for (final (n, index) in viewerStartsFollowing.indexed) {
       _follows.putIfAbsent(viewerId, () => {})[users[index].id] = start.subtract(Duration(days: 2 + n));

@@ -26,9 +26,11 @@ Future<TestGesture> _mouse(WidgetTester tester) async {
 
 void main() {
   group('the bars', () {
-    testWidgets('are drawn one for each peak', (tester) async {
+    testWidgets('are drawn one for each peak, with square corners', (tester) async {
       await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.2, 0.8, 0.5, 1.0, 0.1])));
-      expect(_paint(tester), paintsExactlyCountTimes(#drawRRect, 5));
+      expect(_paint(tester), paintsExactlyCountTimes(#drawRRect, 0), reason: 'no rounded corners');
+      // 5 bars, 5 reflections under them, and the thin line they stand on.
+      expect(_paint(tester), paintsExactlyCountTimes(#drawRect, 11));
     });
 
     testWidgets('up to the progress are in the played colour, and the rest in the other', (tester) async {
@@ -37,11 +39,52 @@ void main() {
       expect(
         _paint(tester),
         paints
-          ..rrect(color: _c.waveformPlayed)
-          ..rrect(color: _c.waveformPlayed)
-          ..rrect(color: _c.waveformUnplayed)
-          ..rrect(color: _c.waveformUnplayed),
+          ..rect(color: _c.waveformPlayed)
+          ..rect(color: _c.waveformPlayed)
+          ..rect(color: _c.waveformUnplayed)
+          ..rect(color: _c.waveformUnplayed),
       );
+    });
+
+    test('stand on a line, and each has a shorter, fainter reflection under it', () {
+      final painter = WaveformBarsPainter(
+        peaks: const [0.5, 1.0],
+        progress: 0,
+        playedColor: _c.waveformPlayed,
+        restColor: _c.waveformUnplayed,
+        hoverColor: _c.waveformHover,
+        lineColor: _c.textPrimary,
+      );
+      const size = Size(200, 100);
+      final baseline = size.height * WaveformBarsPainter.topShare;
+
+      for (final (bar, reflection) in [for (var i = 0; i < 2; i++) (painter.barRect(i, size), painter.reflectionRect(i, size))]) {
+        expect(bar.bottom, baseline, reason: 'the bar stands on the line');
+        expect(reflection.top, greaterThanOrEqualTo(baseline), reason: 'the reflection hangs under the line');
+        expect(reflection.bottom, lessThanOrEqualTo(size.height));
+        expect(reflection.height, lessThan(bar.height));
+        expect(reflection.left, bar.left);
+        expect(reflection.width, bar.width);
+      }
+    });
+
+    testWidgets('a thin line marks the place that is playing now, and none before it starts', (tester) async {
+      await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.5, 0.5, 0.5, 0.5], progress: 0.5)));
+      final box = tester.getSize(find.byKey(const Key('waveformPaint')));
+      expect(_paint(tester), paints..line(p1: Offset(box.width * 0.5, 0), p2: Offset(box.width * 0.5, box.height)));
+
+      await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.5, 0.5, 0.5, 0.5])));
+      expect(_paint(tester), isNot(paints..line()));
+    });
+
+    testWidgets('show the shape of a loud track instead of a flat band (the peaks from the backend are all near the top)', (tester) async {
+      final loud = [for (var i = 0; i < 100; i++) 0.92 + 0.08 * ((i * 37) % 100) / 100];
+      await tester.pumpWidget(_wrap(WaveformView(peaks: loud)));
+
+      final painter = tester.widget<CustomPaint>(find.byKey(const Key('waveformPaint'))).painter! as WaveformBarsPainter;
+      final sorted = [...painter.peaks]..sort();
+      expect(sorted.last - sorted.first, greaterThan(0.5), reason: 'drawn with ups and downs');
+      expect(painter.peaks.length, loud.length);
     });
 
     testWidgets('nothing is drawn for a track without peaks', (tester) async {
@@ -61,16 +104,12 @@ void main() {
       final canvas = TestRecordingCanvas();
 
       painter.paint(canvas, const Size(400, 100));
+      expect(canvas.invocations, isNotEmpty);
 
-      final bars = canvas.invocations
-          .map((call) => call.invocation)
-          .where((call) => call.memberName == #drawRRect)
-          .map((call) => call.positionalArguments.first as RRect)
-          .toList();
-      expect(bars, hasLength(4));
+      final bars = [for (var i = 0; i < 4; i++) painter.barRect(i, const Size(400, 100))];
       expect(bars[2].height, greaterThan(bars[1].height));
       expect(bars[0].height, WaveformBarsPainter.minBarHeight);
-      expect(bars.every((b) => b.height <= 100), isTrue);
+      expect(bars.every((b) => b.height <= 100 * WaveformBarsPainter.topShare), isTrue);
     });
 
     testWidgets('keep the colour they had when the theme is light', (tester) async {
@@ -80,7 +119,7 @@ void main() {
           home: const Scaffold(body: Center(child: SizedBox(width: 400, child: WaveformView(peaks: [0.5, 0.5], progress: 0.5)))),
         ),
       );
-      expect(_paint(tester), paints..rrect(color: AppColors.light.waveformPlayed)..rrect(color: AppColors.light.waveformUnplayed));
+      expect(_paint(tester), paints..rect(color: AppColors.light.waveformPlayed)..rect(color: AppColors.light.waveformUnplayed));
     });
   });
 
@@ -131,10 +170,10 @@ void main() {
       expect(
         _paint(tester),
         paints
-          ..rrect(color: _c.waveformPlayed)
-          ..rrect(color: _c.waveformHover)
-          ..rrect(color: _c.waveformHover)
-          ..rrect(color: _c.waveformUnplayed),
+          ..rect(color: _c.waveformPlayed)
+          ..rect(color: _c.waveformHover)
+          ..rect(color: _c.waveformHover)
+          ..rect(color: _c.waveformUnplayed),
       );
     });
 
@@ -148,7 +187,7 @@ void main() {
   });
 
   group('the comments', () {
-    testWidgets('are avatars under the bars, each at its place in the track', (tester) async {
+    testWidgets('are avatars in the reflection under the bars, each at its place in the track', (tester) async {
       await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.5, 0.5, 0.5, 0.5], durationMs: 100000, markers: _markers)));
       final box = tester.getRect(find.byKey(const Key('waveformPaint')));
 
@@ -157,7 +196,9 @@ void main() {
 
       expect(first.dx, closeTo(box.left + box.width * 0.10, 12));
       expect(second.dx, closeTo(box.left + box.width * 0.50, 12));
-      expect(first.dy, greaterThan(box.bottom), reason: 'below the bars');
+      final baseline = box.top + box.height * WaveformBarsPainter.topShare;
+      expect(first.dy, greaterThan(baseline), reason: 'under the line the bars stand on');
+      expect(tester.getRect(find.byKey(const Key('marker-m1'))).bottom, lessThanOrEqualTo(box.bottom + 1), reason: 'inside the view');
     });
 
     testWidgets('are not shown when the length of the track is not known: there is no place for them', (tester) async {
@@ -238,12 +279,12 @@ void main() {
       expect(seeks, isEmpty);
     });
 
-    testWidgets('the room for them is only taken when there are some', (tester) async {
+    testWidgets('the room for their text above is only taken when there are some (the avatars need none, they use the reflection)', (tester) async {
       await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.5, 0.5], height: 80)));
       expect(tester.getSize(find.byType(WaveformView)).height, 80);
 
       await tester.pumpWidget(_wrap(const WaveformView(peaks: [0.5, 0.5], height: 80, durationMs: 1000, markers: _markers)));
-      expect(tester.getSize(find.byType(WaveformView)).height, greaterThan(80));
+      expect(tester.getSize(find.byType(WaveformView)).height, 80 + 40);
     });
   });
 
