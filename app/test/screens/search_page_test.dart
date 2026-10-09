@@ -116,6 +116,48 @@ void main() {
     expect(find.text('Kết quả cho “son”'), findsOneWidget);
   });
 
+  group('typing in the top bar', () {
+    EditableText box(WidgetTester tester) =>
+        tester.widget<EditableText>(find.descendant(of: find.byKey(const Key('searchField')), matching: find.byType(EditableText)));
+
+    Future<TestEnv> openHome(WidgetTester tester) async {
+      TestEnv.window(tester);
+      final env = await TestEnv.create(signedIn: true);
+      await tester.pumpWidget(env.app(location: '/'));
+      await _settle(tester);
+      return env;
+    }
+
+    testWidgets('the cursor stays in the box when the search page opens under it', (tester) async {
+      await openHome(tester);
+
+      await tester.enterText(find.byKey(const Key('searchField')), 'Sơn');
+      expect(box(tester).focusNode.hasFocus, isTrue);
+      await tester.pump(const Duration(milliseconds: 600)); // the pause is over: the search page opens
+      await _settle(tester);
+
+      expect(find.byKey(const Key('searchTitle')), findsOneWidget);
+      expect(box(tester).focusNode.hasFocus, isTrue, reason: 'the user is still typing there');
+    });
+
+    testWidgets('text typed while the search is on its way is kept, not replaced by the older words', (tester) async {
+      await openHome(tester);
+
+      await tester.enterText(find.byKey(const Key('searchField')), 'So');
+      await tester.pump(const Duration(milliseconds: 401)); // the search for "So" is sent
+      await tester.enterText(find.byKey(const Key('searchField')), 'Son');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.widget<TextField>(find.byKey(const Key('searchField'))).controller!.text, 'Son');
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await _settle(tester);
+      expect(find.text('Kết quả cho “Son”'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byKey(const Key('searchField'))).controller!.text, 'Son');
+    });
+  });
+
   testWidgets('a slow answer to an older word does not replace the answer to the newer one', (tester) async {
     TestEnv.window(tester, width: 1280, height: 1600);
     final env = await TestEnv.create(signedIn: true);
