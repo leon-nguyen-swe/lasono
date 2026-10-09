@@ -6,16 +6,20 @@ import '../api/profile_api.dart';
 import '../core/text/time_text.dart';
 import '../core/theme/theme.dart';
 import 'cover_art.dart';
+import 'highlighted_text.dart';
 import 'user_avatar.dart';
 
 /// A row for a user in a list (followers, search results): the avatar, the name, how many follow them, and something at
 /// the end (usually a follow button).
 class UserTile extends StatelessWidget {
-  const UserTile({super.key, required this.profile, this.onTap, this.trailing});
+  const UserTile({super.key, required this.profile, this.onTap, this.trailing, this.highlight});
 
   final Profile profile;
   final VoidCallback? onTap;
   final Widget? trailing;
+
+  /// What was searched for: the part of the name that matches is highlighted.
+  final String? highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +38,7 @@ class UserTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(profile.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.titleSmall),
+                  HighlightedText(profile.displayName, query: highlight, maxLines: 1, overflow: TextOverflow.ellipsis, style: text.titleSmall),
                   Text(
                     '${formatCount(profile.followerCount)} người theo dõi',
                     style: text.bodySmall?.copyWith(color: c.textSecondary),

@@ -9,8 +9,6 @@ import '../data/fake/fake_world.dart';
 import '../data/user_directory.dart';
 import '../data/waveform_cache.dart';
 import '../playback/playback_controller.dart';
-import '../screens/status_badge.dart';
-import '../screens/waveform_view.dart' as legacy;
 import '../widgets/comments.dart';
 import '../widgets/cover_art.dart';
 import '../widgets/follow_button.dart';
@@ -414,8 +412,6 @@ class _ComponentsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
-    final peaks = [for (var i = 0; i < 120; i++) 0.15 + 0.8 * ((i * 37) % 100) / 100];
     return _Section(
       title: 'Components',
       note: 'Material components in the LaSono theme. The app\'s own components are added as they are built.',
@@ -433,9 +429,6 @@ class _ComponentsSection extends StatelessWidget {
               TextButton(onPressed: () {}, child: const Text('Text')),
               IconButton(onPressed: () {}, tooltip: 'Like', icon: const Icon(Icons.favorite_border)),
               const Chip(label: Text('Riêng tư')),
-              const StatusBadge(status: 'PROCESSING'),
-              const StatusBadge(status: 'READY'),
-              const StatusBadge(status: 'FAILED'),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -465,16 +458,6 @@ class _ComponentsSection extends StatelessWidget {
               const SizedBox(width: AppSpacing.lg),
               const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
             ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: AppRadius.all(AppRadius.lg),
-              border: Border.all(color: c.outline),
-            ),
-            child: legacy.WaveformView(peaks: peaks, progress: 0.35, onSeek: (_) {}, height: 72),
           ),
           const SizedBox(height: AppSpacing.xl),
           Wrap(

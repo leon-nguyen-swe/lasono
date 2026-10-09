@@ -88,6 +88,17 @@ class UserDirectory extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Remembers profiles that came with another answer (the people a search found), so no card asks for them again.
+  void cachedAll(Iterable<Profile> profiles) {
+    var changed = false;
+    for (final profile in profiles) {
+      _known[profile.userId] = profile;
+      _missing.remove(profile.userId);
+      changed = true;
+    }
+    if (changed) notifyListeners();
+  }
+
   /// Forgets one user, so the next ask goes to the repository.
   void invalidate(String userId) {
     _known.remove(userId);

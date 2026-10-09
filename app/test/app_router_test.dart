@@ -64,20 +64,20 @@ void main() {
   });
 
   group('the app', () {
-    testWidgets('opens on the track list of the old screen, as before', (tester) async {
-      TestEnv.window(tester);
+    testWidgets('opens on the home page of the new frame', (tester) async {
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create();
 
       await tester.pumpWidget(env.app());
       await _settle(tester);
 
-      expect(find.byKey(const Key('loginAction')), findsOneWidget);
-      expect(find.byKey(const Key('uploadAction')), findsOneWidget);
-      expect(find.text('No tracks yet'), findsOneWidget);
+      expect(find.byKey(const Key('loginButton')), findsOneWidget);
+      expect(find.byKey(const Key('uploadButton')), findsOneWidget);
+      expect(find.byKey(const Key('homeEmpty')), findsOneWidget);
     });
 
     testWidgets('waits on the splash page until the login is looked for, then shows the list', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final server = FakeAuthServer();
       final answer = Completer<http.Response>();
       server.onRefresh = () => answer.future;
@@ -87,16 +87,16 @@ void main() {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('LaSono'), findsOneWidget);
-      expect(find.byKey(const Key('loginAction')), findsNothing);
+      expect(find.byKey(const Key('loginButton')), findsNothing);
 
       answer.complete(http.Response('', 401));
       await _settle(tester);
 
-      expect(find.byKey(const Key('loginAction')), findsOneWidget);
+      expect(find.byKey(const Key('loginButton')), findsOneWidget);
     });
 
     testWidgets('an unknown address shows the 404 page, and the button leads home', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create();
 
       await tester.pumpWidget(env.app(location: '/nothing/here'));
@@ -107,7 +107,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('notFoundHome')));
       await _settle(tester);
-      expect(find.byKey(const Key('loginAction')), findsOneWidget);
+      expect(find.byKey(const Key('loginButton')), findsOneWidget);
     });
 
     testWidgets('the login page opens on "Log in", the register page on "Create account"', (tester) async {
@@ -126,43 +126,43 @@ void main() {
     });
 
     testWidgets('a page that needs a login sends a visitor to the login, and after the login they arrive on it', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create();
 
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
       expect(find.byKey(const Key('emailField')), findsOneWidget, reason: 'the login page, not the upload form');
-      expect(find.byKey(const Key('chooseFileButton')), findsNothing);
+      expect(find.byKey(const Key('dropZone')), findsNothing);
 
       await tester.enterText(find.byKey(const Key('emailField')), 'ann@example.com');
       await tester.enterText(find.byKey(const Key('passwordField')), 'secret pass');
       await tester.tap(find.byKey(const Key('submitButton')));
       await _settle(tester);
 
-      expect(find.byKey(const Key('chooseFileButton')), findsOneWidget, reason: 'the upload form the user asked for');
+      expect(find.byKey(const Key('dropZone')), findsOneWidget, reason: 'the upload form the user asked for');
       expect(env.server.count('POST /api/v1/auth/login'), 1);
     });
 
     testWidgets('a user who is logged in goes straight to the page that needs a login', (tester) async {
-      TestEnv.window(tester);
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create(signedIn: true);
 
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
 
-      expect(find.byKey(const Key('chooseFileButton')), findsOneWidget);
+      expect(find.byKey(const Key('dropZone')), findsOneWidget);
     });
 
-    testWidgets('the upload page has a way back to the list', (tester) async {
-      TestEnv.window(tester);
+    testWidgets('the upload page has a way back to the list: the logo of the top bar', (tester) async {
+      TestEnv.window(tester, width: 1280);
       final env = await TestEnv.create(signedIn: true);
       await tester.pumpWidget(env.app(location: '/upload'));
       await _settle(tester);
 
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.byKey(const Key('logo')));
       await _settle(tester);
 
-      expect(find.byKey(const Key('uploadAction')), findsOneWidget);
+      expect(find.byKey(const Key('homeTitle')), findsOneWidget);
     });
   });
 
@@ -198,7 +198,7 @@ void main() {
       await tester.tap(find.byKey(const Key('navFeed')));
       await _settle(tester);
 
-      expect(find.text('Trang này đang được xây dựng.'), findsOneWidget, reason: 'the Feed page of the shell');
+      expect(find.byKey(const Key('feedTitle')), findsOneWidget, reason: 'the Feed page of the shell');
       expect(find.byKey(const Key('playerBar')), findsOneWidget, reason: 'the bar stays on the new page');
       expect(inBar(), findsOneWidget);
       expect(env.player.stopCalls, 0, reason: 'the music was not stopped by changing page');
@@ -227,7 +227,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await _settle(tester);
 
-      expect(find.text('Tìm kiếm'), findsOneWidget);
+      expect(find.text('Kết quả cho “son tung”'), findsOneWidget);
       expect(tester.widget<TextField>(find.byKey(const Key('searchField'))).controller!.text, 'son tung');
     });
 

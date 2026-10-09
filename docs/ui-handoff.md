@@ -16,7 +16,7 @@
 | 4 | Tầng dữ liệu (repository + `Fake*` + `Http*`) | Xong: 5 interface, `Http*` theo hợp đồng, `Fake*` + dữ liệu giả (8 user, 30 track, phát được), cờ theo từng tính năng, `UserDirectory`. 543 test xanh |
 | 5 | App shell (top bar, player bar, hàng đợi, router) | Xong (hạ tầng): `go_router` + route guard + `AppShell` + `PlaybackController`. Màn hình cũ vẫn là `/` cho tới khi Giai đoạn 7 thay từng cái. 667 test xanh |
 | 6 | Component (kèm widget test) | Xong: `TrackCard`, `WaveformView` (marker comment), `CoverArt`, `UserAvatar`, `LikeButton`, `FollowButton`, `CommentComposer`, `CommentList`, `UserTile`, `StatBlock`, `ProfileHeader`, `SkeletonLoader`, `EmptyState`, `ErrorState`, `showConfirmDialog`, `showToast`. 823 test xanh |
-| 7 | Màn hình | Chưa |
+| 7 | Màn hình | Xong: đăng nhập/đăng ký, trang chủ (keyset + skeleton), upload (kéo thả), chi tiết track (waveform lớn, comment, menu chủ sở hữu, tự cập nhật khi PROCESSING), hồ sơ (track/đã thích, đổi tên), người theo dõi/đang theo dõi, bảng tin, tìm kiếm (bỏ dấu + tô đậm chữ khớp). Đã xóa toàn bộ màn hình cũ và test của chúng. 855 test xanh |
 | 8 | Hoàn thiện | Chưa |
 | 9 | Đối chiếu và bàn giao | Chưa |
 

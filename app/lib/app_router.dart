@@ -2,12 +2,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'audio_picker.dart';
 import 'auth/session_controller.dart';
 import 'core/theme/theme.dart';
 import 'data/app_repositories.dart';
 import 'dev/gallery_screen.dart';
 import 'playback/playback_controller.dart';
-import 'screens/auth_screen.dart';
+import 'screens/auth_page.dart';
+import 'screens/feed_page.dart';
+import 'screens/home_page.dart';
+import 'screens/people_page.dart';
+import 'screens/profile_page.dart';
+import 'screens/search_page.dart';
+import 'screens/track_page.dart';
+import 'screens/upload_page.dart';
 import 'shell/app_shell.dart';
 
 /// The places of the app. The routes that are not in the table yet (a page that is still the old screen) are
@@ -33,8 +41,7 @@ class RouterDependencies {
     required this.themeController,
     required this.repositories,
     required this.playback,
-    required this.legacyHome,
-    required this.legacyUpload,
+    this.pickAudio,
   });
 
   final SessionController session;
@@ -44,9 +51,8 @@ class RouterDependencies {
   /// Made when a page of the shell first needs it (see [PlaybackScope]).
   final PlaybackController Function() playback;
 
-  /// The track list and the upload form of the old UI, which stay as they are until their new versions are built.
-  final WidgetBuilder legacyHome;
-  final WidgetBuilder legacyUpload;
+  /// The file dialog of the upload page; the real one when null.
+  final AudioPicker? pickAudio;
 }
 
 /// Where a login (or the start of the app) must send the user, given where they are and who they are; null means
@@ -92,16 +98,13 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
     errorBuilder: (context, state) => _NotFoundPage(location: state.uri.toString()),
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (context, state) => const _SplashPage()),
-      // The old screens, until the new ones replace them (UI_BUILD_PLAN.md, phase 7).
-      GoRoute(path: AppRoutes.home, builder: (context, state) => deps.legacyHome(context)),
-      GoRoute(path: AppRoutes.upload, builder: (context, state) => deps.legacyUpload(context)),
-      GoRoute(
+            GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => AuthScreen(session: deps.session, onSignedIn: () {}),
+        builder: (context, state) => AuthPage(session: deps.session, from: state.uri.queryParameters['from']),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) => AuthScreen(session: deps.session, onSignedIn: () {}, initialRegistering: true),
+        builder: (context, state) => AuthPage(session: deps.session, registering: true, from: state.uri.queryParameters['from']),
       ),
       // The new frame. A page put in here gets the top bar and the player bar, and the music keeps playing
       // while the user moves between its pages.
@@ -117,8 +120,36 @@ GoRouter createRouter(RouterDependencies deps, {String initialLocation = AppRout
         ),
         routes: [
           if (debug) GoRoute(path: AppRoutes.gallery, builder: (context, state) => GalleryScreen(themeController: deps.themeController, embedded: true)),
-          GoRoute(path: AppRoutes.feed, builder: (context, state) => const _ComingSoonPage(title: 'Bảng tin')),
-          GoRoute(path: AppRoutes.search, builder: (context, state) => const _ComingSoonPage(title: 'Tìm kiếm')),
+          GoRoute(path: AppRoutes.home, builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/tracks/:id',
+            builder: (context, state) => TrackPage(key: ValueKey(state.pathParameters['id']), trackId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/users/:id',
+            builder: (context, state) => ProfilePage(key: ValueKey(state.pathParameters['id']), userId: state.pathParameters['id']!),
+            routes: [
+              GoRoute(
+                path: 'followers',
+                builder: (context, state) => PeoplePage(
+                  key: ValueKey('followers-${state.pathParameters['id']}'),
+                  userId: state.pathParameters['id']!,
+                  kind: PeopleKind.followers,
+                ),
+              ),
+              GoRoute(
+                path: 'following',
+                builder: (context, state) => PeoplePage(
+                  key: ValueKey('following-${state.pathParameters['id']}'),
+                  userId: state.pathParameters['id']!,
+                  kind: PeopleKind.following,
+                ),
+              ),
+            ],
+          ),
+          GoRoute(path: AppRoutes.upload, builder: (context, state) => UploadPage(pickAudio: deps.pickAudio)),
+          GoRoute(path: AppRoutes.feed, builder: (context, state) => const FeedPage()),
+          GoRoute(path: AppRoutes.search, builder: (context, state) => SearchPage(query: state.uri.queryParameters['q'] ?? '')),
         ],
       ),
     ],
@@ -134,28 +165,6 @@ class _SplashPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('LaSono')),
       body: const Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
-/// A page of the shell that is not built yet.
-class _ComingSoonPage extends StatelessWidget {
-  const _ComingSoonPage({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return PageContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: text.headlineMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Text('Trang này đang được xây dựng.', style: text.bodyMedium),
-        ],
-      ),
     );
   }
 }

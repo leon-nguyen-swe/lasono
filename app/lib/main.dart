@@ -6,8 +6,6 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:go_router/go_router.dart';
 
 import 'api/auth_api.dart';
-import 'api/profile_api.dart';
-import 'api/track_api.dart';
 import 'app_router.dart';
 import 'audio_picker.dart';
 import 'auth/session_controller.dart';
@@ -16,8 +14,7 @@ import 'data/app_repositories.dart';
 import 'data/fake_flags.dart';
 import 'player_service.dart';
 import 'playback/playback_controller.dart';
-import 'screens/track_list_screen.dart';
-import 'screens/track_screen.dart';
+import 'shell/app_context.dart';
 
 void main() {
   // Addresses like /users/42 instead of /#/users/42. The server must answer every such address with the app
@@ -37,8 +34,6 @@ void main() {
   runApp(
     LasonoApp(
       session: session,
-      api: TrackApi(auth: session),
-      profileApi: ProfileApi(auth: session),
       repositories: repositories,
     ),
   );
@@ -48,8 +43,6 @@ class LasonoApp extends StatefulWidget {
   const LasonoApp({
     super.key,
     required this.session,
-    this.api,
-    this.profileApi,
     this.pickAudio,
     this.player,
     this.themeController,
@@ -59,9 +52,6 @@ class LasonoApp extends StatefulWidget {
 
   final SessionController session;
 
-  /// The track API of the old screens, which are still in use until their new versions exist.
-  final TrackApi? api;
-  final ProfileApi? profileApi;
   final AudioPicker? pickAudio;
   final PlayerService? player;
 
@@ -96,20 +86,7 @@ class _LasonoAppState extends State<LasonoApp> {
       themeController: _theme,
       repositories: _repositories,
       playback: () => _playback,
-      legacyHome: (context) => TrackListScreen(
-        session: widget.session,
-        api: widget.api,
-        profileApi: widget.profileApi,
-        pickAudio: widget.pickAudio,
-        player: widget.player,
-      ),
-      legacyUpload: (context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Upload'),
-          leading: BackButton(onPressed: () => context.go(AppRoutes.home)),
-        ),
-        body: TrackScreen(api: widget.api, pickAudio: widget.pickAudio, player: widget.player),
-      ),
+      pickAudio: widget.pickAudio,
     ),
     initialLocation: widget.initialLocation,
   );
@@ -155,9 +132,12 @@ class _LasonoAppState extends State<LasonoApp> {
         darkTheme: AppTheme.dark,
         themeMode: _theme.mode,
         routerConfig: _router,
-        builder: (context, child) => RepositoriesScope(
-          repositories: _repositories,
-          child: PlaybackScope(read: () => _playback, child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => SessionScope(
+          session: widget.session,
+          child: RepositoriesScope(
+            repositories: _repositories,
+            child: PlaybackScope(read: () => _playback, child: child ?? const SizedBox.shrink()),
+          ),
         ),
       ),
     );

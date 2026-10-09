@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:lasono_app/api/track_api.dart';
+import 'package:lasono_app/audio_picker.dart';
 import 'package:lasono_app/auth/session_controller.dart';
 import 'package:lasono_app/core/theme/theme.dart';
 import 'package:lasono_app/data/app_repositories.dart';
@@ -32,12 +32,14 @@ class TestEnv {
   final FakeWorld world;
   final AppRepositories repositories;
 
+  /// [client] answers the real backend's routes of the data (tracks, users); the login has its own [authServer].
   /// [restore] false leaves the login "being looked for" (the session has not asked the server yet).
   static Future<TestEnv> create({
     bool signedIn = false,
     bool restore = true,
     FakeAuthServer? authServer,
     FakeFlags flags = const FakeFlags(likes: true, follows: true, comments: true, feed: true, search: true),
+    http.Client? client,
   }) async {
     final server = authServer ?? FakeAuthServer();
     final session = !restore
@@ -48,7 +50,7 @@ class TestEnv {
       session: session,
       flags: flags,
       baseUrl: 'http://api.test',
-      client: MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
+      client: client ?? MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
       world: world,
       behavior: FakeBehavior.instant(),
       routeFakeIds: true,
@@ -60,16 +62,13 @@ class TestEnv {
   PlaybackController newPlayback() => PlaybackController(player: player, streamUrl: repositories.tracks.fetchStreamUrl);
 
   /// The whole app, opened at [location].
-  Widget app({String location = '/', ThemeController? theme}) => LasonoApp(
+  Widget app({String location = '/', ThemeController? theme, AudioPicker? pickAudio}) => LasonoApp(
         session: session,
         repositories: repositories,
         player: player,
         themeController: theme,
+        pickAudio: pickAudio,
         initialLocation: location,
-        api: TrackApi(
-          baseUrl: 'http://api.test',
-          client: MockClient((request) async => http.Response('{"items": [], "nextCursor": null}', 200)),
-        ),
       );
 
   /// Gives the test a window of this size (and puts it back afterwards).
