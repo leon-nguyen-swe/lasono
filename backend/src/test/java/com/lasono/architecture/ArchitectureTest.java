@@ -5,6 +5,7 @@ import static com.lasono.architecture.ArchitectureRules.domainDoesNotDependOnOth
 import static com.lasono.architecture.ArchitectureRules.domainIsFrameworkFree;
 import static com.lasono.architecture.ArchitectureRules.moduleDoesNotDependOn;
 import static com.lasono.architecture.ArchitectureRules.onlyInfrastructureUsesInfrastructure;
+import static com.lasono.architecture.ArchitectureRules.sharedKernelIsIndependent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -14,11 +15,13 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
-/** Checks the real {@code track} and {@code identity} modules against the architecture rules. */
+/** Checks the real {@code track}, {@code identity}, and {@code shared} modules against the architecture rules. */
 class ArchitectureTest {
 
     private static final String TRACK = "com.lasono.track";
     private static final String IDENTITY = "com.lasono.identity";
+    private static final String SHARED = "com.lasono.shared";
+    private static final String ENGAGEMENT = "com.lasono.engagement";
 
     private static JavaClasses classes;
 
@@ -26,7 +29,7 @@ class ArchitectureTest {
     static void importProductionClasses() {
         classes = new ClassFileImporter()
             .withImportOption(new ImportOption.DoNotIncludeTests())
-            .importPackages(TRACK, IDENTITY);
+            .importPackages(TRACK, IDENTITY, SHARED);
     }
 
     @Test
@@ -78,5 +81,22 @@ class ArchitectureTest {
     void infrastructureIsUsedOnlyByItself() {
         onlyInfrastructureUsesInfrastructure(TRACK).check(classes);
         onlyInfrastructureUsesInfrastructure(IDENTITY).check(classes);
+    }
+
+    /** The shared kernel must not import any module or framework; all modules may import it. */
+    @Test
+    void sharedKernelDependsOnNoModule() {
+        sharedKernelIsIndependent(SHARED, TRACK, IDENTITY, ENGAGEMENT).check(classes);
+    }
+
+    /** Neither track nor identity may import the engagement module (which does not exist yet in Phase 4). */
+    @Test
+    void trackDoesNotDependOnEngagement() {
+        moduleDoesNotDependOn(TRACK, ENGAGEMENT).check(classes);
+    }
+
+    @Test
+    void identityDoesNotDependOnEngagement() {
+        moduleDoesNotDependOn(IDENTITY, ENGAGEMENT).check(classes);
     }
 }

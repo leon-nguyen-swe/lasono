@@ -2,6 +2,9 @@ package com.lasono.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import java.util.Arrays;
+import java.util.stream.Stream;
+
 import com.tngtech.archunit.lang.ArchRule;
 
 /**
@@ -59,6 +62,33 @@ public final class ArchitectureRules {
         return noClasses().that().resideInAPackage(root + "..")
             .should().dependOnClassesThat().resideInAPackage(otherRoot + "..")
             .because("modules must not know each other; they share only plain values such as an id");
+    }
+
+    /**
+     * The shared kernel holds plain events only: no Spring, JPA, JDBC, file system, HTTP, or
+     * module packages may be imported into it.
+     *
+     * @param sharedRoot  the root package of the shared kernel, e.g. {@code "com.lasono.shared"}
+     * @param moduleRoots the root packages of all application modules that the shared kernel must not import
+     */
+    public static ArchRule sharedKernelIsIndependent(String sharedRoot, String... moduleRoots) {
+        String[] forbidden = Stream.concat(
+                Stream.of(
+                    "org.springframework..",
+                    "jakarta.persistence..",
+                    "org.hibernate..",
+                    "java.sql..",
+                    "javax.sql..",
+                    "java.nio.file..",
+                    "java.io..",
+                    "java.net..",
+                    "jakarta.servlet.."),
+                Arrays.stream(moduleRoots).map(r -> r + ".."))
+            .toArray(String[]::new);
+
+        return noClasses().that().resideInAPackage(sharedRoot + "..")
+            .should().dependOnClassesThat().resideInAnyPackage(forbidden)
+            .because("the shared kernel must not depend on any module or framework");
     }
 
     private static String domain(String root) {

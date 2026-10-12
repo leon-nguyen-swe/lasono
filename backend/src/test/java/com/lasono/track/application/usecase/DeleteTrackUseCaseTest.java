@@ -1,11 +1,13 @@
 package com.lasono.track.application.usecase;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionOperations;
 
+import com.lasono.shared.event.TrackDeleted;
 import com.lasono.track.application.port.out.AudioStorageException;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.InMemoryTrackRepository;
@@ -35,6 +38,7 @@ class DeleteTrackUseCaseTest {
     private InMemoryTrackRepository trackRepository;
     private InMemoryProcessingJobQueue jobQueue;
     private InMemoryAudioStorage storage;
+    private RecordingEventPublisher events;
     private DeleteTrackUseCase useCase;
 
     @BeforeEach
@@ -42,8 +46,10 @@ class DeleteTrackUseCaseTest {
         trackRepository = new InMemoryTrackRepository();
         jobQueue = new InMemoryProcessingJobQueue();
         storage = new InMemoryAudioStorage();
+        events = new RecordingEventPublisher();
         useCase = new DeleteTrackUseCase(
-            trackRepository, jobQueue, storage, TransactionOperations.withoutTransaction());
+            trackRepository, jobQueue, storage, TransactionOperations.withoutTransaction(),
+            events, Clock.systemUTC());
     }
 
     /** An uploaded track with its original file stored and a job waiting for it. */
@@ -82,6 +88,11 @@ class DeleteTrackUseCaseTest {
         assertFalse(exists(track));
         assertTrue(storage.files.isEmpty(), "the original upload and the converted MP3 must both go");
         assertTrue(jobQueue.jobs.isEmpty());
+        assertThat(events.published())
+            .hasSize(1)
+            .first()
+            .isInstanceOf(TrackDeleted.class)
+            .satisfies(e -> assertThat(((TrackDeleted) e).trackId()).isEqualTo(track.getId().getValue()));
     }
 
     @Test
@@ -149,7 +160,8 @@ class DeleteTrackUseCaseTest {
             }
         };
         DeleteTrackUseCase watchingUseCase = new DeleteTrackUseCase(
-            trackRepository, jobQueue, watching, TransactionOperations.withoutTransaction());
+            trackRepository, jobQueue, watching, TransactionOperations.withoutTransaction(),
+            events, Clock.systemUTC());
 
         watchingUseCase.execute(track.getId().getValue(), OWNER);
 
@@ -167,7 +179,8 @@ class DeleteTrackUseCaseTest {
         };
         failing.save(track);
         DeleteTrackUseCase failingUseCase = new DeleteTrackUseCase(
-            failing, jobQueue, storage, TransactionOperations.withoutTransaction());
+            failing, jobQueue, storage, TransactionOperations.withoutTransaction(),
+            events, Clock.systemUTC());
 
         assertThrows(IllegalStateException.class, () -> failingUseCase.execute(track.getId().getValue(), OWNER));
 
@@ -186,7 +199,8 @@ class DeleteTrackUseCaseTest {
             }
         };
         DeleteTrackUseCase stuckUseCase = new DeleteTrackUseCase(
-            trackRepository, jobQueue, stuck, TransactionOperations.withoutTransaction());
+            trackRepository, jobQueue, stuck, TransactionOperations.withoutTransaction(),
+            events, Clock.systemUTC());
 
         stuckUseCase.execute(track.getId().getValue(), OWNER);
 

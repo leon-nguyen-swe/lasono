@@ -1,5 +1,6 @@
 package com.lasono.track.application.usecase;
 
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -9,7 +10,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionOperations;
 
+import com.lasono.shared.event.TrackDeleted;
 import com.lasono.track.application.port.out.AudioStorage;
+import com.lasono.track.application.port.out.EventPublisher;
 import com.lasono.track.application.port.out.ProcessingJobQueue;
 import com.lasono.track.application.port.out.StorageKey;
 import com.lasono.track.domain.Track;
@@ -26,17 +29,23 @@ public class DeleteTrackUseCase {
     private final ProcessingJobQueue processingJobQueue;
     private final AudioStorage audioStorage;
     private final TransactionOperations transaction;
+    private final EventPublisher eventPublisher;
+    private final Clock clock;
 
     public DeleteTrackUseCase(
         TrackRepository trackRepository,
         ProcessingJobQueue processingJobQueue,
         AudioStorage audioStorage,
-        TransactionOperations transaction
+        TransactionOperations transaction,
+        EventPublisher eventPublisher,
+        Clock clock
     ) {
         this.trackRepository = trackRepository;
         this.processingJobQueue = processingJobQueue;
         this.audioStorage = audioStorage;
         this.transaction = transaction;
+        this.eventPublisher = eventPublisher;
+        this.clock = clock;
     }
 
     // Not @Transactional as a whole: the files must be deleted after the database change is committed, and a
@@ -68,6 +77,10 @@ public class DeleteTrackUseCase {
 
         processingJobQueue.discardJobsOf(track.getId());
         trackRepository.delete(track.getId());
+        eventPublisher.publish(new TrackDeleted(
+            snapshot.trackId().getValue(),
+            snapshot.ownerId().getValue(),
+            clock.instant()));
         return files;
     }
 
