@@ -5,6 +5,7 @@ import static com.lasono.architecture.ArchitectureRules.domainDoesNotDependOnOth
 import static com.lasono.architecture.ArchitectureRules.domainIsFrameworkFree;
 import static com.lasono.architecture.ArchitectureRules.moduleDoesNotDependOn;
 import static com.lasono.architecture.ArchitectureRules.onlyInfrastructureUsesInfrastructure;
+import static com.lasono.architecture.ArchitectureRules.sharedKernelIsIndependent;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -21,6 +22,7 @@ import archfixture.track.application.ApplicationFixtures;
 import archfixture.track.domain.DomainFixtures;
 import archfixture.track.infrastructure.InfrastructureFixtures;
 import archfixture.track.presentation.PresentationFixtures;
+import archfixture.shared.SharedFixtures;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.lang.ArchRule;
@@ -34,6 +36,7 @@ class ArchitectureRulesTest {
 
     private static final String FIXTURE_ROOT = "archfixture.track";
     private static final String ALPHA = "archfixture.alpha";
+    private static final String SHARED_ROOT = "archfixture.shared";
     private static final String BETA = "archfixture.beta";
 
     static Stream<Arguments> violations() {
@@ -52,7 +55,8 @@ class ArchitectureRulesTest {
             arguments("application depends on presentation", applicationDoesNotDependOnPresentation(FIXTURE_ROOT), ApplicationFixtures.DependsOnPresentation.class),
             arguments("application depends on infrastructure", onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT), ApplicationFixtures.DependsOnInfrastructure.class),
             arguments("presentation depends on infrastructure", onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT), PresentationFixtures.DependsOnInfrastructure.class),
-            arguments("a module depends on another module", moduleDoesNotDependOn(ALPHA, BETA), AlphaFixtures.DependsOnBeta.class)
+            arguments("a module depends on another module", moduleDoesNotDependOn(ALPHA, BETA), AlphaFixtures.DependsOnBeta.class),
+            arguments("shared kernel imports a module class", sharedKernelIsIndependent(SHARED_ROOT, ALPHA), SharedFixtures.ImportsAModule.class)
         );
     }
 
@@ -75,7 +79,8 @@ class ArchitectureRulesTest {
             ApplicationFixtures.Clean.class,
             InfrastructureFixtures.Clean.class,
             PresentationFixtures.Clean.class,
-            AlphaFixtures.Clean.class
+            AlphaFixtures.Clean.class,
+            SharedFixtures.Clean.class
         );
 
         assertThatCode(() -> {
@@ -84,6 +89,7 @@ class ArchitectureRulesTest {
             applicationDoesNotDependOnPresentation(FIXTURE_ROOT).check(classes);
             onlyInfrastructureUsesInfrastructure(FIXTURE_ROOT).check(classes);
             moduleDoesNotDependOn(ALPHA, BETA).check(classes);
+            sharedKernelIsIndependent(SHARED_ROOT, ALPHA).check(classes);
         }).doesNotThrowAnyException();
     }
 }
